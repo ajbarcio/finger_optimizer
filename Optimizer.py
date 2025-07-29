@@ -6,9 +6,10 @@ def test3dofn1():
     # S = centeredType1
     # S = centeredType2
     # S = centeredType3
-    # S = naiiveAmbrose
-    S = quasiHollow
+    S = naiiveAmbrose
+    # S = quasiHollow
     print(S())
+    S.isValid(suppress=False)
     print(S.validity)
     print(S.nullSpace)
     S.plotCapability()

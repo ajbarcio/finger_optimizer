@@ -8,21 +8,19 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from utils import intersects_positive_orthant, special_minkowski, in_hull
 
 class StrucMatrix():
-    def __init__(self, R, D) -> None:
+    def __init__(self, R, D, name='Placeholder') -> None:
         self.S = R*D
         self.validity                     = self.isValid()
         self.domain,  self.boundaryGrasps = self.torqueDomainVolume()
-
-        self.fig = plt.figure("Structure Matrix")
-        self.ax = self.fig.add_subplot(111, projection="3d")
+        self.name = name
 
     def __call__(self):
         return self.S
 
-    def isValid(self):
+    def isValid(self, suppress=True):
         numJoints = self.S.shape[0]
         rankCondition = np.linalg.matrix_rank(self.S)>=numJoints
-        if not rankCondition:
+        if not rankCondition and not suppress:
             warnings.warn(f"WARNING: structure matrix failed rank condition (null space condition not checked) \nrank            : {np.linalg.matrix_rank(self.S)} \nnumber of Joints: {numJoints}")
             return False
         nullSpace = sp.linalg.null_space(self.S)
@@ -33,8 +31,11 @@ class StrucMatrix():
                     nullSpace[i,j] = 0
         self.nullSpace = nullSpace
         # Check to make sure that there exists an all-positive vector in the null space
-        nullSpaceCondition = intersects_positive_orthant(nullSpace.T)
-        if not nullSpaceCondition:
+        if np.shape(self.nullSpace)[-1]>1:
+            nullSpaceCondition = intersects_positive_orthant(nullSpace.T)
+        else:
+            nullSpaceCondition = all([i > 0 for i in self.nullSpace])
+        if not nullSpaceCondition and not suppress:
             warnings.warn("WARNING: structure matrix failed null space condition (rank condition passed)")
             return False
         return True
@@ -52,6 +53,8 @@ class StrucMatrix():
         return in_hull(self.domain, point)
 
     def plotCapability(self, showBool=False):
+        self.fig = plt.figure(f"Structure Matrix {self.name}")
+        self.ax = self.fig.add_subplot(111, projection="3d")
         numJoints = self.S.shape[0]
         if numJoints == 3:
             singleForceVectors = list(np.transpose(self.S))
@@ -84,22 +87,22 @@ class StrucMatrix():
         self.ax.scatter(*grasp, color=color, alpha=1)
 
 # Centered type 1
-D = np.array([[1,-1,1,-1],
-              [0,-1,1,-1],
+D = np.array([[1,1,1,-1],
+              [0,1,1,-1],
               [0,0,1,-1]]) 
 R = np.array([[1/3,1/3,1/3,3/3],
               [0,1/2,1/2,2/2],
               [0,0,1,1]]) 
-centeredType1 = StrucMatrix(R,D)
+centeredType1 = StrucMatrix(R,D,name='centered1')
 
 # Centered type 2
-D = np.array([[1,1,-1,-1],
-              [0,1,-1,-1],
-              [0,0,-1,1]])
+D = np.array([[1,-1,1,-1],
+              [0,-1,1,-1],
+              [0,0,1,-1]])
 R = np.array([[0.5,0.5,0.5,0.5],
               [0,0.5,1,0.5],
               [0,0,1,1]])      
-centeredType2 = StrucMatrix(R,D)
+centeredType2 = StrucMatrix(R,D,name='centered2')
 
 # Centered type 3
 R = np.array([[1,0.5,1,0.5],
@@ -108,7 +111,7 @@ R = np.array([[1,0.5,1,0.5],
 D = np.array([[1,1,-1,-1],
               [0,1,-1,-1],
               [0,0,-1,1]])
-centeredType3 = StrucMatrix(R,D)
+centeredType3 = StrucMatrix(R,D,name='centered3')
 
 # AMBROSE MATRIX
 R = np.array([[.2188,.2188,.2188,.2188],
@@ -118,7 +121,7 @@ D = np.array([[1,1,1,-1],
               [0,1,1,-1],
               [0,0,1,-1]])
 # I'm not saying Dr. Ambrose's design is naiive, this is just a naiive implementation of that design in my system
-naiiveAmbrose = StrucMatrix(R,D)
+naiiveAmbrose = StrucMatrix(R,D,name='Ambrose')
 
 # Hollow Design
 r = .1496
@@ -128,4 +131,4 @@ R = np.array([[r,r,r,r],
 D = np.array([[0,1,1,-1],
               [1,0,1,-1],
               [1,1,0,-1]])
-quasiHollow = StrucMatrix(R,D)
+quasiHollow = StrucMatrix(R,D,name='Hollow')
