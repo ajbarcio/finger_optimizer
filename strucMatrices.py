@@ -5,8 +5,20 @@ from matplotlib import pyplot as plt
 import warnings
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from utils import intersects_positive_orthant, special_minkowski, in_hull
+from utils import intersects_positive_orthant, special_minkowski, in_hull, get_existing_axes, get_existing_3d_axes
 
+colors = [
+    'xkcd:neon green',     # #0cff0c – retina-searing green
+    'xkcd:electric blue',  # #0652ff – deep glowing blue
+    'xkcd:hot pink',       # #ff028d – vibrant magenta-pink
+    'xkcd:bright yellow',  # #fffd01 – classic highlighter yellow
+    'xkcd:neon purple',    # #bc13fe – super-saturated violet
+    'xkcd:bright orange',  # #ff5b00 – bold warm orange
+    'xkcd:cyan',           # #00ffff – icy electric blue-green
+    'xkcd:magenta',        # #c20078 – deeper than hot pink
+    'xkcd:bright red',     # #ff000d – warning-light red
+    'xkcd:bright turquoise' # #0ffef9 – glowing aqua
+]
 class Constraint():
     def __init__(self, function, args):
         self.function = function
@@ -15,6 +27,9 @@ class Constraint():
         return self.function(instance, *self.args)
 
 class StrucMatrix():
+
+    plot_count = 0
+
     def __init__(self, R=None, D=None, S=None, constraints=[], name='Placeholder') -> None:
         if R is not None and D is not None:
             self.R = R
@@ -112,19 +127,24 @@ class StrucMatrix():
         return in_hull(self.domain, point)
 
     def plotCapability(self, showBool=False):
+        StrucMatrix.plot_count += 1
         self.fig = plt.figure(f"Structure Matrix {self.name}")
-        self.ax = self.fig.add_subplot(111, projection="3d")
+        existing_ax = get_existing_3d_axes()
+        if existing_ax is None:
+            self.ax = self.fig.add_subplot(111, projection="3d")
+        else:
+            self.ax = plt.gca()
         numJoints = self.S.shape[0]
         if numJoints == 3:
             singleForceVectors = list(np.transpose(self.S))
             self.ax.scatter(*[0,0,0], color="red")
-            self.ax.scatter(*self.boundaryGrasps.T, color='xkcd:blue', alpha=0.78)
+            self.ax.scatter(*self.boundaryGrasps.T, color=colors[StrucMatrix.plot_count % len(colors)], alpha=0.78)
             for grasp in singleForceVectors:
-                self.ax.quiver(0,0,0,grasp[0],grasp[1],grasp[2],color='xkcd:blue')
+                self.ax.quiver(0,0,0,grasp[0],grasp[1],grasp[2],color=colors[StrucMatrix.plot_count % len(colors)])
                 # print(singleForceVectors)
             for simplex in self.domain.simplices:
                 triangle = self.boundaryGrasps[simplex]
-                self.ax.add_collection3d(Poly3DCollection([triangle], color='xkcd:blue', alpha=0.4))
+                self.ax.add_collection3d(Poly3DCollection([triangle], color=colors[StrucMatrix.plot_count % len(colors)], alpha=0.4))
             plt.tight_layout()
             # Axis limits
             xlim = self.ax.get_xlim()

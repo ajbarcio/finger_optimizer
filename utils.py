@@ -3,6 +3,29 @@ from numpy.linalg import matrix_rank
 from scipy.linalg import null_space
 from scipy.spatial import ConvexHull, QhullError
 import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+def get_existing_3d_axes():
+    for num in plt.get_fignums():
+        fig = plt.figure(num)
+        for ax in fig.get_axes():
+            if isinstance(ax, Axes3D):
+                return ax
+    return None
+
+def get_existing_axes():
+    # Get the current figure manager, if any figures exist
+    if not plt.get_fignums():
+        return None  # No figures exist at all
+
+    # Loop through existing figures to find one with axes
+    for num in plt.get_fignums():
+        fig = plt.figure(num)
+        axes = fig.get_axes()
+        if axes:
+            return axes[0]  # Return first existing Axes
+    return None  # No axes found
 
 def nullity(basis):
   return null_space(basis).shape[1]

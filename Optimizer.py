@@ -40,7 +40,9 @@ def testFeasibility():
 def optimize_filter(D, res0, constraints=[]):
     overallBest = 0
     bestS = None
+    leastVariation = 1000
     valids = []
+    equivalents = []
     # print("constraints passed to parent function,", constraints)
     for a in range(res0):
         for b in range(res0):
@@ -54,20 +56,25 @@ def optimize_filter(D, res0, constraints=[]):
                                         r0 = [a,b,c,d,e,f,g,h,i]
                                         r0 = [x/res0+1/res0 for x in r0]
                                         R = r_from_vector(r0, D)
-                                        S = StrucMatrix(R, D, constraints=constraints, name=str((a,b,c,d,e,f,g,h,i)))
+                                        # name=str((a,b,c,d,e,f,g,h,i))
+                                        S = StrucMatrix(R, D, constraints=constraints)
                                         # print(S())
                                         if S.validity:
                                             valids.append(S)
                                             strength = S.maxGrip()
+                                            variation = S.pulleyVariation()
                                             # print(S.pulleyVariation())
                                             # print(strength)
                                             if strength>=overallBest:
-                                                overallBest = strength
-                                                bestS = S.S
+                                                if variation<leastVariation:
+                                                    overallBest = strength
+                                                    bestS = S.S
+                                            if strength==overallBest:
+                                                equivalents.append(S)
     if bestS is None or len(valids)==0:
         warnings.warn(f"No valid solutions found for discrete fingers of {res0} radii")
         return 0, 0, []
-    return overallBest, bestS, valids
+    return overallBest, bestS, valids, equivalents
 
 def r_from_vector(r_vec, D):
     R = D*D
@@ -82,19 +89,22 @@ def main():
     # test3dofn1()
     # testFeasibility()
     S = centeredType1
-    necessaryGrasps = np.array([[1,0,0],[-.25,0,0],[0,-.25,0]])
+    necessaryGrasps = np.array([[1,0,0],[-.25,0,0],[0,-.25,0],[0,.25,0],[0,0,0.5],[0,0,-0.5]])
     constraints = []
     for grasp in necessaryGrasps:
         constraints.append(Constraint(StrucMatrix.contains, [grasp]))
     # constraint = Constraint(StrucMatrix.contains, [np.array([1,0,0])])
     # constraint = Constraint(StrucMatrix.contains, [np.array([-.25,0,0])])
     D = S.D
-    bestGrip, bestS, valids = optimize_filter(D, 2, constraints)
+    bestGrip, bestS, valids, equivalents = optimize_filter(D, 2, constraints)
     print(bestGrip)
     print(bestS)
     print(f"there are {len(valids)} valid structures")
+    print(f"there are {len(equivalents)} equivalent structures")
     bestS = StrucMatrix(S=bestS)
     bestS.plotCapability()
+    # for equivalent in equivalents:
+    #     equivalent.plotCapability()
     for grasp in necessaryGrasps:
         bestS.plotGrasp(grasp)
     plt.show()
