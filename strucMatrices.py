@@ -109,6 +109,7 @@ class StrucMatrix():
         # print(self.flatten_r_matrix())
         r = self.flatten_r_matrix()
         r = r/np.max(r)
+        r = np.unique(r)
         variation = np.std(r)
         return variation
 
