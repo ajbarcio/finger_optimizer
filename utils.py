@@ -1,7 +1,11 @@
 from scipy.optimize import linprog
 from numpy.linalg import matrix_rank
-from scipy.spatial import ConvexHull
+from scipy.linalg import null_space
+from scipy.spatial import ConvexHull, QhullError
 import numpy as np
+
+def nullity(basis):
+  return null_space(basis).shape[1]
 
 def intersects_positive_orthant(basis): #basis is a d x N matrix where the ith row is v_i
   # print(basis)
@@ -44,7 +48,10 @@ def special_minkowski(points):
   if not [0]*len(points[0]) in boundaryPoints:
     boundaryPoints.append([0]*len(points[0]))
   boundaryPoints = np.array(boundaryPoints)
-  hull = ConvexHull(boundaryPoints)
+  try:
+    hull = ConvexHull(boundaryPoints)
+  except QhullError:
+    hull = ConvexHull(boundaryPoints, qhull_options='QJ')
   return hull, boundaryPoints
 
 def in_hull(hull, x):

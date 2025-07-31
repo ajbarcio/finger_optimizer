@@ -7,55 +7,23 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from utils import intersects_positive_orthant, special_minkowski, in_hull
 
-class Constraint():
-    def __init__(self, function, args):
-        self.function = function
-        self.args = args
-    def __call__(self, instance, *args, **kwds):
-        return self.function(instance, *self.args)
-
 class StrucMatrix():
-    def __init__(self, R=None, D=None, S=None, constraints=[], name='Placeholder') -> None:
-        if R is not None and D is not None:
-            self.R = R
-            self.D = D
-            self.S = R*D
-        if S is not None:
-            self.S = S
-            self.D = np.sign(S)
-            self.R = np.absolute(S)
-        self.constraints = constraints
-        # print("constraints passed to object,", self.constraints)
-        # print("checked validity on init")
-        self.domain,  self.boundaryGrasps = self.torqueDomainVolume()
+    def __init__(self, R, D, name='Placeholder') -> None:
+        self.R = R
+        self.D = D
+        self.S = R*D
         self.validity                     = self.isValid()
+        self.domain,  self.boundaryGrasps = self.torqueDomainVolume()
         self.name = name
 
     def __call__(self):
         return self.S
 
-    def flatten_r_matrix(self):
-        r = self.R.flatten()
-        r = np.array([x for x in r if x != 0])
-        return r
-
-    def add_constraint(self, constraint: Constraint):
-        self.constraints.append(constraint)
-        self.validity = self.isValid()
-
     def isValid(self, suppress=True):
-        # print('going to check constraint')
-        for constraint in self.constraints:
-            if not constraint(self):
-                return False
-            # print('checked constraint', constraint)
-
         numJoints = self.S.shape[0]
-        self.rankCondition = np.linalg.matrix_rank(self.S)>=numJoints
-
-        if not self.rankCondition:
-            if not suppress:
-                warnings.warn(f"WARNING: structure matrix failed rank condition (null space condition not checked) \nrank            : {np.linalg.matrix_rank(self.S)} \nnumber of Joints: {numJoints}")
+        rankCondition = np.linalg.matrix_rank(self.S)>=numJoints
+        if not rankCondition and not suppress:
+            warnings.warn(f"WARNING: structure matrix failed rank condition (null space condition not checked) \nrank            : {np.linalg.matrix_rank(self.S)} \nnumber of Joints: {numJoints}")
             return False
         nullSpace = sp.linalg.null_space(self.S)
         # Condition the nullSpace output well for future checking
@@ -67,18 +35,17 @@ class StrucMatrix():
         # Check to make sure that there exists an all-positive vector in the null space
         if np.shape(self.biasForceSpace)[-1]>1:
             # print("intersecting positive orthant")
-            self.nullSpaceCondition = intersects_positive_orthant(nullSpace.T)
+            nullSpaceCondition = intersects_positive_orthant(nullSpace.T)
             for row in self.biasForceSpace:
                 # print(row)
                 if all([x==0 for x in row]):
-                    self.nullSpaceCondition =  False
+                    nullSpaceCondition =  False
         else:
-            self.nullSpaceCondition = all([i > 0 for i in self.biasForceSpace])
-        if not self.nullSpaceCondition:
+            nullSpaceCondition = all([i > 0 for i in self.biasForceSpace])
+        if not nullSpaceCondition:
             if not suppress:
                 warnings.warn("WARNING: structure matrix failed null space condition (rank condition passed)")
             return False
-
         return True
         # return (np.linalg.matrix_rank(S)>=numJoints) and (all([x>0 for x in sp.linalg.null_space(S)]))
 
@@ -90,25 +57,11 @@ class StrucMatrix():
         domain, boundaryGrasps = special_minkowski(singleForceVectors)
         return domain, boundaryGrasps
 
-    def pulleyVariation(self):
-        # print(self.flatten_r_matrix())
-        r = self.flatten_r_matrix()
-        r = r/np.max(r)
-        variation = np.std(r)
-        return variation
-
     def maxGrip(self):
-        maxStrength = 0
-        # print(self.boundaryGrasps)
         for grasp in self.boundaryGrasps:
-            if all([x>0 for x in grasp]) and np.linalg.norm(grasp)>maxStrength:
-                # print(grasp)
-                maxStrength = np.linalg.norm(grasp)
-        return maxStrength
+            
 
     def contains(self, point):
-        # print(f"see if contains {point}")
-        # print(in_hull(self.domain, point))
         return in_hull(self.domain, point)
 
     def plotCapability(self, showBool=False):
@@ -149,10 +102,10 @@ class StrucMatrix():
 # Centered type 1
 D = np.array([[1,1,1,-1],
               [0,1,1,-1],
-              [0,0,1,-1]])
+              [0,0,1,-1]]) 
 R = np.array([[1/3,1/3,1/3,3/3],
               [0,1/2,1/2,2/2],
-              [0,0,1,1]])
+              [0,0,1,1]]) 
 centeredType1 = StrucMatrix(R,D,name='centered1')
 
 # Centered type 2
@@ -161,7 +114,7 @@ D = np.array([[1,-1,1,-1],
               [0,0,1,-1]])
 R = np.array([[0.5,0.5,0.5,0.5],
               [0,0.5,1,0.5],
-              [0,0,1,1]])
+              [0,0,1,1]])      
 centeredType2 = StrucMatrix(R,D,name='centered2')
 
 # Centered type 3
