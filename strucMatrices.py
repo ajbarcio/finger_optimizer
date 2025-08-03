@@ -127,8 +127,12 @@ class StrucMatrix():
         # print(in_hull(self.domain, point))
         return in_hull(self.domain, point)
 
-    def plotCapability(self, showBool=False):
+    def plotCapability(self, showBool=False, colorOverride=None):
         StrucMatrix.plot_count += 1
+        if colorOverride == None:
+            color = colors[StrucMatrix.plot_count % len(colors)]
+        else:
+            color = colorOverride
         self.fig = plt.figure(f"Structure Matrix {self.name}")
         existing_ax = get_existing_3d_axes()
         if existing_ax is None:
@@ -139,22 +143,23 @@ class StrucMatrix():
         if numJoints == 3:
             singleForceVectors = list(np.transpose(self.S))
             self.ax.scatter(*[0,0,0], color="red")
-            self.ax.scatter(*self.boundaryGrasps.T, color=colors[StrucMatrix.plot_count % len(colors)], alpha=0.78)
+            self.ax.scatter(*self.boundaryGrasps.T, color=color, alpha=0.78)
             for grasp in singleForceVectors:
-                self.ax.quiver(0,0,0,grasp[0],grasp[1],grasp[2],color=colors[StrucMatrix.plot_count % len(colors)])
+                self.ax.quiver(0,0,0,grasp[0],grasp[1],grasp[2],color=color)
                 # print(singleForceVectors)
             for simplex in self.domain.simplices:
                 triangle = self.boundaryGrasps[simplex]
-                self.ax.add_collection3d(Poly3DCollection([triangle], color=colors[StrucMatrix.plot_count % len(colors)], alpha=0.4))
-            plt.tight_layout()
+                self.ax.add_collection3d(Poly3DCollection([triangle], color=color, alpha=0.4))
+            if StrucMatrix.plot_count == 1: plt.tight_layout()
             # Axis limits
             xlim = self.ax.get_xlim()
             ylim = self.ax.get_ylim()
             zlim = self.ax.get_zlim()
             # Draw "axes" through origin
-            self.ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1)
-            self.ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
-            self.ax.plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
+            if StrucMatrix.plot_count == 1:
+                self.ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1)
+                self.ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
+                self.ax.plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
             if showBool:
                 plt.show()
         else:
@@ -166,6 +171,23 @@ class StrucMatrix():
         else:
             color='xkcd:red'
         self.ax.scatter(*grasp, color=color, alpha=1)
+
+class InsufficientRanges(Exception):
+    def __init__(self, message='ranges must match number of variable pulleys'):
+        super().__init__(message)
+
+class VariableStrucMatrix():
+    def __init__(self, R=None, D=None, S=None, ranges=[], constraints=[], name='Placeholder'):
+        if not np.sum(np.isnan(D)) == len(ranges):
+            raise InsufficientRanges()
+        self.variablePulleys = [list(x) for x in np.where(np.isnan(D if D is not None else S))]
+        
+        super().__init__(R, D, S, constraints, name)
+
+    def torquDomainVolume(self):
+        pass
+
+
 
 # Centered type 1
 D = np.array([[1,1,1,-1],
@@ -219,7 +241,7 @@ r = 1
 R = np.array([[r,r,r,r],
               [r,r,r,r],
               [r,r,r,r]])
-D = np.array([[0,1,1,-1],
-              [1,0,1,-1],
-              [1,1,0,-1]])
+D = np.array([[1,1,1,-1],
+              [1,1,1,-1],
+              [1,1,1,-1]])
 test = StrucMatrix(R,D, name='Test')

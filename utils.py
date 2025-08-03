@@ -6,6 +6,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+def hsv_to_rgb(h, s, v):
+   # Assume h, s, v are all given on [0,1]
+   c = v*s
+   x = c*(1-abs(h/(1/6) % 2 - 1))
+   m = v - c
+   if h<1/6:
+      return [c,x,0]
+   elif h<2/6:
+      return [x,c,0]
+   elif h<3/6:
+      return [0,c,x]
+   elif h<4/6:
+      return [0,x,c]
+   elif h<5/6:
+      return [x,0,c]
+   elif h<6/6:
+      return [c,0,x]
+
 def get_existing_3d_axes():
     for num in plt.get_fignums():
         fig = plt.figure(num)
