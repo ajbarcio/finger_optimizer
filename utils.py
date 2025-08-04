@@ -48,9 +48,39 @@ def get_existing_axes():
 def nullity(basis):
   return null_space(basis).shape[1]
 
+def intersects_negative_orthant(basis): #basis is a d x N matrix where the ith row is v_i
+  # print(basis)
+  # print(basis.shape)
+  basis = np.atleast_2d(basis)
+  (d, N) = basis.shape
+  M = basis.T
+
+  if matrix_rank(basis) == N: #if basis spans R^N
+    return True
+
+  A = M #negative sign for >=
+  # print(A)
+  b = np.zeros(N)
+  for i in range(N):
+    c = M[i,:] #negative sign to maximize
+    # print("c", c)
+    opt = linprog(c, A, b)
+    # print(opt.status)
+    # print(opt.fun)
+    # print(opt.x)
+    if opt.status == 2: #infeasible
+      return False
+    elif opt.status == 3: #unbounded
+      continue
+    elif opt.fun >= 0: #optimal value is not positive
+      return False
+
+  return True
+
 def intersects_positive_orthant(basis): #basis is a d x N matrix where the ith row is v_i
   # print(basis)
   # print(basis.shape)
+  basis = np.atleast_2d(basis)
   (d, N) = basis.shape
   M = basis.T
 
@@ -105,6 +135,10 @@ def in_hull(hull, x):
     lp = linprog(c, A_eq=A, b_eq=b)
     return lp.success
 
+def in_hull2(hull, x):
+   tol = 1e-8
+   return np.all(hull.equations @ np.append(x,1) <= tol)
+
 if __name__ == '__main__':
   basis = np.array([[1, 1]]) #1d subspace of R^2
   print(intersects_positive_orthant(basis)) #True
@@ -118,8 +152,14 @@ if __name__ == '__main__':
   basis = np.array([[2, 3, -1], [1, 0, -2]])
   print(intersects_positive_orthant(basis)) #False
 
-  basis = np.array([[0, 0, 1, 1]])
-  print(intersects_positive_orthant(basis)) #False
+  basis = np.array([[1, 1, 1, 1]])
+  print(intersects_positive_orthant(basis)) #True
+
+  basis = np.array([[-1, -1, -1, -1]])
+  print(intersects_negative_orthant(basis)) #True
+
+  basis = np.array([[1, 1, 1, 1]])
+  print(intersects_negative_orthant(basis)) #False
 
   basis = np.array([[0         ],
                     [0         ],

@@ -2,10 +2,12 @@ import numpy as np
 import scipy as sp
 import warnings
 import itertools
+
 from matplotlib import pyplot as plt
-from strucMatrices import Constraint, StrucMatrix, centeredType1, centeredType2, centeredType3, naiiveAmbrose, quasiHollow, test
+from strucMatrices import Constraint, StrucMatrix, r_from_vector, centeredType1, centeredType2, centeredType3, naiiveAmbrose, quasiHollow, diagonal, test
 from utils import nullity, hsv_to_rgb
 from numpy.linalg import matrix_rank as rank
+from scipy.optimize import minimize
 
 import time
 
@@ -30,13 +32,17 @@ def test3dofn1():
     # S = centeredType1
     # S = centeredType2
     # S = centeredType3
-    S = naiiveAmbrose
-    # S = quasiHollow
+    # S = naiiveAmbrose
+    S = diagonal
     print(S())
     S.isValid(suppress=False)
     print(S.validity)
     print(S.biasForceSpace)
     S.plotCapability()
+    # print(S.contains([0,0,0]))
+    # print(S.contains([.1,0,0]))
+    # print(S.contains([.1496,0,0]))
+    # print(S.contains([-.1496,0,0]))
     # S.plotGrasp([0.5,0,0])
     # S.plotGrasp([2,0,0])
 
@@ -137,44 +143,58 @@ def optimize_filter(D, res0, constraints=[], useZero=False, suppress=False):
         return 0, 0, [], []
     return overallBest, bestS, valids, equivalents
 
-def r_from_vector(r_vec, D):
-    R = D*D
-    R = np.array(R, dtype=float)
-    indices = np.array(np.nonzero(R))
-    for i in range(len(r_vec)):
-        R[indices[0,i],indices[1,i]] = r_vec[i]
-        # print(r_vec[i], R[indices[0,i],indices[1,i]])
-    return R
-
 def testOptimizer():
     # test3dofn1()
     # testFeasibility()
-    S = centeredType2
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
+    S = centeredType1
     necessaryGrasps = np.array([[1,0,0],[-.25,0,0],[0,-.25,0],[0,.25,0],[0,0,0.5],[0,0,-0.5]])
     constraints = []
-    for grasp in necessaryGrasps:
-        constraints.append(Constraint(StrucMatrix.contains, [grasp]))
+    # for grasp in necessaryGrasps:
+    #     constraints.append(Constraint(StrucMatrix.contains, [grasp]))
     # constraint = Constraint(StrucMatrix.contains, [np.array([1,0,0])])
     # constraint = Constraint(StrucMatrix.contains, [np.array([-.25,0,0])])
     D = S.D
     print('calling optimizer')
-    bestGrip, bestS, valids, equivalents = optimize_filter(D, 5, useZero=False, suppress=True)
+    # bestGrip, bestS, valids, equivalents = optimize_filter(D, 5, useZero=False, suppress=True)
+    bestR, bestGrip = S.optimizer()
     print(bestGrip)
-    print(bestS)
-    print(f"there are {len(valids)} valid structures")
-    print(f"there are {len(equivalents)} equivalent structures")
-    bestS = StrucMatrix(S=bestS)
-    bestS.plotCapability()
+    # print(f"there are {len(valids)} valid structures")
+    # print(f"there are {len(equivalents)} equivalent structures")
+    bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, name='best')
+    print(np.array2string(bestS(), precision=3, suppress_small=True))
+
+    bestS.plotCapability(colorOverride='xkcd:blue')
+    # print(bestS.jointCapability(0), bestS.jointCapability(1), bestS.jointCapability(2))
+    print(bestS.validity)
     # for equivalent in equivalents:
     #     equivalent.plotCapability()
     # for grasp in necessaryGrasps:
     #     bestS.plotGrasp(grasp)
     plt.show()
 
+def testJointCapability():
+    S = centeredType1
+    capabilities = S.independentJointCapabilities()
+    axes = np.array([[1,0,0],[0,1,0],[0,0,1]])
+    S.plotCapability()
+    for j in range(S.numJoints):
+        axis = axes[j]
+        S.plotGrasp(axis*capabilities[j,0])
+        S.plotGrasp(axis*capabilities[j,1])
+    fullStrengths = [S.maxExtn(), S.maxGrip()]
+    print(fullStrengths)
+    plt.show()
+    
+    # S.plotGrasp([joint0Capability[1],0,0])
+    # S.plotCapability(True)
+
 def main():
     # testVariable()
     testOptimizer()
     # finger3Space()
+    # testJointCapability()
+    # test3dofn1()
 
 if __name__ == "__main__":
     main()

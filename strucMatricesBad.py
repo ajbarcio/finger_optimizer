@@ -369,7 +369,7 @@ class StrucMatrix():
         normBalanceObject = NonlinearConstraint(overallbalance, -.05, .05)
         validityObject    = NonlinearConstraint(validity, -0.5, 0.5)
         constraintsObjects = [j1BalanceObject,j2BalanceObject,j3BalanceObject]
-        # constraintsObjects = [normBalanceObject, validityObject]
+        constraintsObjects = [normBalanceObject, validityObject]
         try:
             E = minimize(maxGrip, rvecInit, method='trust-constr', constraints=constraintsObjects, callback=plotCallback, bounds=[(0,1)]*len(rvecInit))
         except KeyboardInterrupt:
