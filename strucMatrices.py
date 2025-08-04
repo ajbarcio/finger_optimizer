@@ -289,6 +289,7 @@ class StrucMatrix():
         def maxGrip(rvec):
             R = r_from_vector(rvec, self.D)
             self.reinit(R=R, D=self.D)
+            # print(self.S)
             return -self.maxGrip()
         def maxJoint(rvec):
             R = r_from_vector(rvec, self.D)
@@ -312,7 +313,7 @@ class StrucMatrix():
             capability = self.independentJointCapability(0)
             # print(capability)
             try:
-                return capability[-1]/abs(capability[0]) - 2
+                return capability[-1]/abs(capability[0]) - 1.5
             except ZeroDivisionError:
                 return -2
         def j2balance(rvec):
@@ -321,7 +322,7 @@ class StrucMatrix():
             capability = self.independentJointCapability(1)
             # print(capability)
             try:
-                return capability[-1]/abs(capability[0]) - 2
+                return capability[-1]/abs(capability[0]) - 1.5
             except ZeroDivisionError:
                 return -2
         def j3balance(rvec):
@@ -330,7 +331,7 @@ class StrucMatrix():
             capability = self.independentJointCapability(2)
             # print(capability)
             try:
-                return capability[-1]/abs(capability[0]) - 2
+                return capability[-1]/abs(capability[0]) - 1.5
             except ZeroDivisionError:
                 return -2
         def validity(rvec):
@@ -342,6 +343,8 @@ class StrucMatrix():
             global best_x
             print(intermediate_result.x)
             best_x = intermediate_result.x.copy()
+            print(intermediate_result)
+            # best_x = intermediate_result
             self.plotCapability()
         rvecInit = self.flatten_r_matrix()
         print(rvecInit)
@@ -389,8 +392,6 @@ class VariableStrucMatrix():
 
     def torquDomainVolume(self):
         pass
-
-
 
 # Centered type 1
 D = np.array([[1,1,1,-1],
@@ -449,10 +450,10 @@ D = np.array([[1,1,1,-1],
 naiiveAmbrose = StrucMatrix(R,D,name='Ambrose')
 
 # Hollow Design
-r = .1496
-R = np.array([[r,r,r*1.5,r],
-              [r,r,r,r],
-              [r,r,r,r]])
+r = 1
+R = np.array([[r,r,r,r/3],
+              [r,r,r,r/3],
+              [r,r,r,r/3]])
 D = np.array([[0,1,1,-1],
               [1,0,1,-1],
               [1,1,0,-1]])
@@ -466,14 +467,33 @@ R = np.array([[r,r,r,r/3],
 D = np.array([[1,0,0,-1],
               [0,1,0,-1],
               [0,0,1,-1]])
-diagonal = StrucMatrix(R,D,name='Hollow')
+diagonal = StrucMatrix(R,D,name='Diagonal')
 
 # test
 r = 1
 R = np.array([[r,r,r,r],
               [r,r,r,r],
               [r,r,r,r]])
-D = np.array([[1,1,1,-1],
-              [1,1,1,-1],
-              [1,1,1,-1]])
+D = np.array([[-1, 1,1,-1],
+              [ 1,-1,1,-1],
+              [ 1, 1,-1,-1]])
 test = StrucMatrix(R,D, name='Test')
+
+# free result
+r = 1
+R = np.array([[r,r,r,0],
+              [r,0.1*r,r,r],
+              [r,r,0,r]])
+D = np.array([[-1, 1,1,0],
+              [ 1, 1,1,-1],
+              [ 1, 1,0,-1]])
+resultant = StrucMatrix(R,D, name='Resultant')
+
+r = 1
+R = np.array([[r,r,r,0],
+              [r,0,r,r],
+              [r,r,0,r]])
+D = np.array([[-1, 1,1,0],
+              [ 1, 0,1,-1],
+              [ 1, 1,0,-1]])
+resultant2 = StrucMatrix(R,D, name='Resultant2')

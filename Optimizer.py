@@ -4,7 +4,7 @@ import warnings
 import itertools
 
 from matplotlib import pyplot as plt
-from strucMatrices import Constraint, StrucMatrix, r_from_vector, centeredType1, centeredType2, centeredType3, naiiveAmbrose, quasiHollow, diagonal, test, balancedType1, individualType1
+from strucMatrices import Constraint, StrucMatrix, r_from_vector, centeredType1, centeredType2, centeredType3, naiiveAmbrose, quasiHollow, diagonal, test, balancedType1, individualType1, resultant, resultant2
 from utils import nullity, hsv_to_rgb
 from numpy.linalg import matrix_rank as rank
 from scipy.optimize import minimize
@@ -154,7 +154,7 @@ def testOptimizer():
 #     [[ 0.944 -0.47   0.844 -0.878]
 #  [ 0.    -0.243  1.078 -0.85 ]
 #  [ 0.     0.     0.974 -0.974]]
-    S = centeredType2
+    S = resultant2
     # S = StrucMatrix(S=np.array([[ 0.944, -0.47 ,  0.844, -0.878],
     #                             [ 0.   , -0.243,  1.078, -0.85 ],
     #                             [ 0.   ,  0.   ,  0.974, -0.974]]))
