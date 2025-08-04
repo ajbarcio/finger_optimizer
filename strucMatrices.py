@@ -290,22 +290,13 @@ class StrucMatrix():
             R = r_from_vector(rvec, self.D)
             self.reinit(R=R, D=self.D)
             return -self.maxGrip()
-        # def balanceConstraint(rvec):
-        #     R = r_from_vector(rvec, self.D)
-        #     self.reinit(R=R, D=self.D)
-        #     capabilities = self.independentJointCapabilities()
-        #     error = 0
-        #     errors = []
-        #     for pair in capabilities:
-        #         ratio = abs(pair[-1]/pair[0])
-        #         print(pair, ratio)
-        #         errors.append(ratio-2)
-        #     print('---')
-        #     error = np.linalg.norm(errors)
-        #     print(error)    
-        #     print("---")
-        #     return error
-        iteration = 0
+        def maxJoint(rvec):
+            R = r_from_vector(rvec, self.D)
+            self.reinit(R=R, D=self.D)
+            capability = self.independentJointCapabilities()
+            flexCapability = np.linalg.norm(capability[:,-1])
+            return -flexCapability
+
         def overallbalance(rvec):
             R = r_from_vector(rvec, self.D)
             self.reinit(R=R, D=self.D)
@@ -371,7 +362,13 @@ class StrucMatrix():
         constraintsObjects = [j1BalanceObject,j2BalanceObject,j3BalanceObject]
         # constraintsObjects = [normBalanceObject, validityObject]
         try:
-            E = minimize(maxGrip, rvecInit, method='trust-constr', constraints=constraintsObjects, callback=plotCallback, bounds=[(0,1)]*len(rvecInit))
+            # success = False
+            # while not success:
+                E = minimize(maxGrip, rvecInit, method='trust-constr', constraints=constraintsObjects, callback=plotCallback, bounds=[(0,1)]*len(rvecInit))
+                # if E.success:
+                #     break
+                # else:
+                #     rvecInit = E.x
         except KeyboardInterrupt:
             return best_x, -maxGrip(best_x)
         print(E.success, E.message)
@@ -403,6 +400,25 @@ R = np.array([[1/3,1/3,1/3,3/3],
               [0,1/2,1/2,2/2],
               [0,0,1,1]])
 centeredType1 = StrucMatrix(R,D,name='centered1')
+
+# Balanced type 1
+D = np.array([[1,1,1,-1],
+              [0,1,1,-1],
+              [0,0,1,-1]])
+R = np.array([[1,1,1,0.875],
+              [0,1,1,0.375],
+              [0,0,1,0.125]])
+balancedType1 = StrucMatrix(R,D,name='balanced1')
+
+# Individual type 1
+D = np.array([[1,1,1,-1],
+              [0,1,1,-1],
+              [0,0,1,-1]])
+R = np.array([[ 0.971,  0.033,  0.151, 0.568],
+              [ 0.   ,  0.968,  0.141, 0.531],
+              [ 0.   ,  0.   ,  0.953, 0.42 ]])/0.971
+# print(R)
+individualType1 = StrucMatrix(R,D,name='individual1')
 
 # Centered type 2
 D = np.array([[1,-1,1,-1],

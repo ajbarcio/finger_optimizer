@@ -4,7 +4,7 @@ import warnings
 import itertools
 
 from matplotlib import pyplot as plt
-from strucMatrices import Constraint, StrucMatrix, r_from_vector, centeredType1, centeredType2, centeredType3, naiiveAmbrose, quasiHollow, diagonal, test
+from strucMatrices import Constraint, StrucMatrix, r_from_vector, centeredType1, centeredType2, centeredType3, naiiveAmbrose, quasiHollow, diagonal, test, balancedType1, individualType1
 from utils import nullity, hsv_to_rgb
 from numpy.linalg import matrix_rank as rank
 from scipy.optimize import minimize
@@ -33,12 +33,16 @@ def test3dofn1():
     # S = centeredType2
     # S = centeredType3
     # S = naiiveAmbrose
-    S = diagonal
+    # S = centeredType2
+    S = StrucMatrix(S = np.array([[1,-0.5,1  ,-0.5],
+                                  [0,-0.5,0.5,-0.5],
+                                  [0,0   ,1  ,-0.5]]))
     print(S())
     S.isValid(suppress=False)
     print(S.validity)
     print(S.biasForceSpace)
     S.plotCapability()
+    print(S.independentJointCapabilities())
     # print(S.contains([0,0,0]))
     # print(S.contains([.1,0,0]))
     # print(S.contains([.1496,0,0]))
@@ -147,7 +151,13 @@ def testOptimizer():
     # test3dofn1()
     # testFeasibility()
     warnings.filterwarnings("ignore", category=RuntimeWarning)
-    S = centeredType1
+#     [[ 0.944 -0.47   0.844 -0.878]
+#  [ 0.    -0.243  1.078 -0.85 ]
+#  [ 0.     0.     0.974 -0.974]]
+    # S = centeredType2
+    S = StrucMatrix(S=np.array([[ 0.944, -0.47 ,  0.844, -0.878],
+                                [ 0.   , -0.243,  1.078, -0.85 ],
+                                [ 0.   ,  0.   ,  0.974, -0.974]]))
     necessaryGrasps = np.array([[1,0,0],[-.25,0,0],[0,-.25,0],[0,.25,0],[0,0,0.5],[0,0,-0.5]])
     constraints = []
     # for grasp in necessaryGrasps:
@@ -165,6 +175,7 @@ def testOptimizer():
     print(np.array2string(bestS(), precision=3, suppress_small=True))
 
     bestS.plotCapability(colorOverride='xkcd:blue')
+    print(bestS.independentJointCapabilities())
     # print(bestS.jointCapability(0), bestS.jointCapability(1), bestS.jointCapability(2))
     print(bestS.validity)
     # for equivalent in equivalents:
@@ -191,10 +202,10 @@ def testJointCapability():
 
 def main():
     # testVariable()
-    testOptimizer()
+    # testOptimizer()
     # finger3Space()
     # testJointCapability()
-    # test3dofn1()
+    test3dofn1()
 
 if __name__ == "__main__":
     main()
