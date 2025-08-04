@@ -63,6 +63,16 @@ class StrucMatrix():
         # print("checked validity on init")
         self.domain,  self.boundaryGrasps = self.torqueDomainVolume()
         self.validity                     = self.isValid()
+        try:
+            if self.nullSpaceCondition or self.rankCondition:
+                self.halfValidity = True
+            else:
+                self.halfValidity = False
+        except AttributeError:
+            if self.rankCondition:
+                self.halfValidity = True
+            else:
+                self.halfValidity = False
         self.numTendons = self.S.shape[1]
         self.name = name
 
@@ -94,7 +104,7 @@ class StrucMatrix():
         self.validity = self.isValid()
 
     def isValid(self, suppress=True):
-        # print('going to check constraint')
+        # print('going to check validity')
         for constraint in self.constraints:
             if not constraint(self):
                 return False
@@ -102,7 +112,7 @@ class StrucMatrix():
 
         self.numJoints = self.S.shape[0]
         self.rankCondition = np.linalg.matrix_rank(self.S)>=self.numJoints
-
+        # print(self.rankCondition)
         if not self.rankCondition:
             if not suppress:
                 warnings.warn(f"WARNING: structure matrix failed rank condition (null space condition not checked) \nrank            : {np.linalg.matrix_rank(self.S)} \nnumber of Joints: {self.numJoints}")
@@ -128,6 +138,8 @@ class StrucMatrix():
             if not suppress:
                 warnings.warn("WARNING: structure matrix failed null space condition (rank condition passed)")
             return False
+
+
 
         return True
         # return (np.linalg.matrix_rank(S)>=numJoints) and (all([x>0 for x in sp.linalg.null_space(S)]))
@@ -387,7 +399,7 @@ class VariableStrucMatrix():
         if not np.sum(np.isnan(D)) == len(ranges):
             raise InsufficientRanges()
         self.variablePulleys = [list(x) for x in np.where(np.isnan(D if D is not None else S))]
-        
+
         super().__init__(R, D, S, constraints, name)
 
     def torquDomainVolume(self):

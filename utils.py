@@ -6,6 +6,84 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+import itertools
+
+def generate_matrices_from_pattern(D, value_set={-1, 0, 1}):
+    D = np.array(D)
+    mask = D != 0  # where values are allowed to vary
+    positions = np.argwhere(mask)
+    num_vars = positions.shape[0]
+
+    for values in itertools.product(value_set, repeat=num_vars):
+        result = D.copy().astype(int)
+        for (i, j), val in zip(positions, values):
+            result[i, j] = val
+        yield result
+
+def canonical_form(mat):
+    mat = mat.copy()
+
+    # Step 1: Normalize each row's sign (first non-zero entry should be positive)
+    for i in range(mat.shape[0]):
+        row = mat[i]
+        for val in row:
+            if val != 0:
+                if val < 0:
+                    mat[i] *= -1
+                break
+
+    # Step 2: Sort columns lexicographically
+    col_order = np.lexsort(mat[::-1])
+    mat_sorted = mat[:, col_order]
+
+    # Step 3: Convert to a hashable structure
+    return tuple(map(tuple, mat_sorted))
+
+def normalize_row_signs(mat):
+    mat2 = mat.copy()
+    for i in range(mat2.shape[0]):
+        row = mat2[i]
+        for val in row:
+            if val != 0:
+                if val < 0:
+                    mat2[i] = -row
+                break
+    return mat2
+
+def is_upper_triangular_by_leading_zeros(mat):
+    for i, row in enumerate(mat):
+        if not np.all(row[:i] == 0):
+            return False
+        if i < len(row) and np.any(row[i:] != 0) and row[i] == 0:
+            # first nonzero after i zeros must occur at position i
+            return False
+    return True
+
+def canonical_form(mat):
+    mat = normalize_row_signs(mat)
+    n_cols = mat.shape[1]
+
+    best = None
+    for perm in itertools.permutations(range(n_cols)):
+        permuted = mat[:, perm]
+        if is_upper_triangular_by_leading_zeros(permuted):
+            candidate = tuple(map(tuple, permuted))
+            if best is None or candidate < best:
+                best = candidate
+    return best
+
+def remove_isomorphic(matrices):
+    seen = set()
+    unique = []
+
+    for mat in matrices:
+        canon = canonical_form(mat)
+        if canon not in seen:
+            seen.add(canon)
+            unique.append(np.array(canon))
+
+    return unique
+
 def hsv_to_rgb(h, s, v):
    # Assume h, s, v are all given on [0,1]
    c = v*s

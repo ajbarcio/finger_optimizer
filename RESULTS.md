@@ -100,3 +100,96 @@ Joint
  [ 1.     1.    -0.044 -0.923]]
 
 ### Free constrained
+
+
+# Controllability results:
+
+## Upper Triangular:
+
+### uniform valid matrices
+
+Matrix 0:
+[[ 1 -1 -1  1]
+ [ 0  1 -1 -1]
+ [ 0  0 -1  1]]
+
+Matrix 1:
+[[ 1 -1 -1  1]
+ [ 0  1 -1 -1]
+ [ 0  0  1 -1]]
+
+Matrix 2:
+[[ 1 -1 -1 -1]
+ [ 0  1 -1 -1]
+ [ 0  0 -1  1]]
+
+### joint-uniform valid matrices
+
+Matrix 0:
+[[ 1 -1 -1  1]
+ [ 0  1 -1 -1]
+ [ 0  0 -1  1]]
+
+Matrix 1:
+[[ 1 -1 -1  1]
+ [ 0  1 -1 -1]
+ [ 0  0  1 -1]]
+
+Matrix 2:
+[[ 1 -1 -1 -1]
+ [ 0  1 -1 -1]
+ [ 0  0 -1  1]]
+
+### extension-and-joint-uniform valid matrices
+
+Matrix 0:
+[[ 1  1 -1  1]
+ [ 0  1 -1  1]
+ [ 0  0 -1  1]]
+
+Matrix 1:
+[[ 1  1 -1  1]
+ [ 0  1  1 -1]
+ [ 0  0 -1  1]]
+
+Matrix 2:
+[[ 1  1 -1  1]
+ [ 0  1  1 -1]
+ [ 0  0  1 -1]]
+
+Matrix 3:
+[[ 1  1 -1 -1]
+ [ 0  1 -1  1]
+ [ 0  0 -1  1]]
+
+Matrix 4:
+[[ 1  1 -1 -1]
+ [ 0  1 -1  1]
+ [ 0  0  1 -1]]
+
+Matrix 5:
+[[ 1  1 -1 -1]
+ [ 0  0 -1  1]]
+
+Matrix 6:
+[[ 1 -1  1  1]
+ [ 0  1 -1  1]
+ [ 0  0 -1  1]]
+
+Matrix 7:
+[[ 1 -1 -1 -1]
+ [ 0  1 -1  1]
+ [ 0  0 -1  1]]
+
+Matrix 8:
+[[ 1 -1 -1 -1]
+ [ 0  1 -1  1]
+ [ 0  0  1 -1]]
+
+Matrix 9:
+[[ 1 -1 -1 -1]
+ [ 0  1 -1 -1]
+ [ 0  0 -1  1]]
+
+## Free Matrices
+
