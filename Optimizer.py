@@ -154,10 +154,10 @@ def testOptimizer():
 #     [[ 0.944 -0.47   0.844 -0.878]
 #  [ 0.    -0.243  1.078 -0.85 ]
 #  [ 0.     0.     0.974 -0.974]]
-    # S = centeredType2
-    S = StrucMatrix(S=np.array([[ 0.944, -0.47 ,  0.844, -0.878],
-                                [ 0.   , -0.243,  1.078, -0.85 ],
-                                [ 0.   ,  0.   ,  0.974, -0.974]]))
+    S = centeredType2
+    # S = StrucMatrix(S=np.array([[ 0.944, -0.47 ,  0.844, -0.878],
+    #                             [ 0.   , -0.243,  1.078, -0.85 ],
+    #                             [ 0.   ,  0.   ,  0.974, -0.974]]))
     necessaryGrasps = np.array([[1,0,0],[-.25,0,0],[0,-.25,0],[0,.25,0],[0,0,0.5],[0,0,-0.5]])
     constraints = []
     # for grasp in necessaryGrasps:
@@ -202,10 +202,10 @@ def testJointCapability():
 
 def main():
     # testVariable()
-    # testOptimizer()
+    testOptimizer()
     # finger3Space()
     # testJointCapability()
-    test3dofn1()
+    # test3dofn1()
 
 if __name__ == "__main__":
     main()

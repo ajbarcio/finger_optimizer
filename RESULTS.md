@@ -29,10 +29,14 @@ NOTE: this wants to approach a diagonal matrix with the trivial solution:
 
 ### Type 2:
 
-best grip magnitude: 3.741
+best grip magnitude: 2.303
 Pulley radii:
 
 [[ 0.944 -0.47   0.844 -0.878]
  [ 0.    -0.243  1.078 -0.85 ]
  [ 0.     0.     0.974 -0.974]]
 Note: Only succeeds in one axis. Impossible?
+
+
+
+
