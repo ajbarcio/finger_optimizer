@@ -1,12 +1,102 @@
 from scipy.optimize import linprog
 from numpy.linalg import matrix_rank
 from scipy.linalg import null_space
-from scipy.spatial import ConvexHull, QhullError
+from scipy.spatial import ConvexHull, QhullError, HalfspaceIntersection
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+colors = [
+    'xkcd:neon green',     # #0cff0c – retina-searing green
+    'xkcd:electric blue',  # #0652ff – deep glowing blue
+    'xkcd:hot pink',       # #ff028d – vibrant magenta-pink
+    'xkcd:bright yellow',  # #fffd01 – classic highlighter yellow
+    'xkcd:neon purple',    # #bc13fe – super-saturated violet
+    'xkcd:bright orange',  # #ff5b00 – bold warm orange
+    'xkcd:cyan',           # #00ffff – icy electric blue-green
+    'xkcd:magenta',        # #c20078 – deeper than hot pink
+    'xkcd:bright red',     # #ff000d – warning-light red
+    'xkcd:bright turquoise' # #0ffef9 – glowing aqua
+]
 
 import itertools
+
+def volume_centroid(points):
+    hull = ConvexHull(points)
+    total_volume = 0
+    weighted_centroid = np.zeros(3)
+    origin = np.mean(points[hull.vertices], axis=0)
+
+    for simplex in hull.simplices:
+        # Each simplex is a triangle (face); use it to form a tetrahedron with the origin
+        p0 = origin
+        p1, p2, p3 = points[simplex]
+
+        tetra = np.array([p0, p1, p2, p3])
+        centroid = np.mean(tetra, axis=0)
+
+        # Volume of tetrahedron
+        v = np.abs(np.dot(np.cross(p1 - p0, p2 - p0), p3 - p0)) / 6
+
+        weighted_centroid += centroid * v
+        total_volume += v
+
+    return weighted_centroid / total_volume
+
+class DegenerateHull():
+   def __init__(self) -> None:
+      self.volume = 0
+
+def intersection_with_orthant(hull: ConvexHull, orthant):
+  orthant = orthant-1
+  intersection_with_orthant.signs = [(-1)**int(bit) for bit in format(orthant, f'03b')]
+  orthVectors = np.vstack([np.diag(intersection_with_orthant.signs), [0,0,0]])*1000 # make it arbitrarily large to fit any torque capability
+  Orthant = ConvexHull(orthVectors)
+  halfspace = (np.vstack([Orthant.equations, hull.equations]))
+  try:
+    for point in hull.points:
+      if in_hull3(Orthant, point):
+        centroid  = volume_centroid(hull.points)
+        direction = centroid - point
+        direction = direction/np.linalg.norm(direction)
+        epsilon   = 1e-3
+        intersection_with_orthant.interiorPoint = point+epsilon*direction
+        break
+      else:
+        intersection_with_orthant.interiorPoint = np.diag([1e-6]*len(intersection_with_orthant.signs)) @ intersection_with_orthant.signs
+    # print('calculating intersection')
+    hs = HalfspaceIntersection(halfspace, intersection_with_orthant.interiorPoint)
+    # print(hs)
+    vertices = hs.intersections
+    intersection = ConvexHull(vertices)
+    # print('worked')
+  except QhullError:
+    # print('excepted')
+    intersection = DegenerateHull()
+  return intersection
+
+def generate_structure_matrix_variants(A):
+    m, n = A.shape
+    assert n >= 2, "Need at least 2 columns to permute the last two."
+
+    # Generate all combinations of row sign flips (2^m)
+    sign_flips = list(itertools.product([1, -1], repeat=m))
+
+    # Permute only the last two columns
+    base_cols = list(range(n - 2))  # columns before the last two
+    last_two = [n - 2, n - 1]
+    col_perms = [base_cols + list(p) for p in itertools.permutations(last_two)]
+
+    variants = []
+
+    for signs in sign_flips:
+        flipped = A * np.array(signs)[:, None]  # flip each row
+        for perm in col_perms:
+            permuted = flipped[:, perm]
+            variants.append(permuted)
+
+    return variants
 
 def generate_matrices_from_pattern(D, value_set={-1, 0, 1}):
     D = np.array(D)
@@ -217,30 +307,97 @@ def in_hull2(hull, x):
    tol = 1e-8
    return np.all(hull.equations @ np.append(x,1) <= tol)
 
+def in_hull3(hull, x):
+  tol = -1e-3
+  return np.all(hull.equations @ np.append(x,1) <= tol)
+
 if __name__ == '__main__':
-  basis = np.array([[1, 1]]) #1d subspace of R^2
-  print(intersects_positive_orthant(basis)) #True
+  # basis = np.array([[1, 1]]) #1d subspace of R^2
+  # print(intersects_positive_orthant(basis)) #True
 
-  basis = np.array([[1, -1]])
-  print(intersects_positive_orthant(basis)) #False
+  # basis = np.array([[1, -1]])
+  # print(intersects_positive_orthant(basis)) #False
 
-  basis = np.array([[2, 3, -1], [1, 0, 2]]) #2d subspace of R^3
-  print(intersects_positive_orthant(basis)) #True
+  # basis = np.array([[2, 3, -1], [1, 0, 2]]) #2d subspace of R^3
+  # print(intersects_positive_orthant(basis)) #True
 
-  basis = np.array([[2, 3, -1], [1, 0, -2]])
-  print(intersects_positive_orthant(basis)) #False
+  # basis = np.array([[2, 3, -1], [1, 0, -2]])
+  # print(intersects_positive_orthant(basis)) #False
 
-  basis = np.array([[1, 1, 1, 1]])
-  print(intersects_positive_orthant(basis)) #True
+  # basis = np.array([[1, 1, 1, 1]])
+  # print(intersects_positive_orthant(basis)) #True
 
-  basis = np.array([[-1, -1, -1, -1]])
-  print(intersects_negative_orthant(basis)) #True
+  # basis = np.array([[-1, -1, -1, -1]])
+  # print(intersects_negative_orthant(basis)) #True
 
-  basis = np.array([[1, 1, 1, 1]])
-  print(intersects_negative_orthant(basis)) #False
+  # basis = np.array([[1, 1, 1, 1]])
+  # print(intersects_negative_orthant(basis)) #False
 
-  basis = np.array([[0         ],
-                    [0         ],
-                    [0.70710678],
-                    [0.70710678]])
-  print(intersects_positive_orthant(basis.T)) #False
+  # basis = np.array([[0         ],
+  #                   [0         ],
+  #                   [0.70710678],
+  #                   [0.70710678]])
+  # print(intersects_positive_orthant(basis.T)) #False
+
+  # M = np.array([
+  #     [1, 2, 3],
+  #     [-4, 5, -6]
+  # ])
+
+  # variants = generate_structure_matrix_variants(M)
+  # print(f"{len(variants)} total variants generated")
+
+  # for i, variant in enumerate(variants):
+  #     print(f"\nVariant {i + 1}:\n{variant}")
+
+  vecs = np.array([[1,1,0],[-1,1,0],[-1,-1,0],[1,-1,0],[0,0,1],[0,0,-1],])
+  hull = ConvexHull(vecs)
+  for i in range(8):
+    intersection = intersection_with_orthant(hull, i+1)
+
+  # vecs = np.array([[1,1,0],[-1,1,0],[-1,-1,0],[1,-1,0],[0,0,1],[0,0,-1],])
+  # hull = ConvexHull(vecs)
+  # fig = plt.figure(f"figure")
+  # # if orthant==0:
+  # ax = fig.add_subplot(111, projection="3d")
+  # # else:
+  # #   ax = plt.gca()
+  # color = colors[0 % len(colors)]
+  # ax.scatter(*vecs.T, alpha=0.78, color=color)
+  # ax.scatter(0.25,0.25,0.25)
+  # for simplex in hull.simplices:
+  #   triangle = vecs[simplex]
+  #   ax.add_collection3d(Poly3DCollection([triangle], alpha=0.4, color=color))
+  # for vec in vecs:
+  #     ax.quiver(0,0,0,vec[0],vec[1],vec[2], color=color)
+  # plt.tight_layout()
+  # xlim = ax.get_xlim()
+  # ylim = ax.get_ylim()
+  # zlim = ax.get_zlim()
+  # ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1)
+  # ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
+  # ax.plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
+
+  # for i in range(1):
+  #   intersection = intersection_with_orthant(hull, i+1)
+  #   fig = plt.figure(f"intersection")
+  #   if i==0:
+  #     ax = fig.add_subplot(111, projection="3d")
+  #   else:
+  #     ax = plt.gca()
+  #   color = colors[i % len(colors)]
+  #   ax.scatter(*intersection.points.T, alpha=0.78, color=color)
+  #   ax.scatter(0.25,0.25,0.25)
+  #   for simplex in intersection.simplices:
+  #     triangle = intersection.points[simplex]
+  #     ax.add_collection3d(Poly3DCollection([triangle], alpha=0.4, color=color))
+  #   for vec in intersection.points:
+  #       ax.quiver(0,0,0,vec[0],vec[1],vec[2], color=color)
+  #   plt.tight_layout()
+  #   xlim = ax.get_xlim()
+  #   ylim = ax.get_ylim()
+  #   zlim = ax.get_zlim()
+  #   ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1)
+  #   ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
+  #   ax.plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
+  # plt.show()

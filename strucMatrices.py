@@ -104,11 +104,6 @@ class StrucMatrix():
         self.validity = self.isValid()
 
     def isValid(self, suppress=True):
-        # print('going to check validity')
-        for constraint in self.constraints:
-            if not constraint(self):
-                return False
-            # print('checked constraint', constraint)
 
         self.numJoints = self.S.shape[0]
         self.rankCondition = np.linalg.matrix_rank(self.S)>=self.numJoints
@@ -138,8 +133,11 @@ class StrucMatrix():
             if not suppress:
                 warnings.warn("WARNING: structure matrix failed null space condition (rank condition passed)")
             return False
-
-
+        # print('going to check validity')
+        # for constraint in self.constraints:
+        #     if not constraint(self):
+        #         return False
+            # print('checked constraint', constraint)
 
         return True
         # return (np.linalg.matrix_rank(S)>=numJoints) and (all([x>0 for x in sp.linalg.null_space(S)]))
@@ -148,8 +146,8 @@ class StrucMatrix():
         numJoints = self.S.shape[0]
         numTendons = self.S.shape[1]
         # S is a structure matrix
-        singleForceVectors = list(np.transpose(self.S))
-        domain, boundaryGrasps = special_minkowski(singleForceVectors)
+        self.singleForceVectors = list(np.transpose(self.S @ np.diag(self.F)))
+        domain, boundaryGrasps = special_minkowski(self.singleForceVectors)
         return domain, boundaryGrasps
 
     def pulleyVariation(self):
@@ -159,6 +157,12 @@ class StrucMatrix():
         r = np.unique(r)
         variation = np.std(r)
         return variation
+
+    def biasCondition(self):
+        if np.min(self.biasForceSpace)<=0:
+            return 1000000000
+        else:
+            return np.max(abs(self.biasForceSpace))/np.min(abs(self.biasForceSpace))
 
     def maxExtn(self):
         maxStrength = 0
@@ -174,7 +178,8 @@ class StrucMatrix():
         # print(self.boundaryGrasps)
         for grasp in self.boundaryGrasps:
             strength = np.linalg.norm(grasp)
-            if intersects_positive_orthant(grasp) and strength>maxStrength:
+            # if intersects_positive_orthant(grasp) and strength>maxStrength:
+            if strength>maxStrength:
                     # print(grasp)
                     maxStrength = strength
         return maxStrength
@@ -190,8 +195,13 @@ class StrucMatrix():
             warnings.warn(f'the two checking methods disagree, linprog says {check1}, geometry says {check2}')
             return check1
 
+    def contains_by(self, rvec, point):
+        R = r_from_vector(rvec, self.D)
+        self.reinit(R=R, D=self.D)
+        return -np.max(self.domain.equations @ np.append(point, 1))
+
     def plotCapability(self, showBool=False, colorOverride=None):
-        StrucMatrix.plot_count += 1
+
         if colorOverride == None:
             color = colors[StrucMatrix.plot_count % len(colors)]
         else:
@@ -234,6 +244,7 @@ class StrucMatrix():
                 plt.show()
         else:
             warnings.warn("Cannot plot anything other than 3d grasps at this time")
+        StrucMatrix.plot_count += 1
 
     def plotGrasp(self, grasp, showBool=False):
         if self.contains(grasp):
@@ -389,6 +400,165 @@ class StrucMatrix():
         print(E.success, E.message)
         return E.x, -E.fun
 
+    def optimizer2(self):
+        method='trust-constr'
+
+        def maxGrip(rvec):
+            R = r_from_vector(rvec, self.D)
+            self.reinit(R=R, D=self.D)
+            # print(self.S)
+            return -self.maxGrip()
+        def maxJoint(rvec):
+            R = r_from_vector(rvec, self.D)
+            self.reinit(R=R, D=self.D)
+            capability = self.independentJointCapabilities()
+            flexCapability = np.linalg.norm(capability[:,-1])
+            return -flexCapability
+
+        def condition(rvec):
+            R = r_from_vector(rvec, self.D)
+            self.reinit(R=R, D=self.D)
+            condition = self.biasCondition()
+            return condition
+
+        def plotCallback(intermediate_result: OptimizeResult):
+            # iteration += 1
+            global best_x
+            if (not method=='TNC') and (not method=='SLSQP') and (not method=='COBYLA'):
+                print(intermediate_result.x)
+                best_x = intermediate_result.x.copy()
+            else:
+                print(intermediate_result)
+                best_x = intermediate_result
+            self.plotCapability()
+
+        rvecInit = self.flatten_r_matrix()
+        print('starting with:', rvecInit)
+        objective = maxJoint
+
+        conditionConstraint = NonlinearConstraint(condition, 10, 10)
+        constraintsObjects = [conditionConstraint]
+        try:
+            E = minimize(objective, rvecInit, method=method, constraints=constraintsObjects, callback=plotCallback, bounds=[(0,1)]*len(rvecInit))
+        except KeyboardInterrupt:
+            return best_x, objective(best_x)
+        print(E.success, E.message)
+        return E.x, -E.fun
+
+    def optimizer3(self):
+        method='trust-constr'
+
+        def condition(rvec):
+            R = r_from_vector(rvec, self.D)
+            self.reinit(R=R, D=self.D)
+            condition = self.biasCondition()
+            return condition
+
+        def radiusCondition(rvec):
+            return np.max(abs(rvec))/np.min(abs(rvec))
+
+        def plotCallback(intermediate_result: OptimizeResult):
+            # iteration += 1
+            global best_x
+            if (not method=='TNC') and (not method=='SLSQP') and (not method=='COBYLA'):
+                print(intermediate_result.x)
+                best_x = intermediate_result.x.copy()
+            else:
+                print(intermediate_result)
+                best_x = intermediate_result
+            self.plotCapability()
+
+        def validity(rvec):
+            R = r_from_vector(rvec, self.D)
+            self.reinit(R=R, D=self.D)
+            return int(not self.isValid())
+
+        def slackness(rvec):
+            return min(abs(np.array([self.contains_by(rvec, point) for point in [constraint.args for constraint in self.constraints]])))
+
+        rvecInit = self.flatten_r_matrix()
+        print('starting with:', rvecInit)
+        objective = condition
+
+        # validityConstraint = NonlinearConstraint(validity, -.5, 0.5)
+        # Apply the appropriate grasp constraints to the optimizer
+        constraintsObjects = []
+        # For each grasp constraint passed to the StrucMatrix instance,
+        for constraint in self.constraints:
+            # If the type is inequality, we just need a positive value (indicates inclusion)
+            if constraint.type == 'ineq':
+                constraintsObjects.append(NonlinearConstraint(constraint, 0, np.inf))
+            # If the type is equality, we want a value near zero (indicates that the point is on the boundary)
+            elif constraint.type == 'eq':
+                constraintsObjects.append(NonlinearConstraint(constraint, -0.001, 0.001))
+                print(f"enforcing equality on point: {constraint.args}")
+        # If we did not include an equality constraint, we need to make sure that at least one of the constraints is active
+        if not any([constraint.type=='eq' for constraint in self.constraints]):
+            constraintsObjects.append(NonlinearConstraint(slackness, -0.001, 0.001))
+            print("enforcing slackness")
+        # We cannot allow degenerate forms (no radius value may approach 0)
+        constraintsObjects.append(NonlinearConstraint(radiusCondition, 1, 8))
+        try:
+            E = minimize(objective, rvecInit, method=method, constraints=constraintsObjects, callback=plotCallback, bounds=[(0,1)]*len(rvecInit),
+                         options={'gtol': 1e-4, 'xtol': 1e-4})
+        except KeyboardInterrupt:
+            return best_x, objective(best_x)
+        print(E.success, E.message)
+        return E.x, E.fun
+
+    def optimizer4(self):
+        method='trust-constr'
+
+        def condition(rvec):
+            R = r_from_vector(rvec, self.D)
+            self.reinit(R=R, D=self.D)
+            condition = self.biasCondition()
+            return condition
+
+        def plotCallback(intermediate_result: OptimizeResult):
+            # iteration += 1
+            global best_x
+            if (not method=='TNC') and (not method=='SLSQP') and (not method=='COBYLA'):
+                print(intermediate_result.x)
+                best_x = intermediate_result.x.copy()
+            else:
+                print(intermediate_result)
+                best_x = intermediate_result
+            # self.plotCapability()
+
+        def slackness(rvec):
+            return min(abs(np.array([self.contains_by(rvec, point) for point in [constraint.args for constraint in self.constraints]])))
+
+        rvecInit = self.flatten_r_matrix()
+        print('starting with:', rvecInit)
+        objective = condition
+
+        # validityConstraint = NonlinearConstraint(validity, -.5, 0.5)
+        # Apply the appropriate grasp constraints to the optimizer
+        constraintsObjects = []
+        # For each grasp constraint passed to the StrucMatrix instance,
+        for constraint in self.constraints:
+            # If the type is inequality, we just need a positive value (indicates inclusion)
+            if constraint.type == 'ineq':
+                constraintsObjects.append(NonlinearConstraint(constraint, 0, np.inf))
+            # If the type is equality, we want a value near zero (indicates that the point is on the boundary)
+            elif constraint.type == 'eq':
+                constraintsObjects.append(NonlinearConstraint(constraint, -0.001, 0.001))
+                print(f"enforcing equality on point: {constraint.args}")
+        # If we did not include an equality constraint, we need to make sure that at least one of the constraints is active
+        if not any([constraint.type=='eq' for constraint in self.constraints]):
+            constraintsObjects.append(NonlinearConstraint(slackness, -0.001, 0.001))
+            print("enforcing slackness")
+        # This is a dimension-aware optimizer, so bounds are set for radii in inches
+        try:
+            E = minimize(objective, rvecInit, method=method, constraints=constraintsObjects, callback=plotCallback, bounds=[(.125,.4)]*len(rvecInit),
+                         options={'gtol': 1e-4, 'xtol': 1e-4})
+        except KeyboardInterrupt:
+            return best_x, objective(best_x)
+        # print(E.success, E.message)
+        self.optSuccess = str(str(E.success)+str(E.message))
+        return E.x, E.fun
+
 
 class InsufficientRanges(Exception):
     def __init__(self, message='ranges must match number of variable pulleys'):
@@ -404,6 +574,14 @@ class VariableStrucMatrix():
 
     def torquDomainVolume(self):
         pass
+
+class NonlinearConstraintContainer():
+    def __init__(self, function, type, *args) -> None:
+        self.function = function
+        self.type = type
+        self.args = args
+    def __call__(self, rvec):
+        return self.function(rvec, *self.args)
 
 # Centered type 1
 D = np.array([[1,1,1,-1],
@@ -438,8 +616,8 @@ D = np.array([[1,-1,1,-1],
               [0,-1,1,-1],
               [0,0,1,-1]])
 R = np.array([[0.5,0.5,0.5,0.5],
-              [0,0.5,1,0.5],
-              [0,0,1,1]])
+              [0,  0.5,1,  0.5],
+              [0,  0,  1,  1]])
 centeredType2 = StrucMatrix(R,D,name='centered2')
 
 # Centered type 3
@@ -509,3 +687,17 @@ D = np.array([[-1, 1,1,0],
               [ 1, 0,1,-1],
               [ 1, 1,0,-1]])
 resultant2 = StrucMatrix(R,D, name='Resultant2')
+
+# canon A
+R = np.ones([3,4])
+D = np.array([[-1,1,-1,1],
+              [0,-1,1,1],
+              [0, 0,-1,1]])
+canonA = StrucMatrix(R,D,name='Canon')
+
+# canon B
+R = np.ones([3,4])
+D = -np.array([[1,-1,-1,-1],
+              [0, 1,-1,-1],
+              [0, 0, 1,-1]])
+canonB = StrucMatrix(R,D,name='Canon')

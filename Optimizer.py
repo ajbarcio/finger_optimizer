@@ -2,14 +2,16 @@ import numpy as np
 import scipy as sp
 import warnings
 import itertools
+import time
 
 from matplotlib import pyplot as plt
-from strucMatrices import Constraint, StrucMatrix, r_from_vector, centeredType1, centeredType2, centeredType3, naiiveAmbrose, quasiHollow, diagonal, test, balancedType1, individualType1, resultant, resultant2
-from utils import nullity, hsv_to_rgb
 from numpy.linalg import matrix_rank as rank
-from scipy.optimize import minimize
+from scipy.optimize import minimize, NonlinearConstraint
 
-import time
+from combinatorics import generate_canonical_well_posed_qutsm
+from strucMatrices import NonlinearConstraintContainer, Constraint, StrucMatrix, r_from_vector, centeredType1, centeredType2, centeredType3, naiiveAmbrose, quasiHollow, diagonal, test, balancedType1, individualType1, resultant, resultant2, canonA, canonB
+from utils import nullity, hsv_to_rgb
+
 
 def finger3Space():
     R = np.array([[1,1,1,1],
@@ -106,7 +108,7 @@ def optimize_filter(D, res0, constraints=[], useZero=False, suppress=False):
     leastVariation = 1000
     valids = []
     equivalents = []
-    
+
     min = 1.0/res0 if not useZero else 0
     vars = len(D[np.nonzero(D)])
     vals = [float(x) for x in list(np.linspace(min,1,res0+1 if useZero else res0))]
@@ -184,6 +186,144 @@ def testOptimizer():
     #     bestS.plotGrasp(grasp)
     plt.show()
 
+def testOptimizer2():
+    # You will get a lot of useless warnings so kill them
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
+    # Start with some initial R matrix (and D matrix)
+    S = canonA
+    # Run the optimizer
+    bestR, bestGrip = S.optimizer2()
+    # report out:
+    print("best grip in InLbs:", bestGrip)
+    bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, name='best')
+    print('Optimal Structure:')
+    print(np.array2string(bestS(), precision=3, suppress_small=True))
+
+    print('Null Space:')
+    print(bestS.biasForceSpace, bestS.biasCondition())
+
+    print('Single-axis joint capabilities')
+    print(bestS.independentJointCapabilities())
+    #Ensure that the matrix is valid (this should never be false)
+    print("controllable:", bestS.validity)
+    bestS.plotCapability(colorOverride='xkcd:blue')
+    plt.show()
+
+def testOptimizer3():
+    # You will get a lot of useless warnings so kill them
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
+    # Start with some initial R matrix (and D matrix)
+    S = canonB
+    necessaryGrasps = np.array([[0.5,0,0],[-0.25,0,0],[0,0.5,0],[0,-0.25,0],[0,0,0.5],[0,0,-0.25]])
+    boundaryGrasps = np.array([[0.98,0.98,0.98]])
+    graspConstraints = []
+    for grasp in necessaryGrasps:
+        graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'ineq', grasp))
+        S.add_constraint(graspConstraints[-1])
+    for grasp in boundaryGrasps:
+        graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'eq', grasp))
+        S.add_constraint(graspConstraints[-1])
+    # Run the optimizer
+    bestR, bestCondition = S.optimizer3()
+    # report out:
+    print("Null Space Condition:", bestCondition)
+    bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, name='best')
+    print('Null Space:')
+    print(bestS.biasForceSpace)
+    print('Optimal Structure:')
+    print(np.array2string(bestS(), precision=3, suppress_small=True))
+    print('bestGrip:', S.maxGrip())
+
+    print('Single-axis joint capabilities')
+    print(bestS.independentJointCapabilities())
+    #Ensure that the matrix is valid (this should never be false)
+    print("controllable:", bestS.validity)
+    bestS.plotCapability(colorOverride='xkcd:blue')
+    for grasp in necessaryGrasps:
+        bestS.plotGrasp(grasp)
+    for constraint in graspConstraints:
+        print(constraint(bestR))
+    plt.show()
+
+def OptimizeAllCanonical():
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
+    startingPoints = generate_canonical_well_posed_qutsm()
+    i = 0
+    for startingPoint in startingPoints:
+        S = StrucMatrix(S=startingPoint, name=f'CanonForm{i}')
+        necessaryGrasps = np.array([[0.5,0,0],[-0.25,0,0],[0,0.5,0],[0,-0.25,0],[0,0,0.5],[0,0,-0.25], [.98,.98,.98]])
+        graspConstraints = []
+        for grasp in necessaryGrasps:
+            graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'ineq', grasp))
+            S.add_constraint(graspConstraints[-1])
+        bestR, bestCondition = S.optimizer3()
+        bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, name=f'Best of {i}')
+        with open('allUpperTriangularOutput.S', 'a') as f:
+            print("Null Space Condition:", bestCondition, file=f)
+            print('Null Space:', file=f)
+            print(bestS.biasForceSpace, file=f)
+            print('Optimal Structure:', file=f)
+            print(np.array2string(bestS(), precision=3, suppress_small=True), file=f)
+            print('bestGrip:', S.maxGrip(), file=f)
+            print('Single-axis joint capabilities', file=f)
+            print(bestS.independentJointCapabilities(), file=f)
+            #Ensure that the matrix is valid (this should never be false)
+            print("controllable:", bestS.validity, file=f)
+            print("torque grasp constraints: (one of these should be near 0)", file=f)
+            for constraint in graspConstraints:
+                print(constraint(bestR), file=f)
+        bestS.plotCapability(colorOverride='xkcd:blue')
+        for grasp in necessaryGrasps:
+            bestS.plotGrasp(grasp)
+        i+=1
+    plt.show()
+
+def dimensionalOptimizer():
+    # startingPoint = naiiveAmbrose
+    # S = StrucMatrix(S=startingPoint, name=f'CanonForm{i}')
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
+    startingPoints = generate_canonical_well_posed_qutsm()
+    i = 0
+    for startingPoint in startingPoints:
+        S = StrucMatrix(S=startingPoint, name=f'CanonForm{i}')
+        S.R = S.R / 4
+        S.F = np.array([50,50,50,50])
+        S.reinit()
+        #[11.38,27.00,15.16]
+        necessaryGrasps = np.array([[2.5,0,0],[-2.5,0,0],[0,2.5,0],[0,-2.5,0],[0,0,2.5],[0,0,-2.5],[0,0,0]])
+        graspConstraints = []
+        for grasp in necessaryGrasps:
+            graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'ineq', grasp))
+            S.add_constraint(graspConstraints[-1])
+        graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'eq', np.array([24.25,16.005,7.38])))
+        # Run the optimizer
+        bestR, bestCondition = S.optimizer4()
+        print(S.optSuccess)
+        bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, name=f'Best of {i}')
+        bestS.F = np.array([50,50,50,50])
+        bestS.reinit()
+        with open('allUpperTriangularDimensional.S', 'a') as f:
+            print(f'Matrix index: {i}', file=f)
+            print(f'Optimizer success: {S.optSuccess}')
+            print("Null Space Condition:", bestCondition, file=f)
+            print('Null Space:', file=f)
+            print(bestS.biasForceSpace, file=f)
+            print('Optimal Structure:', file=f)
+            print(np.array2string(bestS(), precision=3, suppress_small=True), file=f)
+            print('bestGrip:', S.maxGrip(), file=f)
+            print('Single-axis joint capabilities', file=f)
+            print(bestS.independentJointCapabilities(), file=f)
+            #Ensure that the matrix is valid (this should never be false)
+            print("controllable:", bestS.validity, file=f)
+            print("torque grasp constraints: (one of these should be near 0)", file=f)
+            for constraint in graspConstraints:
+                print(constraint(bestR), file=f)
+        bestS.plotCapability(colorOverride='xkcd:blue')
+        for grasp in necessaryGrasps:
+            bestS.plotGrasp(grasp)
+        i+=1
+    plt.show()
+
 def testJointCapability():
     S = centeredType1
     capabilities = S.independentJointCapabilities()
@@ -196,16 +336,19 @@ def testJointCapability():
     fullStrengths = [S.maxExtn(), S.maxGrip()]
     print(fullStrengths)
     plt.show()
-    
+
     # S.plotGrasp([joint0Capability[1],0,0])
     # S.plotCapability(True)
 
 def main():
     # testVariable()
-    testOptimizer()
+    # testOptimizer()
     # finger3Space()
     # testJointCapability()
     # test3dofn1()
+    # testOptimizer3()
+    # OptimizeAllCanonical()
+    dimensionalOptimizer()
 
 if __name__ == "__main__":
     main()
