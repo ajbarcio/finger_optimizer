@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from scipy.differentiate import jacobian
 
 colors = [
     'xkcd:neon green',     # #0cff0c – retina-searing green
@@ -21,6 +22,53 @@ colors = [
 ]
 
 import itertools
+
+def f_for_jac(x, l):
+    x = np.asarray(x)
+    # If jacobian passes shape (m, k) with k==1, reduce to (m,)
+    if x.ndim > 1:
+        # collapse trailing axes -> shape (m, k)
+        x = x.reshape(x.shape[0], -1)
+        if x.shape[1] == 1:
+            # single point: use 1D vector
+            qvec = x[:, 0]
+            return (trans(qvec, l) @ np.array([0, 0, 1]))
+        else:
+            # batch of k points: compute each column
+            k = x.shape[1]
+            out = np.empty((3, k))
+            for col in range(k):
+                out[:, col] = trans(x[:, col], l) @ np.array([0, 0, 1])
+            return out
+    else:
+        # already 1-D
+        return trans(x, l) @ np.array([0, 0, 1])
+
+def rot(q,l):
+    return np.array([[np.cos(q), -np.sin(q), l],
+                     [np.sin(q),  np.cos(q), 0],
+                     [0,                 0,  1]])
+
+def trans(Q, L):
+    # print('trans call')
+    if Q.ndim == 2:
+        Q = Q[:,0]
+    trans = np.eye(3)
+    # print(Q)
+    # print(L)
+    for i in range(len(Q)+1):
+        # print(Q[i] if 0<=i<len(Q) else 0)
+        # print(L[i-1] if 0<=i-1<len(Q) else 0)
+        trans = trans @ rot(Q[i] if 0<=i<len(Q) else 0, L[i-1] if 0<=i-1<len(Q) else 0)
+    return(trans)
+
+def jac(Q, L):
+    # print(Q,L)
+    # x = trans(Q, L) @ np.array([0,0,1])
+    def wrappedFunction(Q):
+       return f_for_jac(Q,L)
+    J = jacobian(wrappedFunction, Q)
+    return J.df
 
 def volume_centroid(points):
     hull = ConvexHull(points)
@@ -110,24 +158,24 @@ def generate_matrices_from_pattern(D, value_set={-1, 0, 1}):
             result[i, j] = val
         yield result
 
-def canonical_form(mat):
-    mat = mat.copy()
+# def canonical_form(mat):
+#     mat = mat.copy()
 
-    # Step 1: Normalize each row's sign (first non-zero entry should be positive)
-    for i in range(mat.shape[0]):
-        row = mat[i]
-        for val in row:
-            if val != 0:
-                if val < 0:
-                    mat[i] *= -1
-                break
+#     # Step 1: Normalize each row's sign (first non-zero entry should be positive)
+#     for i in range(mat.shape[0]):
+#         row = mat[i]
+#         for val in row:
+#             if val != 0:
+#                 if val < 0:
+#                     mat[i] *= -1
+#                 break
 
-    # Step 2: Sort columns lexicographically
-    col_order = np.lexsort(mat[::-1])
-    mat_sorted = mat[:, col_order]
+#     # Step 2: Sort columns lexicographically
+#     col_order = np.lexsort(mat[::-1])
+#     mat_sorted = mat[:, col_order]
 
-    # Step 3: Convert to a hashable structure
-    return tuple(map(tuple, mat_sorted))
+#     # Step 3: Convert to a hashable structure
+#     return tuple(map(tuple, mat_sorted))
 
 def normalize_row_signs(mat):
     mat2 = mat.copy()
@@ -310,6 +358,54 @@ def in_hull2(hull, x):
 def in_hull3(hull, x):
   tol = -1e-3
   return np.all(hull.equations @ np.append(x,1) <= tol)
+
+def find_axis_extent_lp(vertices, axis_direction):
+    m, n = vertices.shape
+    d = axis_direction / np.linalg.norm(axis_direction)  # unit vector
+    
+    # Variables: [lambda_1,...,lambda_m, t]
+    # Objective: maximize t (or minimize t)
+    c_max = np.zeros(m + 1)
+    c_max[-1] = -1  # maximize t <=> minimize -t
+
+    c_min = np.zeros(m + 1)
+    c_min[-1] = 1   # minimize t
+
+    # Equality constraints:
+    # sum_i lambda_i * x_i - t * d = 0
+    # sum_i lambda_i = 1
+    A_eq = np.zeros((n + 1, m + 1))
+
+    # For coordinate constraints
+    # sum_i lambda_i * x_i_j - t * d_j = 0  for j in [0,n-1]
+    A_eq[0:n, 0:m] = vertices.T
+    A_eq[0:n, m] = -d
+
+    # sum_i lambda_i = 1
+    A_eq[n, 0:m] = 1
+    A_eq[n, m] = 0
+
+    b_eq = np.zeros(n + 1)
+    b_eq[n] = 1
+
+    # Bounds for lambda_i: [0,1], for t: unbounded
+    bounds = [(0, None)] * m + [(None, None)]
+
+    # Solve for max t
+    res_max = linprog(c=c_max, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
+    # Solve for min t
+    res_min = linprog(c=c_min, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
+
+    if not (res_max.success and res_min.success):
+        raise ValueError("Linear programming failed to find a solution.")
+
+    t_max = res_max.x[-1]
+    t_min = res_min.x[-1]
+
+    # Intersection segment on axis:
+    p_min = t_min * d
+    p_max = t_max * d
+    return p_min, p_max
 
 if __name__ == '__main__':
   # basis = np.array([[1, 1]]) #1d subspace of R^2

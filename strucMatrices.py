@@ -5,9 +5,10 @@ from matplotlib import pyplot as plt
 import warnings
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.optimize import linprog
+from scipy.linalg import null_space
 
 from utils import intersects_positive_orthant, special_minkowski, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant
-from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult
+from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_annealing, differential_evolution
 
 
 def r_from_vector(r_vec, D):
@@ -239,6 +240,15 @@ class StrucMatrix():
                 self.ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1)
                 self.ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
                 self.ax.plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
+                ax.set_xlabel('τ₁')
+                ax.set_ylabel('τ₂')
+                ax.set_zlabel('τ₃')
+                # ax.set_title('Torque Components τ₁, τ₂, τ₃')
+                ax.set_title(f'Torque Polytope for {self.name}')
+                # ax.view_init(elev=30, azim=45)
+                ax.grid(True)
+                plt.tight_layout()
+
                 StrucMatrix.figures_with_axes.add(figID)
             if showBool:
                 plt.show()
@@ -551,13 +561,121 @@ class StrucMatrix():
             print("enforcing slackness")
         # This is a dimension-aware optimizer, so bounds are set for radii in inches
         try:
-            E = minimize(objective, rvecInit, method=method, constraints=constraintsObjects, callback=plotCallback, bounds=[(.125,.4)]*len(rvecInit),
-                         options={'gtol': 1e-4, 'xtol': 1e-4})
+            E = minimize(objective, rvecInit, method=method, constraints=constraintsObjects, callback=plotCallback, bounds=[(0,1)]*len(rvecInit),
+                         options={'gtol': 1e-4, 'xtol': 1e-4, 'maxiter': 1000})
         except KeyboardInterrupt:
+            self.optSuccess = str(str(E.success)+str(E.message))
             return best_x, objective(best_x)
         # print(E.success, E.message)
         self.optSuccess = str(str(E.success)+str(E.message))
         return E.x, E.fun
+
+    def optimizer5(self, bounds):
+        method='trust-constr'
+
+        def condition(rvec):
+            R = r_from_vector(rvec, self.D)
+            self.reinit(R=R, D=self.D)
+            condition = self.biasCondition()
+            return condition
+
+        def plotCallback(intermediate_result: OptimizeResult):
+            # iteration += 1
+            global best_x
+            if (not method=='TNC') and (not method=='SLSQP') and (not method=='COBYLA'):
+                print(intermediate_result.x)
+                best_x = intermediate_result.x.copy()
+            else:
+                print(intermediate_result)
+                best_x = intermediate_result
+            # self.plotCapability()
+
+        def slackness(rvec):
+            return min(abs(np.array([self.contains_by(rvec, point) for point in [constraint.args for constraint in self.constraints]])))
+
+        rvecInit = self.flatten_r_matrix()
+        print('starting with:', rvecInit)
+        objective = condition
+
+        # validityConstraint = NonlinearConstraint(validity, -.5, 0.5)
+        # Apply the appropriate grasp constraints to the optimizer
+        constraintsObjects = []
+        # For each grasp constraint passed to the StrucMatrix instance,
+        print(f" we are receiving {len(self.constraints)} constraints in the optimizer")
+        for constraint in self.constraints:
+            # If the type is inequality, we just need a positive value (indicates inclusion)
+            if constraint.type == 'ineq':
+                constraintsObjects.append(NonlinearConstraint(constraint, 0, np.inf))
+            # If the type is equality, we want a value near zero (indicates that the point is on the boundary)
+            elif constraint.type == 'eq':
+                constraintsObjects.append(NonlinearConstraint(constraint, -0.001, 0.001))
+                print(f"enforcing equality on point: {constraint.args}")
+        # If we did not include an equality constraint, we need to make sure that at least one of the constraints is active
+        if not any([constraint.type=='eq' for constraint in self.constraints]):
+            constraintsObjects.append(NonlinearConstraint(slackness, -0.001, 0.001))
+            print("enforcing slackness")
+        # This is a dimension-aware optimizer, so bounds are set for radii in inches
+        try:
+            E = minimize(objective, rvecInit, method=method, constraints=constraintsObjects, callback=plotCallback, bounds=[bounds]*len(rvecInit),
+                         options={'gtol': 1e-4, 'xtol': 1e-4, 'maxiter': 1000, 'initial_constr_penalty': 2})
+            self.optSuccess = str(str(E.success)+str(E.message))
+            return E.x, E.fun
+        except KeyboardInterrupt:
+            self.optSuccess = str(str(E.success)+str(E.message))
+            return best_x, objective(best_x)
+        # print(E.success, E.message)
+
+    def globalOptimizer(self):
+
+        def condition(rvec):
+            R = r_from_vector(rvec, self.D)
+            self.reinit(R=R, D=self.D)
+            condition = self.biasCondition()
+            return condition
+
+        def reportOut(intermediate_result: OptimizeResult):
+            # iteration += 1
+            global best_x
+            print(intermediate_result.x, intermediate_result.fun)
+            print(null_space(self.S))
+            best_x = intermediate_result.x.copy()
+            # self.plotCapability()
+
+        def slackness(rvec):
+            return min(abs(np.array([self.contains_by(rvec, point) for point in [constraint.args for constraint in self.constraints]])))
+
+        rvecInit = self.flatten_r_matrix()
+        bounds=[(0.1,0.5)]*len(rvecInit)
+        # print('starting with:', rvecInit)
+        objective = condition
+        # validityConstraint = NonlinearConstraint(validity, -.5, 0.5)
+        # Apply the appropriate grasp constraints to the optimizer
+        constraintsObjects = []
+        # For each grasp constraint passed to the StrucMatrix instance,
+        for constraint in self.constraints:
+            # If the type is inequality, we just need a positive value (indicates inclusion)
+            if constraint.type == 'ineq':
+                constraintsObjects.append(NonlinearConstraint(constraint, 0, np.inf))
+            # If the type is equality, we want a value near zero (indicates that the point is on the boundary)
+            elif constraint.type == 'eq':
+                constraintsObjects.append(NonlinearConstraint(constraint, -0.001, 0.001))
+                print(f"enforcing equality on point: {constraint.args}")
+        # If we did not include an equality constraint, we need to make sure that at least one of the constraints is active
+        if not any([constraint.type=='eq' for constraint in self.constraints]):
+            constraintsObjects.append(NonlinearConstraint(slackness, -0.001, 0.001))
+            print("enforcing slackness")
+        # This is a dimension-aware optimizer, so bounds are set for radii in inches
+        try:
+            E = differential_evolution(objective, 
+                                       bounds, 
+                                       maxiter=1000, 
+                                       constraints=constraintsObjects, 
+                                       callback=reportOut)
+            self.optSuccess = str(str(E.success)+str(E.message))
+            return E.x, E.fun            
+        except KeyboardInterrupt:
+            self.optSuccess = str(str(E.success)+str(E.message))
+            return best_x, objective(best_x)
 
 
 class InsufficientRanges(Exception):
@@ -630,9 +748,13 @@ D = np.array([[1,1,-1,-1],
 centeredType3 = StrucMatrix(R,D,name='centered3')
 
 # AMBROSE MATRIX
-R = np.array([[.2188,.2188,.2188,.2188],
-              [0,.1719,.1719,.1719],
-              [0,0,.1484,.1484]])
+# R = np.array([[.2188,.2188,.2188,.2188],
+#               [0,.1719,.1719,.1719],
+#               [0,0,.1484,.1484]])
+r = 1
+R = np.array([[r,r,r,r],
+              [r,r,r,r],
+              [r,r,r,r]])
 D = np.array([[1,1,1,-1],
               [0,1,1,-1],
               [0,0,1,-1]])
