@@ -116,7 +116,7 @@ def find_centerable_qutsm(S_):
                 # if Snew.validity:
                 centerableStructures.append(StrucMatrix(R=R, D=D).S)    
         else:
-            pass
+            centerableStructures.append(Struc)
     print("                                   ", end="\r")
     # successes = len(evenStructures)
     # print(f"there were {successes} successes")
@@ -437,6 +437,11 @@ if __name__ == "__main__":
     print(f"there are {len(allDimensionalValids)} valid qutsm within dimensional bounds")
     print(f"there are {len(allCenterableValids)} centerable qutsm")
     print(f"there are {len(allCenteredValids)} centered qutsm")
+    for i, valid in enumerate(allCenteredValids):
+        S = StrucMatrix(S=valid)
+        print(f"centered matrix {i}")
+        print(np.array2string(valid, precision=3, suppress_small=True), end="\n")
+        print(np.max(abs(S.flatten_r_matrix()))/np.min(abs(S.flatten_r_matrix())))
         # print(null_space(valid))
     # i=0
     # for S in allUniqueValids:
