@@ -14,8 +14,8 @@ def generate_valid_dimensional_qutsm(S_, bounds):
         if any([y<0 for y in x]):
             print("INVALID")
             raise StopIteration
-        
-    validStructures = []  
+
+    validStructures = []
     i=0
     for S in S_:
         i+=1
@@ -56,8 +56,8 @@ def generate_centered_qutsm(S_):
         if any([y<0 for y in x]):
             print("INVALID")
             raise StopIteration
-        
-    evenStructures = []  
+
+    evenStructures = []
     i=0
     for S in S_:
         i+=1
@@ -95,8 +95,8 @@ def find_centerable_qutsm(S_):
         if any([y<0 for y in x]):
             print("INVALID")
             raise StopIteration
-        
-    centerableStructures = []  
+
+    centerableStructures = []
     i=0
     for S in S_:
         i+=1
@@ -114,13 +114,13 @@ def find_centerable_qutsm(S_):
                 R = r_from_vector(evenRadii, D)
                 Snew = StrucMatrix(R=R, D=D)
                 # if Snew.validity:
-                centerableStructures.append(StrucMatrix(R=R, D=D).S)    
+                centerableStructures.append(StrucMatrix(R=R, D=D).S)
         else:
             centerableStructures.append(Struc)
     print("                                   ", end="\r")
     # successes = len(evenStructures)
     # print(f"there were {successes} successes")
-    return centerableStructures    
+    return centerableStructures
 
 def generate_uniformly_valid_qutsm():
 

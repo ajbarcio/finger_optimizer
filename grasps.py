@@ -10,8 +10,8 @@ F_global = 6.12
 
 def generateAllVertices(L):
     print("generating grasps")
-    jointResl=50
-    forceResl=50
+    jointResl=25
+    forceResl=25
 
     l = L
     jointAngles = np.linspace(0,np.pi/2,jointResl)
@@ -46,7 +46,7 @@ def generateAllVertices(L):
 def generateNecessaryVertices(L):
     print("generating grasps")
     jointResl=100
-    forceResl=2 # Critical grasps will only occur at full hook and full push
+    forceResl=100 # Critical grasps will only occur at full hook and full push
 
     l = L
     # Generate list of joint and force angles
@@ -58,6 +58,7 @@ def generateNecessaryVertices(L):
     Tau = np.zeros([len(jointAngles), len(forceAngles), 3])
     # Solve IK for each torque-space grasp
     predictedBoundaries=[]
+    predictedAngles =[]
     j=0
     for phi in forceAngles:
         i = 0
@@ -68,20 +69,41 @@ def generateNecessaryVertices(L):
                                                 [np.sin(phi), np.cos(phi)]]) @ F_t)
             F = np.vstack((F,0))
             Tau[i,j,:] = (jac(Q,l).T @ F).flatten()
-            if theta==0 or theta==np.pi/2:
+            if (theta, phi) in {(0, np.pi/2), (np.pi/2, 0), (0, 0), (np.pi/2, np.pi/2)}:
                 predictedBoundaries.append(Tau[i,j,:])
+                predictedAngles.append((theta, phi))
             i+=1
         j+=1
+
+    def index_to_angles(idx):
+        i = idx // forceResl
+        j = idx % forceResl
+        return (jointAngles[i], forceAngles[j])
     # Flatten Torque Result
     Tau_flat = Tau.reshape(-1, 3)
-    boundaryPoints = np.array([(Tau_flat[np.argmax(Tau_flat[:, 0])]),
-                               (Tau_flat[np.argmin(Tau_flat[:, 0])]),
-                               (Tau_flat[np.argmax(Tau_flat[:, 1])]),
-                               (Tau_flat[np.argmin(Tau_flat[:, 1])]),
-                               (Tau_flat[np.argmax(Tau_flat[:, 2])]),
-                               (Tau_flat[np.argmin(Tau_flat[:, 2])])])
-    boundaryPoints = np.vstack([boundaryPoints, predictedBoundaries])
-    boundaryPoints = list(set([tuple(x) for x in boundaryPoints]))
+
+    idx_list = [
+        np.argmax(Tau_flat[:, 0]),
+        np.argmin(Tau_flat[:, 0]),
+        np.argmax(Tau_flat[:, 1]),
+        np.argmin(Tau_flat[:, 1]),
+        # np.argmax(Tau_flat[:, 2]),
+        # np.argmin(Tau_flat[:, 2])
+    ]
+    boundaryPoints = [Tau_flat[idx] for idx in idx_list]
+    boundaryAngles = [index_to_angles(idx) for idx in idx_list]
+
+    boundaryPoints.extend(predictedBoundaries)
+    boundaryAngles.extend(predictedAngles)
+
+    # boundaryPoints = np.array([(Tau_flat[np.argmax(Tau_flat[:, 0])]),
+    #                            (Tau_flat[np.argmin(Tau_flat[:, 0])]),
+    #                            (Tau_flat[np.argmax(Tau_flat[:, 1])]),
+    #                            (Tau_flat[np.argmin(Tau_flat[:, 1])]),
+    #                            (Tau_flat[np.argmax(Tau_flat[:, 2])]),
+    #                            (Tau_flat[np.argmin(Tau_flat[:, 2])])])
+    # boundaryPoints = np.vstack([boundaryPoints, predictedBoundaries])
+    # boundaryPoints = list(set([tuple(x) for x in boundaryPoints]))
     # Extract no-duplicate set of cube-bounded points
     # boundaryPoints = list(set([tuple(Tau_flat[np.argmax(Tau_flat[:, 0])]),
     #                             tuple(Tau_flat[np.argmin(Tau_flat[:, 0])]),
@@ -91,7 +113,11 @@ def generateNecessaryVertices(L):
     #                             tuple(Tau_flat[np.argmin(Tau_flat[:, 2])]),
     #                             tuple(predictedBoundaries[0])]))
     boundaryPoints = np.array([list(point) for point in boundaryPoints])
-    
+
+    pts_angles = list({tuple(p): a for p, a in zip(boundaryPoints, boundaryAngles)}.items())
+    boundaryPoints = np.array([list(p) for p, _ in pts_angles])
+    boundaryAngles = np.array([a for _, a in pts_angles])
+
     # Clean up results
     deletes = []
     minTorque = 1000
@@ -108,17 +134,19 @@ def generateNecessaryVertices(L):
             deletes.append(i)
     # delete everything to delete
     boundaryPoints = np.delete(boundaryPoints, deletes, axis=0)
+    boundaryAngles = np.delete(boundaryAngles, deletes, axis=0)
     # Add the z-axis boundary
-    boundaryPoints = np.vstack((boundaryPoints, np.array([0,0,minTorque])))
-    return boundaryPoints
+    # boundaryPoints = np.vstack((boundaryPoints, np.array([0,0,minTorque])))
+    # boundaryAngles = np.vstack((boundaryAngles, np.array([0, 0])))
+    return boundaryPoints, boundaryAngles
 
 if __name__ == '__main__':
     l = np.array([1.375,1.4375,1.23])
-    verts = generateNecessaryVertices(l)
+    verts, angles = generateNecessaryVertices(l)
     print(verts)
     jointResl=100
     forceResl=100
-   
+
     jointAngles = np.linspace(0,np.pi/2,jointResl)
     forceAngles = np.linspace(0,np.pi/2,forceResl)
 
@@ -130,7 +158,7 @@ if __name__ == '__main__':
     for phi in forceAngles:
         i = 0
         for theta in jointAngles:
-            print(i,j)
+            # print(i,j)
             Q = np.array([theta, theta, theta])
             F = trans(Q, l)[:-1,:-1] @ (np.array([[np.cos(phi),-np.sin(phi)],
                                                 [np.sin(phi), np.cos(phi)]]) @ F_t)
@@ -155,13 +183,26 @@ if __name__ == '__main__':
             THETA, PHI, Tau[:, :, t],
             color=colors[t],
             alpha=0.6,       # transparency
-            edgecolor='none'
+            edgecolor='none',
+            shade=False
+        )
+    # ax.scatter(*verts.T)
+    zmin, zmax = ax.get_zlim()  # or set manually if you want fixed range
+
+    # Draw vertical lines
+    print(angles)
+    for phi, theta in angles:
+        ax.plot(
+            [theta, theta],   # X = theta constant
+            [phi, phi],       # Y = phi constant
+            [zmin, zmax],     # Z from min to max
+            color='black', linewidth=3
         )
 
-    ax.set_xlabel('Force Angle Phi')
-    ax.set_ylabel('Joint Angle Theta')
+    ax.set_xlabel('Force Angle φ')
+    ax.set_ylabel('Joint Angle θ')
     ax.set_zlabel('Torque')
-    ax.set_title('Torque Components τ₁, τ₂, τ₃')
+    ax.set_title('Target Grasps in Force Space')
     ax.view_init(elev=30, azim=45)
     ax.grid(True)
 
@@ -194,61 +235,81 @@ if __name__ == '__main__':
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(Tau_flat[:, 0], Tau_flat[:, 1], Tau_flat[:, 2],c=colors, alpha=1)
-    ax.scatter(*verts.T, color=[0,0,1], s=100)
+    ax.scatter(Tau_flat[:, 0], Tau_flat[:, 1], Tau_flat[:, 2],c=colors, alpha=0.15)
+    ax.scatter(*verts.T, color='black', alpha=1, s=100)
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
     zlim = ax.get_zlim()
     ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1)
     ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
     ax.plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    torqueHull = ConvexHull(list_of_torque_vectors)
-    # print(torqueHull.vertices)
-    ax.scatter(*torqueHull.points[torqueHull.vertices].T, color=colors[torqueHull.vertices], alpha=1)
-    for simplex in torqueHull.simplices:
-        triangle = torqueHull.points[simplex]
-        ax.add_collection3d(Poly3DCollection([triangle], color='xkcd:blue', alpha=0.2))
-    plt.tight_layout()
-    xlim = ax.get_xlim()
-    ylim = ax.get_ylim()
-    zlim = ax.get_zlim()
-    ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1)
-    ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
-    ax.plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
+    ax.set_xlabel('τ₁', fontsize=18)
+    ax.set_ylabel('τ₂', fontsize=18)
+    ax.set_zlabel('τ₃', fontsize=18)
+    ax.set_title('Target Grasps in Torque Space')
 
-    print(find_axis_extent_lp(torqueHull.points[torqueHull.vertices], [1,0,0]))
-    print(find_axis_extent_lp(torqueHull.points[torqueHull.vertices], [0,1,0]))
-    print(find_axis_extent_lp(torqueHull.points[torqueHull.vertices], [0,0,1]))
+
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111, projection='3d')
+    # torqueHull = ConvexHull(list_of_torque_vectors)
+    # # print(torqueHull.vertices)
+    # ax.scatter(*torqueHull.points[torqueHull.vertices].T, color=colors[torqueHull.vertices], alpha=1)
+    # for simplex in torqueHull.simplices:
+    #     triangle = torqueHull.points[simplex]
+    #     ax.add_collection3d(Poly3DCollection([triangle], color='xkcd:blue', alpha=0.2))
+    # plt.tight_layout()
+    # xlim = ax.get_xlim()
+    # ylim = ax.get_ylim()
+    # zlim = ax.get_zlim()
+    # ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1)
+    # ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
+    # ax.plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
+
+    # print(find_axis_extent_lp(torqueHull.points[torqueHull.vertices], [1,0,0]))
+    # print(find_axis_extent_lp(torqueHull.points[torqueHull.vertices], [0,1,0]))
+    # print(find_axis_extent_lp(torqueHull.points[torqueHull.vertices], [0,0,1]))
+
+    # print(verts)
+    # print(angles)
 
     # print(len(torqueHull.vertices))
     # print(len(Tau_flat))
     # jointAngleValue = jointAngles*
 
-    # # Define resolution of the color key
-    # res = resl
+    # Define resolution of the color key
 
-    # # Create normalized R and G grids
-    # R = np.linspace(0, 1, res)
-    # G = np.linspace(0, 1, res)
-    # R_grid, G_grid = np.meshgrid(R, G)
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    # legend_ax = fig.add_axes([0.8, 0.6, 0.15, 0.15])
+    # legend_ax = inset_axes(ax,
+    #                        width="20%",  # size of legend relative to main axes
+    #                        height="20%",
+    #                        loc="lower right",  # position
+    #                        borderpad=1.5)
 
-    # # Fixed B value
-    # B_val = 0.5
+    res = forceResl
 
-    # # Compose RGB image with shape (res, res, 3)
-    # color_key = np.zeros((res, res, 3))
-    # color_key[:, :, 0] = R_grid      # R channel
-    # color_key[:, :, 1] = G_grid      # G channel
-    # color_key[:, :, 2] = B_val       # B channel fixed
+    # Create normalized R and G grids
+    R = np.linspace(0, 1, res)
+    G = np.linspace(0, 1, res)
+    R_grid, G_grid = np.meshgrid(R, G)
 
-    # # Plot the color key
-    # plt.figure(figsize=(6, 6))
-    # plt.imshow(color_key, origin='lower', extent=[0, 1, 0, 1])
-    # plt.xlabel('Normalized R value')
-    # plt.ylabel('Normalized G value')
-    # plt.title('Color key: R vs G (B fixed at 0.5)')
-    # plt.colorbar(label='Intensity (Not used here, colors show RGB)')  # optional, can remove
+    # Fixed B value
+    B_val = 0.5
+
+    # Compose RGB image with shape (res, res, 3)
+    color_key = np.zeros((res, res, 3))
+    color_key[:, :, 0] = R_grid      # R channel
+    color_key[:, :, 1] = G_grid      # G channel
+    color_key[:, :, 2] = B_val       # B channel fixed
+
+
+    legend_ax = fig.add_axes([0.85, 0.85, 0.15, 0.15])  # [left, bottom, width, height]
+    legend_ax.imshow(color_key, origin='lower', extent=[0, 1, 0, 1])
+
+    # Keep axis labels but remove ticks
+    legend_ax.set_xlabel(r'$\theta$', fontsize=16, labelpad=2)
+    legend_ax.set_ylabel(r'$\phi$', fontsize=16, labelpad=2)
+    legend_ax.set_xticks([])
+    legend_ax.set_yticks([])
 
     plt.show()

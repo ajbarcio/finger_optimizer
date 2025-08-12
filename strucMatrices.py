@@ -224,8 +224,8 @@ class StrucMatrix():
             self.ax.scatter(*[0,0,0], color="black")
             self.ax.scatter(*self.boundaryGrasps.T, color=color, alpha=0.78)
             for grasp in singleForceVectors:
-                self.ax.quiver(0,0,0,grasp[0],grasp[1],grasp[2],color=color)
-                # print(singleForceVectors)
+                self.ax.quiver(0,0,0,grasp[0],grasp[1],grasp[2],color="black")
+                # print(grasp)
             for simplex in self.domain.simplices:
                 triangle = self.boundaryGrasps[simplex]
                 self.ax.add_collection3d(Poly3DCollection([triangle], color=color, alpha=0.4))
@@ -625,6 +625,67 @@ class StrucMatrix():
             return best_x, objective(best_x)
         # print(E.success, E.message)
 
+    def optimizer6(self, bounds):
+        method='trust-constr'
+
+        def maxGrip(rvec):
+            R = r_from_vector(rvec, self.D)
+            self.reinit(R=R, D=self.D)
+            # print(self.S)
+            return -self.maxGrip()
+
+        def condition(rvec):
+            R = r_from_vector(rvec, self.D)
+            self.reinit(R=R, D=self.D)
+            condition = self.biasCondition()
+            return condition
+
+        def plotCallback(intermediate_result: OptimizeResult):
+            # iteration += 1
+            global best_x
+            if (not method=='TNC') and (not method=='SLSQP') and (not method=='COBYLA'):
+                print(intermediate_result.x)
+                best_x = intermediate_result.x.copy()
+            else:
+                print(intermediate_result)
+                best_x = intermediate_result
+            # self.plotCapability()
+
+        def slackness(rvec):
+            return min(abs(np.array([self.contains_by(rvec, point) for point in [constraint.args for constraint in self.constraints]])))
+
+        rvecInit = self.flatten_r_matrix()
+        print('starting with:', rvecInit)
+        objective = maxGrip
+
+        # validityConstraint = NonlinearConstraint(validity, -.5, 0.5)
+        # Apply the appropriate grasp constraints to the optimizer
+        constraintsObjects = []
+        # For each grasp constraint passed to the StrucMatrix instance,
+        print(f" we are receiving {len(self.constraints)} constraints in the optimizer")
+        for constraint in self.constraints:
+            # If the type is inequality, we just need a positive value (indicates inclusion)
+            if constraint.type == 'ineq':
+                constraintsObjects.append(NonlinearConstraint(constraint, 0, np.inf))
+            # If the type is equality, we want a value near zero (indicates that the point is on the boundary)
+            elif constraint.type == 'eq':
+                constraintsObjects.append(NonlinearConstraint(constraint, -0.001, 0.001))
+                print(f"enforcing equality on point: {constraint.args}")
+        # If we did not include an equality constraint, we need to make sure that at least one of the constraints is active
+        # if not any([constraint.type=='eq' for constraint in self.constraints]):
+        #     constraintsObjects.append(NonlinearConstraint(slackness, -0.001, 0.001))
+        #     print("enforcing slackness")
+        # This is a dimension-aware optimizer, so bounds are set for radii in inches
+        try:
+            E = minimize(objective, rvecInit, method=method, constraints=constraintsObjects, callback=plotCallback, bounds=[bounds]*len(rvecInit),
+                         options={'gtol': 1e-4, 'xtol': 1e-4, 'maxiter': 1000, 'initial_constr_penalty': 2})
+            self.optSuccess = str(str(E.success)+str(E.message))
+            return E.x, E.fun
+        except KeyboardInterrupt:
+            self.optSuccess = str(str(E.success)+str(E.message))
+            return best_x, objective(best_x)
+        # print(E.success, E.message)
+
     def globalOptimizer(self):
 
         def condition(rvec):
@@ -666,13 +727,13 @@ class StrucMatrix():
             print("enforcing slackness")
         # This is a dimension-aware optimizer, so bounds are set for radii in inches
         try:
-            E = differential_evolution(objective, 
-                                       bounds, 
-                                       maxiter=1000, 
-                                       constraints=constraintsObjects, 
+            E = differential_evolution(objective,
+                                       bounds,
+                                       maxiter=1000,
+                                       constraints=constraintsObjects,
                                        callback=reportOut)
             self.optSuccess = str(str(E.success)+str(E.message))
-            return E.x, E.fun            
+            return E.x, E.fun
         except KeyboardInterrupt:
             self.optSuccess = str(str(E.success)+str(E.message))
             return best_x, objective(best_x)

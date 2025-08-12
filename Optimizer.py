@@ -336,13 +336,13 @@ def dimensionalOptimizer2():
     startingPoints = [startingPoints[k] for k in [5]]
     i = 0
 
-    necessaryGrasps = generateNecessaryVertices(np.array([1.375,1.4375,1.23]))
+    necessaryGrasps, _ = generateNecessaryVertices(np.array([1.375,1.4375,1.23]))
     allGrasps = generateAllVertices(np.array([1.375,1.4375,1.23]))
     # graspConstraints = []
     ref = np.array([20.2125,13.3375,6.15])
     # print(necessaryGrasps)
     for startingPoint in startingPoints:
-        
+
         S = StrucMatrix(S=startingPoint, F = np.array([50,50,50,50]), name=f"dimensional valid {i}", constraints=[])
         # S = StrucMatrix(R=r_from_vector(rnew, S.D), D=S.D, F=np.array([50,50,50,50]),
         #                       name=f"dimensional balanced canonical {i}")
@@ -397,6 +397,81 @@ def dimensionalOptimizer2():
         i+=1
     plt.show()
 
+
+def dimensionalOptimizer3():
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
+    print("Dimensional Optimizer", end='\n')
+    # startingPoints = [canonB, centeredType2]
+
+    bounds=(0.125,0.4)
+
+    canonical = generate_rankValid_well_posed_qutsm()
+    startingPoints = generate_valid_dimensional_qutsm(canonical, bounds)
+    # startingPoints = [startingPoints[k] for k in [5]]
+    i = 0
+
+    necessaryGrasps, _ = generateNecessaryVertices(np.array([1.375,1.4375,1.23]))
+    allGrasps = generateAllVertices(np.array([1.375,1.4375,1.23]))
+    # graspConstraints = []
+    ref = np.array([20.2125,13.3375,6.15])
+    # print(necessaryGrasps)
+    for startingPoint in startingPoints:
+
+        S = StrucMatrix(S=startingPoint, F = np.array([50,50,50,50]), name=f"dimensional valid {i}", constraints=[])
+        # S = StrucMatrix(R=r_from_vector(rnew, S.D), D=S.D, F=np.array([50,50,50,50]),
+        #                       name=f"dimensional balanced canonical {i}")
+        #[11.38,27.00,15.16]
+        # necessaryGrasps = np.array([[2.5,0,0],[-2.5,0,0],[0,2.5,0],[0,-2.5,0],[0,0,2.5],[0,0,-2.5],[0,0,0]])
+        graspConstraints=[]
+        print(f"this should be empty {S.constraints}")
+        print(necessaryGrasps)
+        for grasp in necessaryGrasps:
+            # print(grasp)
+            # if all([np.isclose(grasp[m],ref[m],atol=1e-2) for m in range(len(grasp))]):
+            #     graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'eq', grasp))
+            #     print('properly added equality constraint')
+            # else:
+                graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'ineq', grasp))
+            # S.add_constraint(graspConstraints[-1])
+        for constraint in graspConstraints:
+            S.add_constraint(constraint)
+        print(f"there should be {len(graspConstraints)} grasp constraints")
+        print(f"we are passing {len(S.constraints)} at the start of the optimizer")
+        # graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'eq', np.array([24.25,16.005,7.38])))
+        # Run the optimizer
+        bestR, bestCondition = S.optimizer6(bounds)
+        print(f"optimizing {S.name}")
+        print(S.optSuccess)
+        bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, F=np.array([50,50,50,50]), name=f'Best of {S.name}')
+
+        with open(f'MAXGRIP_dimensional_upper_triangular_6.12Lbf_0.125_0.4.S', 'a') as f:
+            print(f'Matrix index: {i}', file=f)
+            print(f'Optimizer success: {S.optSuccess}')
+            print("Null Space Condition:", bestCondition, file=f)
+            print('Null Space:', file=f)
+            print(bestS.biasForceSpace, file=f)
+            print('Optimal Structure:', file=f)
+            print(np.array2string(bestS(), precision=3, suppress_small=True), file=f)
+            print('bestGrip:', bestS.maxGrip(), file=f)
+            print('Single-axis joint capabilities', file=f)
+            print(bestS.independentJointCapabilities(), file=f)
+            #Ensure that the matrix is valid (this should never be false)
+            print("controllable:", bestS.validity, file=f)
+            print("torque grasp constraints: (one of these should be near 0)", file=f)
+            for constraint in graspConstraints:
+                print(constraint(bestR), file=f)
+        bestS.plotCapability(colorOverride='xkcd:blue')
+        for grasp in allGrasps:
+            bestS.plotGrasp(grasp)
+        for grasp in necessaryGrasps:
+            bestS.plotGrasp(grasp)
+        plt.savefig(f'{bestS.name}_6.12Lbf_0.125_0.4_NoSlack_MAXGRIP.png')
+        if np.max(bestS.R)>np.max(bounds):
+            plt.figtext(0.5,-.1, f"only acheivable with {np.max(bestS.R)}")
+        i+=1
+    plt.show()
+
+
 def dimensionalOptimizerGlobal():
     warnings.filterwarnings("ignore", category=RuntimeWarning)
     print("Dimensional Optimizer", end='\n')
@@ -406,10 +481,10 @@ def dimensionalOptimizerGlobal():
     startingPoints = [startingPoints[k] for k in [1,12,14]]
     i = 0
     for startingPoint in startingPoints:
-        
+
         S = StrucMatrix(S=startingPoint, name=f"balanced canonical {i}")
-        
-        necessaryGrasps = generateNecessaryVertices(np.array([1.375,1.4375,1.23]))
+
+        necessaryGrasps, _ = generateNecessaryVertices(np.array([1.375,1.4375,1.23]))
         allGrasps = generateAllVertices(np.array([1.375,1.4375,1.23]))
         graspConstraints = []
         ref = np.array([20.2125,13.3775,6.15])
@@ -458,7 +533,7 @@ def quasiDimensionalOptimizer():
     canonical = generate_rankValid_well_posed_qutsm()
     startingPoints = generate_centered_qutsm(canonical)
 
-    necessaryGrasps = generateNecessaryVertices(np.array([1.375,1.4375,1.23]))
+    necessaryGrasps, _ = generateNecessaryVertices(np.array([1.375,1.4375,1.23]))
     necessaryGrasps = necessaryGrasps/np.max(necessaryGrasps)
     allGrasps = generateAllVertices(np.array([1.375,1.4375,1.23]))
     allGrasps = allGrasps/np.max(allGrasps)
@@ -499,7 +574,7 @@ def quasiDimensionalOptimizer():
                 print(constraint(bestR), file=f)
         bestS.plotCapability(colorOverride='xkcd:blue')
         for grasp in allGrasps:
-            bestS.plotGrasp(grasp)  
+            bestS.plotGrasp(grasp)
         i+=1
     plt.show()
 
@@ -528,7 +603,7 @@ def main():
     # testOptimizer3()
     # OptimizeAllCanonical()
     # quasiDimensionalOptimizer()
-    dimensionalOptimizer2()
+    dimensionalOptimizer3()
     # dimensionalOptimizerGlobal()
 
 if __name__ == "__main__":
