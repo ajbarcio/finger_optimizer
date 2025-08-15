@@ -746,20 +746,62 @@ class StrucMatrix():
             self.optSuccess = str(str(E.success)+str(E.message))
             return best_x, objective(best_x)
 
-
 class InsufficientRanges(Exception):
     def __init__(self, message='ranges must match number of variable pulleys'):
         super().__init__(message)
 
 class VariableStrucMatrix():
-    def __init__(self, R=None, D=None, S=None, ranges=[], constraints=[], name='Placeholder'):
-        if not np.sum(np.isnan(D)) == len(ranges):
+
+    class linear_effort_change_joint():
+        def __init__(self, min, max, idx) -> None:
+            self.min = min
+            self.max = max
+            self.idx = idx
+        def __call__(self, theta, *args, **kwds):
+            return (self.max-self.min)/(np.pi/2)*theta
+
+    def __init__(self, R, D, ranges=[], types=[], constraints=[], name='Placeholder'):
+        # Direction array
+        self.D = D
+        # Radius array
+        self.R = R
+        # default for ranges
+        if len(ranges)==0:
+            # average radius value, one each per variable tendon
+            ranges=[np.average(R)]*np.sum(np.isnan(R))
+        # Allow a single range to be passed to all variable tendons
+        elif len(ranges)==1:
+            ranges = ranges*np.xum(np.isnan(R))
+        # At this point, if a ranges has been passed of insufficient length, bitch about it
+        if not np.sum(np.isnan(R)) == len(ranges):
             raise InsufficientRanges()
-        self.variablePulleys = [list(x) for x in np.where(np.isnan(D if D is not None else S))]
 
-        super().__init__(R, D, S, constraints, name)
+        # store S matrix indices of variable tendons
+        self.variableTendons = list(zip(np.array(np.where(np.isnan(R)))[0,:],np.array(np.where(np.isnan(R)))[1,:]))
+        # list of effort functions according to type
+        self.effortFunctions = []
+        # default to linear if none specified
+        if types==[]:
+            types = [self.linear_effort_change_joint]*len(self.variableTendons)
+        # create function and add to list for each variable tendon
+        for i, idx in enumerate(self.variableTendons):
+            setattr(self, f'j{idx[0]}t{idx[1]}r', types[i](0,1,idx))
+            self.effortFunctions.append(getattr(self, f'j{idx[0]}t{idx[1]}r'))
 
-    def torquDomainVolume(self):
+        self.extS = self.S([0,0,0])
+
+    def __call__(self, THETA, *args, **kwds):
+        self.S(THETA)
+
+    def S(self, THETA):
+        for function in (self.effortFunctions):
+            self.R[function.idx] = function(THETA[function.idx[0]])
+        if np.sum(np.isnan(R)):
+            raise InsufficientRanges()
+        S = D*R
+        return S
+
+    def torquDomainVolume(self, THETA):
         pass
 
 class NonlinearConstraintContainer():
