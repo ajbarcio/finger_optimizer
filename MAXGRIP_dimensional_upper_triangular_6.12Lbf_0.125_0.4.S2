@@ -1,0 +1,288 @@
+Matrix index: 0
+Optimal Structure:
+[[ 0.397  0.398 -0.399  0.193]
+ [ 0.     0.399 -0.303  0.399]
+ [ 0.     0.    -0.126  0.399]]
+Null Space:
+[[0.33708673]
+ [0.3660414 ]
+ [0.82684589]
+ [0.26212993]]
+controllable: True
+torque grasp constraints: (one of these should be near 0)
+5.0114980416465045
+
+0.02446564943970131
+
+0.03127481595933457
+
+2.383375212452425
+
+Null Space Condition: 3.1543360347407163
+Quad1 Volume: 11831.354615706598
+bestGrip: 66.57350071852119
+
+Matrix index: 1
+Optimal Structure:
+[[ 0.403  0.4    0.108 -0.421]
+ [ 0.     0.346 -0.402  0.12 ]
+ [ 0.     0.    -0.402  0.296]]
+Null Space:
+[[0.24871889]
+ [0.36677312]
+ [0.53101053]
+ [0.72224941]]
+controllable: True
+torque grasp constraints: (one of these should be near 0)
+-0.00014373120216149005
+
+-0.0009571068285074702
+
+-0.0008422552098608094
+
+3.869932329632249
+
+Null Space Condition: 2.903878387181912
+Quad1 Volume: 4710.087906643864
+bestGrip: 49.87299530251682
+
+Matrix index: 2
+Optimal Structure:
+[[ 0.431  0.089  0.103 -0.435]
+ [ 0.    -0.43   0.433  0.102]
+ [ 0.     0.     0.205 -0.088]]
+Null Space:
+[[0.51493091]
+ [0.45006375]
+ [0.28829718]
+ [0.67020408]]
+controllable: True
+torque grasp constraints: (one of these should be near 0)
+0.0022822534355526614
+
+-0.013985257681008001
+
+1.049951473873771
+
+0.8063988723255635
+
+Null Space Condition: 2.324698704494939
+Quad1 Volume: 4525.258229426113
+bestGrip: 35.89789936184953
+
+Matrix index: 3
+Optimal Structure:
+[[ 0.4    0.4   -0.324 -0.307]
+ [ 0.     0.4    0.144 -0.327]
+ [ 0.     0.     0.36  -0.255]]
+Null Space:
+[[0.50101327]
+ [0.35999734]
+ [0.45520029]
+ [0.6420127 ]]
+controllable: True
+torque grasp constraints: (one of these should be near 0)
+0.9356758353366388
+
+3.8274594420365373
+
+2.237515958469004
+
+7.184515652985379
+
+Null Space Condition: 1.783381805749465
+Quad1 Volume: 7574.009791411774
+bestGrip: 44.708935828478154
+
+Matrix index: 4
+Optimal Structure:
+[[-0.333 -0.195  0.397  0.398]
+ [ 0.    -0.374  0.397  0.396]
+ [ 0.     0.    -0.181  0.29 ]]
+Null Space:
+[[0.40647939]
+ [0.75370167]
+ [0.43848617]
+ [0.27283362]]
+controllable: True
+torque grasp constraints: (one of these should be near 0)
+0.45433717898638193
+
+3.4026867023556946
+
+4.108357516848201
+
+5.272578366150436
+
+Null Space Condition: 2.7624955608221726
+Quad1 Volume: 8711.376886908081
+bestGrip: 56.42791391755123
+
+Matrix index: 5
+Optimal Structure:
+[[ 0.601 -0.618  0.167  0.553]
+ [ 0.    -0.178  0.512 -0.639]
+ [ 0.     0.     0.318 -0.584]]
+Null Space:
+[[-0.11161027]
+ [-0.62373391]
+ [-0.67911296]
+ [-0.37054654]]
+controllable: False
+torque grasp constraints: (one of these should be near 0)
+0.050998299003487624
+
+0.9539511933695906
+
+0.048759611457754204
+
+2.283689082912522
+
+Null Space Condition: 1000000000
+Quad1 Volume: 4425.260204254227
+bestGrip: 72.13555154711341
+
+Matrix index: 6
+Optimal Structure:
+[[ 0.4   -0.4    0.4    0.4  ]
+ [ 0.    -0.231  0.4    0.4  ]
+ [ 0.     0.    -0.4    0.158]]
+Null Space:
+[[0.35890456]
+ [0.85247397]
+ [0.13949005]
+ [0.35357909]]
+controllable: True
+torque grasp constraints: (one of these should be near 0)
+0.3600417857061933
+
+0.2717820950503036
+
+1.0161093462705297
+
+0.003367018562487112
+
+Null Space Condition: 6.111360339052026
+Quad1 Volume: 4147.476726825432
+bestGrip: 73.11450828502022
+
+Matrix index: 7
+Optimal Structure:
+[[ 0.399 -0.125 -0.397  0.399]
+ [ 0.     0.4   -0.388  0.399]
+ [ 0.     0.    -0.128  0.398]]
+Null Space:
+[[-0.57960903]
+ [-0.42870039]
+ [-0.65992275]
+ [-0.2115923 ]]
+controllable: False
+torque grasp constraints: (one of these should be near 0)
+0.0039409039737243745
+
+0.11330586572131196
+
+2.9508865430724747
+
+5.410129972312487
+
+Null Space Condition: 1000000000
+Quad1 Volume: 12983.24692943302
+bestGrip: 55.89051228353947
+
+Matrix index: 8
+Optimal Structure:
+[[-0.344  0.399  0.399 -0.169]
+ [ 0.     0.4    0.399 -0.367]
+ [ 0.     0.     0.399 -0.167]]
+Null Space:
+[[0.43318547]
+ [0.3772493 ]
+ [0.31602942]
+ [0.75508855]]
+controllable: True
+torque grasp constraints: (one of these should be near 0)
+1.0235929701014221
+
+1.5313617063861695
+
+0.8357176237888133
+
+6.146115745464222
+
+Null Space Condition: 2.3892982381814
+Quad1 Volume: 10045.332568740962
+bestGrip: 59.906486701916116
+
+Matrix index: 9
+Optimal Structure:
+[[ 0.4   -0.358 -0.384  0.4  ]
+ [ 0.    -0.357  0.319  0.4  ]
+ [ 0.     0.    -0.293  0.4  ]]
+Null Space:
+[[0.63986663]
+ [0.62289027]
+ [0.36293099]
+ [0.26619447]]
+controllable: True
+torque grasp constraints: (one of these should be near 0)
+0.9631065384737081
+
+2.8529190647494502
+
+6.116735351973182
+
+7.729797609157372
+
+Null Space Condition: 2.403756315203718
+Quad1 Volume: 14024.35133985022
+bestGrip: 48.97264975920335
+
+Matrix index: 10
+Optimal Structure:
+[[-0.4    0.4    0.205  0.125]
+ [ 0.     0.4    0.398 -0.4  ]
+ [ 0.     0.     0.4   -0.125]]
+Null Space:
+[[0.67970019]
+ [0.40282483]
+ [0.18325555]
+ [0.58494206]]
+controllable: True
+torque grasp constraints: (one of these should be near 0)
+3.98000717467556
+
+0.0025054864227005424
+
+3.020843876856408
+
+8.19233784963263
+
+Null Space Condition: 3.7090291716462884
+Quad1 Volume: 13992.347575352327
+bestGrip: 53.87890752675752
+
+Matrix index: 11
+Optimal Structure:
+[[-0.4    0.273  0.399  0.399]
+ [ 0.    -0.398  0.399  0.398]
+ [ 0.     0.    -0.127  0.398]]
+Null Space:
+[[0.79623997]
+ [0.47397859]
+ [0.35804989]
+ [0.11465812]]
+controllable: True
+torque grasp constraints: (one of these should be near 0)
+10.198307107927205
+
+0.0003966891666244976
+
+0.9486865755081115
+
+5.539112325510838
+
+Null Space Condition: 6.944470749290602
+Quad1 Volume: 23193.16116885439
+bestGrip: 58.77871532735673
+

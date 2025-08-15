@@ -7,7 +7,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.optimize import linprog
 from scipy.linalg import null_space
 
-from utils import intersects_positive_orthant, special_minkowski, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant
+from utils import intersects_positive_orthant, special_minkowski, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant, intersection_with_orthant
 from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_annealing, differential_evolution
 
 
@@ -244,7 +244,7 @@ class StrucMatrix():
                 ax.set_ylabel('τ₂')
                 ax.set_zlabel('τ₃')
                 # ax.set_title('Torque Components τ₁, τ₂, τ₃')
-                ax.set_title(f'Torque Polytope for {self.name}')
+                ax.set_title(f'{self.name} Capability Polytope')
                 # ax.view_init(elev=30, azim=45)
                 ax.grid(True)
                 plt.tight_layout()
@@ -628,11 +628,19 @@ class StrucMatrix():
     def optimizer6(self, bounds):
         method='trust-constr'
 
+        def quad1Vol(rvec):
+            R = r_from_vector(rvec, self.D)
+            self.reinit(R=R, D=self.D)
+            return intersection_with_orthant(self.torqueDomainVolume()[0], 1).volume
+
         def maxGrip(rvec):
             R = r_from_vector(rvec, self.D)
             self.reinit(R=R, D=self.D)
             # print(self.S)
             return -self.maxGrip()
+
+        def radiusCondition(rvec):
+            return np.max(abs(rvec))/np.min(abs(rvec))
 
         def condition(rvec):
             R = r_from_vector(rvec, self.D)
@@ -824,9 +832,9 @@ naiiveAmbrose = StrucMatrix(R,D,name='Ambrose')
 
 # Hollow Design
 r = 1
-R = np.array([[r,r,r,r/3],
-              [r,r,r,r/3],
-              [r,r,r,r/3]])
+R = np.array([[r,r,r,r],
+              [r,r,r,r],
+              [r,r,r,r]])
 D = np.array([[0,1,1,-1],
               [1,0,1,-1],
               [1,1,0,-1]])
@@ -876,11 +884,11 @@ R = np.ones([3,4])
 D = np.array([[-1,1,-1,1],
               [0,-1,1,1],
               [0, 0,-1,1]])
-canonA = StrucMatrix(R,D,name='Canon')
+canonA = StrucMatrix(R,D,name='Canon A')
 
 # canon B
 R = np.ones([3,4])
-D = -np.array([[1,-1,-1,-1],
+D = -np.array([[1,-1,-1,1],
               [0, 1,-1,-1],
               [0, 0, 1,-1]])
-canonB = StrucMatrix(R,D,name='Canon')
+canonB = StrucMatrix(R,D,name='Canon B')

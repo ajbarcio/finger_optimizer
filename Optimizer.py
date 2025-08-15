@@ -10,7 +10,7 @@ from scipy.optimize import minimize, NonlinearConstraint
 
 from combinatorics import generate_canonical_well_posed_qutsm, generate_centered_qutsm, generate_rankValid_well_posed_qutsm, generate_valid_dimensional_qutsm
 from strucMatrices import NonlinearConstraintContainer, Constraint, StrucMatrix, r_from_vector, centeredType1, centeredType2, centeredType3, naiiveAmbrose, quasiHollow, diagonal, test, balancedType1, individualType1, resultant, resultant2, canonA, canonB
-from utils import nullity, hsv_to_rgb
+from utils import nullity, hsv_to_rgb, intersection_with_orthant
 from grasps import generateAllVertices, generateNecessaryVertices
 
 def finger3Space():
@@ -397,7 +397,6 @@ def dimensionalOptimizer2():
         i+=1
     plt.show()
 
-
 def dimensionalOptimizer3():
     warnings.filterwarnings("ignore", category=RuntimeWarning)
     print("Dimensional Optimizer", end='\n')
@@ -407,7 +406,7 @@ def dimensionalOptimizer3():
 
     canonical = generate_rankValid_well_posed_qutsm()
     startingPoints = generate_valid_dimensional_qutsm(canonical, bounds)
-    # startingPoints = [startingPoints[k] for k in [5]]
+    # startingPoints = [startingPoints[k] for k in [0]]
     i = 0
 
     necessaryGrasps, _ = generateNecessaryVertices(np.array([1.375,1.4375,1.23]))
@@ -424,7 +423,7 @@ def dimensionalOptimizer3():
         # necessaryGrasps = np.array([[2.5,0,0],[-2.5,0,0],[0,2.5,0],[0,-2.5,0],[0,0,2.5],[0,0,-2.5],[0,0,0]])
         graspConstraints=[]
         print(f"this should be empty {S.constraints}")
-        print(necessaryGrasps)
+        # print(necessaryGrasps)
         for grasp in necessaryGrasps:
             # print(grasp)
             # if all([np.isclose(grasp[m],ref[m],atol=1e-2) for m in range(len(grasp))]):
@@ -444,28 +443,31 @@ def dimensionalOptimizer3():
         print(S.optSuccess)
         bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, F=np.array([50,50,50,50]), name=f'Best of {S.name}')
 
-        with open(f'MAXGRIP_dimensional_upper_triangular_6.12Lbf_0.125_0.4.S', 'a') as f:
+        with open(f'MAXGRIP_dimensional_upper_triangular_6.12Lbf_0.125_0.4.S2', 'a') as f:
             print(f'Matrix index: {i}', file=f)
-            print(f'Optimizer success: {S.optSuccess}')
-            print("Null Space Condition:", bestCondition, file=f)
-            print('Null Space:', file=f)
-            print(bestS.biasForceSpace, file=f)
             print('Optimal Structure:', file=f)
             print(np.array2string(bestS(), precision=3, suppress_small=True), file=f)
-            print('bestGrip:', bestS.maxGrip(), file=f)
-            print('Single-axis joint capabilities', file=f)
-            print(bestS.independentJointCapabilities(), file=f)
+            print('Null Space:', file=f)
+            print(bestS.biasForceSpace, file=f)
+            print(f'Optimizer success: {S.optSuccess}')
             #Ensure that the matrix is valid (this should never be false)
             print("controllable:", bestS.validity, file=f)
             print("torque grasp constraints: (one of these should be near 0)", file=f)
             for constraint in graspConstraints:
                 print(constraint(bestR), file=f)
+                print("", file=f)
+            print("Null Space Condition:", bestS.biasCondition(), file=f)
+            print("Quad1 Volume:", intersection_with_orthant(bestS.torqueDomainVolume()[0], 1).volume, file=f)
+            print('bestGrip:', bestS.maxGrip(), file=f)
+            # print('Single-axis joint capabilities', file=f)
+            # print(bestS.independentJointCapabilities(), file=f)
+            print("", file=f)
         bestS.plotCapability(colorOverride='xkcd:blue')
         for grasp in allGrasps:
             bestS.plotGrasp(grasp)
         for grasp in necessaryGrasps:
             bestS.plotGrasp(grasp)
-        plt.savefig(f'{bestS.name}_6.12Lbf_0.125_0.4_NoSlack_MAXGRIP.png')
+        plt.savefig(f'{bestS.name}_6.12Lbf_0.125_0.4_NoSlack_MAXGRIP_2.png')
         if np.max(bestS.R)>np.max(bounds):
             plt.figtext(0.5,-.1, f"only acheivable with {np.max(bestS.R)}")
         i+=1

@@ -101,6 +101,7 @@ def intersection_with_orthant(hull: ConvexHull, orthant):
   intersection_with_orthant.signs = [(-1)**int(bit) for bit in format(orthant, f'03b')]
   orthVectors = np.vstack([np.diag(intersection_with_orthant.signs), [0,0,0]])*1000 # make it arbitrarily large to fit any torque capability
   Orthant = ConvexHull(orthVectors)
+  # print(Orthant.equations)
   halfspace = (np.vstack([Orthant.equations, hull.equations]))
   try:
     for point in hull.points:

@@ -63,22 +63,22 @@ def generate_centered_qutsm(S_):
         i+=1
         print(f"trying to even out {i}", end="\r")
         Struc = StrucMatrix(S=S)
-        if not Struc.validity:
-            D = Struc.D
-            mask = D != 0
-            positions = np.argwhere(mask)
-            nRadii = positions.shape[0]
-            radii = np.ones(nRadii)*0.5
-            result = least_squares(evenness, radii, bounds=(0,1), args=[D], callback=valid_debug_callback)
-            evenRadii = result.x/np.max(result.x)
-            if np.isclose(result.cost,0) or not (any([np.isclose(r,0,atol=1e-4) for r in evenRadii])):
-                R = r_from_vector(evenRadii, D)
-                evenStructures.append(StrucMatrix(R=R, D=D).S)
-            else:
-                # print(f"\n No solution found for {i}", end='\n')
-                pass
+        # if not Struc.validity:
+        D = Struc.D
+        mask = D != 0
+        positions = np.argwhere(mask)
+        nRadii = positions.shape[0]
+        radii = np.ones(nRadii)*0.5
+        result = least_squares(evenness, radii, bounds=(0,1), args=[D], callback=valid_debug_callback)
+        evenRadii = result.x/np.max(result.x)
+        if np.isclose(result.cost,0) or not (any([np.isclose(r,0,atol=1e-4) for r in evenRadii])):
+            R = r_from_vector(evenRadii, D)
+            evenStructures.append(StrucMatrix(R=R, D=D).S)
         else:
-            evenStructures.append(Struc.S)
+            # print(f"\n No solution found for {i}", end='\n')
+            pass
+        # else:
+        #     evenStructures.append(Struc.S)
     print("                                   ", end="\r")
     # successes = len(evenStructures)
     # print(f"there were {successes} successes")
@@ -434,6 +434,7 @@ if __name__ == "__main__":
         print(f"valid matrix {i}")
         print(np.array2string(valid, precision=3, suppress_small=True), end="\n")
         print(np.max(abs(S.flatten_r_matrix()))/np.min(abs(S.flatten_r_matrix())))
+        print(S.biasCondition())
     print(f"there are {len(allDimensionalValids)} valid qutsm within dimensional bounds")
     print(f"there are {len(allCenterableValids)} centerable qutsm")
     print(f"there are {len(allCenteredValids)} centered qutsm")
@@ -442,6 +443,7 @@ if __name__ == "__main__":
         print(f"centered matrix {i}")
         print(np.array2string(valid, precision=3, suppress_small=True), end="\n")
         print(np.max(abs(S.flatten_r_matrix()))/np.min(abs(S.flatten_r_matrix())))
+        print(S.biasCondition())
         # print(null_space(valid))
     # i=0
     # for S in allUniqueValids:
