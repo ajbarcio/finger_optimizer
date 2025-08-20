@@ -321,7 +321,7 @@ for S_base in trials:
     # print(S)
     # print(np.linalg.norm(S))
     # T = np.array([0.5,0,0])
-    S = StrucMatrix(S=S)
+    S = obj(S=S)
     # print(S.biasCondition())
     T_index = np.argmax([np.linalg.norm(boundaryGrasp) for boundaryGrasp in S.boundaryGrasps])
     T = [0.25,0,0]

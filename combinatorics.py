@@ -20,7 +20,7 @@ def generate_valid_dimensional_qutsm(S_, bounds):
     for S in S_:
         i+=1
         print(f"trying to even out {i}", end="\r")
-        Struc = StrucMatrix(S=S)
+        Struc = obj(S=S)
         if not Struc.validity:
             D = Struc.D
             mask = D != 0
@@ -32,7 +32,7 @@ def generate_valid_dimensional_qutsm(S_, bounds):
             if not (any([np.isclose(r,0,atol=1e-4) for r in evenRadii])) and \
                not (any([np.min(bounds) < x > np.max(bounds) for x in evenRadii])):
                 R = r_from_vector(evenRadii, D)
-                SValid = StrucMatrix(R, D)
+                SValid = obj(R, D)
                 if SValid.validity:
                     validStructures.append(SValid.S)
             else:
@@ -62,7 +62,7 @@ def generate_centered_qutsm(S_):
     for S in S_:
         i+=1
         print(f"trying to even out {i}", end="\r")
-        Struc = StrucMatrix(S=S)
+        Struc = obj(S=S)
         # if not Struc.validity:
         D = Struc.D
         mask = D != 0
@@ -73,7 +73,7 @@ def generate_centered_qutsm(S_):
         evenRadii = result.x/np.max(result.x)
         if np.isclose(result.cost,0) or not (any([np.isclose(r,0,atol=1e-4) for r in evenRadii])):
             R = r_from_vector(evenRadii, D)
-            evenStructures.append(StrucMatrix(R=R, D=D).S)
+            evenStructures.append(obj(R=R, D=D).S)
         else:
             # print(f"\n No solution found for {i}", end='\n')
             pass
@@ -101,7 +101,7 @@ def find_centerable_qutsm(S_):
     for S in S_:
         i+=1
         print(f"trying to even out {i}", end="\r")
-        Struc = StrucMatrix(S=S)
+        Struc = obj(S=S)
         if not Struc.validity:
             D = Struc.D
             mask = D != 0
@@ -112,9 +112,9 @@ def find_centerable_qutsm(S_):
             evenRadii = result.x/np.max(result.x)
             if result.success:
                 R = r_from_vector(evenRadii, D)
-                Snew = StrucMatrix(R=R, D=D)
+                Snew = obj(R=R, D=D)
                 # if Snew.validity:
-                centerableStructures.append(StrucMatrix(R=R, D=D).S)
+                centerableStructures.append(obj(R=R, D=D).S)
         else:
             centerableStructures.append(Struc)
     print("                                   ", end="\r")
@@ -135,7 +135,7 @@ def generate_uniformly_valid_qutsm():
     total = len(signs) ** len(positions)
 
     for i, mat  in enumerate(generate_matrices_from_pattern(D, signs)):
-        S = StrucMatrix(S=mat)
+        S = obj(S=mat)
         if S.rankCondition:
             print(f'trying {i:6d} of {total}', end='\r')
             # # print(S())
@@ -169,7 +169,7 @@ def generate_canonical_well_posed_qutsm():
     total = len(signs) ** len(positions)
 
     for i, mat  in enumerate(generate_matrices_from_pattern(D, signs)):
-        S = StrucMatrix(S=mat)
+        S = obj(S=mat)
         if S.rankCondition:
             print(f'trying {i:6d} of {total}', end='\r')
             # # print(S())
@@ -196,8 +196,8 @@ def generate_canonical_well_posed_qutsm():
         R2 = np.diag([1,2,3])
         newR1 = R1 @ m
         newR2 = R2 @ m
-        S1 = StrucMatrix(S=newR1)
-        S2 = StrucMatrix(S=newR2)
+        S1 = obj(S=newR1)
+        S2 = obj(S=newR2)
         if S1.validity or S2.validity:
             jointUniformValids.append(S1.D)
 
@@ -205,7 +205,7 @@ def generate_canonical_well_posed_qutsm():
     for i, m in enumerate(unique):
         result = np.eye(3) @ m
         result[result < 0] = -0.5
-        S = StrucMatrix(S=result)
+        S = obj(S=result)
         if S.validity:
             extensionUniformValids.append(S.D)
 
@@ -219,8 +219,8 @@ def generate_canonical_well_posed_qutsm():
         result2 = np.array(newR2)
         result1[result1 < 0] = -4
         result2[result2 < 0] = -4
-        S1 = StrucMatrix(S=result1)
-        S2 = StrucMatrix(S=result2)
+        S1 = obj(S=result1)
+        S2 = obj(S=result2)
         if S1.validity or S2.validity:
             jointAndExtensionUniformValids.append(S1.D)
 
@@ -234,7 +234,7 @@ def generate_canonical_well_posed_qutsm():
         graspConditionAcheived = False
         # print(i)
         for variant in allVariants:
-            S = StrucMatrix(S=variant)
+            S = obj(S=variant)
             graspCondition = False
             for grasp in S.boundaryGrasps:
                 strength = np.linalg.norm(grasp)
@@ -286,7 +286,7 @@ def generate_rankValid_qutsm():
     total = len(signs) ** len(positions)
 
     for i, mat  in enumerate(generate_matrices_from_pattern(D, signs)):
-        S = StrucMatrix(S=mat)
+        S = obj(S=mat)
         if S.rankCondition:
             print(f'trying {i:6d} of {total}', end='\r')
             # # print(S())
@@ -318,7 +318,7 @@ def generate_rankValid_well_posed_qutsm():
     total = len(signs) ** len(positions)
 
     for i, mat  in enumerate(generate_matrices_from_pattern(D, signs)):
-        S = StrucMatrix(S=mat)
+        S = obj(S=mat)
         if S.rankCondition:
             print(f'trying {i:6d} of {total}', end='\r')
             # # print(S())
@@ -349,7 +349,7 @@ def generate_rankValid_well_posed_qutsm():
         graspConditionAcheived = False
         # print(i)
         for variant in allVariants:
-            S = StrucMatrix(S=variant)
+            S = obj(S=variant)
             graspCondition = False
             for grasp in S.boundaryGrasps:
                 strength = np.linalg.norm(grasp)
@@ -403,7 +403,7 @@ def generate_all_unique_qutsm():
     allQUTSM = []
 
     for i, mat  in enumerate(generate_matrices_from_pattern(D, signs)):
-        S = StrucMatrix(S=mat)
+        S = obj(S=mat)
         allQUTSM.append(S.S)
         print(f'trying {i:3d} of {total}', end='\r')
     print("                                 ", end='\r')
@@ -430,7 +430,7 @@ if __name__ == "__main__":
 
     for i, valid in enumerate(allDimensionalValids):
         # valid = valid/np.max(valid)
-        S = StrucMatrix(S=valid)
+        S = obj(S=valid)
         print(f"valid matrix {i}")
         print(np.array2string(valid, precision=3, suppress_small=True), end="\n")
         print(np.max(abs(S.flatten_r_matrix()))/np.min(abs(S.flatten_r_matrix())))
@@ -439,7 +439,7 @@ if __name__ == "__main__":
     print(f"there are {len(allCenterableValids)} centerable qutsm")
     print(f"there are {len(allCenteredValids)} centered qutsm")
     for i, valid in enumerate(allCenteredValids):
-        S = StrucMatrix(S=valid)
+        S = obj(S=valid)
         print(f"centered matrix {i}")
         print(np.array2string(valid, precision=3, suppress_small=True), end="\n")
         print(np.max(abs(S.flatten_r_matrix()))/np.min(abs(S.flatten_r_matrix())))

@@ -9,7 +9,9 @@ from scipy.linalg import null_space
 
 from utils import intersects_positive_orthant, special_minkowski, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant, intersection_with_orthant
 from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_annealing, differential_evolution
+from types import SimpleNamespace
 
+cmap = plt.cm.cool
 
 def r_from_vector(r_vec, D):
     R = D*D
@@ -134,11 +136,6 @@ class StrucMatrix():
             if not suppress:
                 warnings.warn("WARNING: structure matrix failed null space condition (rank condition passed)")
             return False
-        # print('going to check validity')
-        # for constraint in self.constraints:
-        #     if not constraint(self):
-        #         return False
-            # print('checked constraint', constraint)
 
         return True
         # return (np.linalg.matrix_rank(S)>=numJoints) and (all([x>0 for x in sp.linalg.null_space(S)]))
@@ -201,19 +198,22 @@ class StrucMatrix():
         self.reinit(R=R, D=self.D)
         return -np.max(self.domain.equations @ np.append(point, 1))
 
-    def plotCapability(self, showBool=False, colorOverride=None):
+    def plotCapability(self, showBool=False, colorOverride=None, transOverride=None, obj=None):
 
-        if colorOverride == None:
-            color = colors[StrucMatrix.plot_count % len(colors)]
-        else:
-            color = colorOverride
+        if obj is None:
+            obj = type(self)
+
+        color = colorOverride if colorOverride is not None else colors[obj.plot_count % len(colors)]
+
+        # Pick transparency
+        alpha = transOverride if transOverride is not None else 0.4
         # Handle figure reuse by name
-        if self.name in StrucMatrix.figures:
-            fig, ax = StrucMatrix.figures[self.name]
+        if self.name in obj.figures:
+            fig, ax = obj.figures[self.name]
         else:
             fig = plt.figure(f"Structure Matrix: {self.name}")
             ax = fig.add_subplot(111, projection="3d")
-            StrucMatrix.figures[self.name] = (fig, ax)
+            obj.figures[self.name] = (fig, ax)
 
         self.fig = fig
         self.ax = ax
@@ -221,18 +221,18 @@ class StrucMatrix():
         numJoints = self.S.shape[0]
         if numJoints == 3:
             singleForceVectors = list(np.transpose(self.S))
-            self.ax.scatter(*[0,0,0], color="black")
-            self.ax.scatter(*self.boundaryGrasps.T, color=color, alpha=0.78)
-            for grasp in singleForceVectors:
-                self.ax.quiver(0,0,0,grasp[0],grasp[1],grasp[2],color="black")
+            # self.ax.scatter(*[0,0,0], color="black")
+            self.ax.scatter(*self.boundaryGrasps.T, color=color, alpha=alpha)
+            # for grasp in singleForceVectors:
+            #     self.ax.quiver(0,0,0,grasp[0],grasp[1],grasp[2],color="black")
                 # print(grasp)
             for simplex in self.domain.simplices:
                 triangle = self.boundaryGrasps[simplex]
-                self.ax.add_collection3d(Poly3DCollection([triangle], color=color, alpha=0.4))
+                self.ax.add_collection3d(Poly3DCollection([triangle], color=color, alpha=alpha))
             # if StrucMatrix.plot_count == 1: plt.tight_layout()
             # Axis limits
             # Draw "axes" through origin
-            if figID not in StrucMatrix.figures_with_axes:
+            if figID not in obj.figures_with_axes:
                 plt.tight_layout()
                 xlim = self.ax.get_xlim()
                 ylim = self.ax.get_ylim()
@@ -249,12 +249,12 @@ class StrucMatrix():
                 ax.grid(True)
                 plt.tight_layout()
 
-                StrucMatrix.figures_with_axes.add(figID)
+                obj.figures_with_axes.add(figID)
             if showBool:
                 plt.show()
         else:
             warnings.warn("Cannot plot anything other than 3d grasps at this time")
-        StrucMatrix.plot_count += 1
+        obj.plot_count += 1
 
     def plotGrasp(self, grasp, showBool=False):
         if self.contains(grasp):
@@ -752,6 +752,10 @@ class InsufficientRanges(Exception):
 
 class VariableStrucMatrix():
 
+    plot_count = 0
+    figures = {}  # Dict to track figures by name
+    figures_with_axes = set()
+
     class linear_effort_change_joint():
         def __init__(self, min, max, idx) -> None:
             self.min = min
@@ -760,18 +764,36 @@ class VariableStrucMatrix():
         def __call__(self, theta, *args, **kwds):
             return (self.max-self.min)/(np.pi/2)*theta
 
-    def __init__(self, R, D, ranges=[], types=[], constraints=[], name='Placeholder'):
+    def __init__(self, R, D, F=None, ranges=None, types=None, constraints=None, name='Placeholder'):
+
+        # Avoid mutable defaults
+        if ranges is None:
+            ranges = []
+        if types is None:
+            types = []
+        if constraints is None:
+            constraints = []
+
         # Direction array
         self.D = D
         # Radius array
         self.R = R
+
+        self.numJoints  = self.D.shape[0]
+        self.numTendons = self.D.shape[1]
+
+        self.numFixed    = self.numJoints*self.numTendons - np.sum(np.isnan(R))
+        self.numVariable = np.sum(np.isnan(R))
+
         # default for ranges
         if len(ranges)==0:
             # average radius value, one each per variable tendon
             ranges=[np.average(R)]*np.sum(np.isnan(R))
+            self.numVDoF = len(ranges)
         # Allow a single range to be passed to all variable tendons
         elif len(ranges)==1:
             ranges = ranges*np.xum(np.isnan(R))
+            self.numVDoF = 1 # assume this means only one range
         # At this point, if a ranges has been passed of insufficient length, bitch about it
         if not np.sum(np.isnan(R)) == len(ranges):
             raise InsufficientRanges()
@@ -788,27 +810,181 @@ class VariableStrucMatrix():
             setattr(self, f'j{idx[0]}t{idx[1]}r', types[i](0,1,idx))
             self.effortFunctions.append(getattr(self, f'j{idx[0]}t{idx[1]}r'))
 
-        self.extS = self.S([0,0,0])
+        # Force-based scaling vector
+        if F is None:
+            self.F = np.ones(self.D.shape[1])
+        else:
+            self.F = F
+
+        self.constraints = constraints
+        self.name = name
+
+        self.controllability = self.Controllability(self)
+
+        self.extS = self.S([0]*self.numJoints)
 
     def __call__(self, THETA, *args, **kwds):
-        self.S(THETA)
+        # return the structure matrix at a certain pose
+        return self.S(THETA)
 
     def S(self, THETA):
+        R = self.R.copy()
+        # For each variable range tendon
         for function in (self.effortFunctions):
-            self.R[function.idx] = function(THETA[function.idx[0]])
+            # Update the corresponding effort radius
+            R[function.idx] = function(THETA[function.idx[0]])
+        # Make sure you did all of them (this really only works the first time)
         if np.sum(np.isnan(R)):
             raise InsufficientRanges()
-        S = D*R
+        # Create and return structure matrix
+        S = self.D*R
         return S
 
-    def torquDomainVolume(self, THETA):
-        pass
+    def torqueDomainVolume(self, THETA):
+        S = self.S(THETA)
+        singleForceVectors = list(np.transpose(S @ np.diag(self.F)))
+        domain, boundaryGrasps = special_minkowski(singleForceVectors)
+        return domain, boundaryGrasps
+
+    def plotCapability(self, THETA, showBool=False, colorOverride=None):
+        Smat = self.S(THETA)
+        S = StrucMatrix(S=Smat, F=self.F, name=self.name)
+        S.plotCapability(showBool = showBool, colorOverride=colorOverride, obj=type(self))
+
+    def plotCapabilityAcrossAllGrasps(self, resl=10, showBool=False):
+        # np.linspace
+        axes = [np.linspace(0*i,np.pi/2,resl) for i in range(self.numJoints)]
+        grid = np.meshgrid(*axes, indexing='ij')
+        THETAS = np.stack([g.ravel() for g in grid], axis=-1)
+        valids = 0
+        for THETA in THETAS:
+            Smat = self.S(THETA)
+            S = StrucMatrix(S=Smat, F=self.F, name=self.name)
+            if S.validity:
+                valids += 1
+                color=[0,1,0]
+                a = 1
+            else:
+                color=[1,0,0]
+                a = 0.01
+            # [THETA[0]/(np.pi/2),THETA[1]/(np.pi/2),THETA[2]/(np.pi/2)]
+            S.plotCapability(showBool = False, colorOverride=color, obj=type(self), transOverride=a)
+            print(f"attempting to plot {self.name} for {', '.join(f'{x:.3f}' for x in THETA)}", end = "\r")
+        print("")
+        print(f"{valids/(resl**self.numJoints):.3%} controllable")
+        if showBool:
+            plt.show()
+        return valids/(resl**self.numJoints)
+
+    def plotCapabilityAcrossPowerGrasps(self, resl=100, showBool=False):
+        # np.linspace
+        valids = 0
+        for theta in np.linspace(0,np.pi/2,resl):
+            Smat = self.S([theta]*self.numJoints)
+            S = StrucMatrix(S=Smat, F=self.F, name=self.name)
+            S.plotCapability(showBool = False, colorOverride=cmap(theta/(np.pi/2)), obj=type(self))
+            print(f"attempting to plot {self.name} for {[', '.join(f'{x:.3f}' for x in [theta,theta,theta])]}", end = "\r")
+            if S.validity:
+                valids += 1
+        print("")
+        print(f"{valids/(resl):.3%} controllable")
+        if showBool:
+            plt.show()
+        return valids/(resl)
+
+    def contains(self, THETA, grip):
+        domain, _ = self.torqueDomainVolume(THETA)
+        check1 = in_hull(domain, grip)
+        check2 = in_hull2(domain, grip)
+        if check1==check2:
+            return check1
+        else:
+            warnings.warn(f'the two checking methods disagree, linprog says {check1}, geometry says {check2}')
+            return check1
+
+    def add_grasp(self, THETA, grip, type='ineq'):
+        constraint = NonlinearConstraintContainer(self.contains_by, type, THETA, grip)
+        self.constraints.append(constraint)
+
+    def contains_by(self, rvec, THETA, grip):
+        self.reinit(rvec)
+        domain, _ = self.torqueDomainVolume(THETA)
+        return -np.max(domain.equations @ np.append(grip, 1))
+
+    def flatten_r_matrix(self):
+        """
+        flatten the R matrix into fixed radii, then ranges (maintains row-first order of both fixed and variable effort radii)
+        """
+        r = self.R[np.isfinite(self.R) & (self.R != 0)].flatten().tolist()
+        for function in self.effortFunctions:
+            r.append(float(function.min))
+            r.append(float(function.max))
+        return np.array(r)
+
+    def reinit(self, rvec):
+        """
+        properly update the variable structure matrix object based on a design vection [r, [ranges]], where r is a row-first ordered list of fixed efforts, and [ranges] is a row-first ordered list of min, max, min, max for each range
+        """
+        fixed = rvec[:self.numFixed]
+        variable = rvec[self.numFixed:]
+        # update ranges
+        for i, function in enumerate(self.effortFunctions):
+            function.min = variable[2*i]
+            function.max = variable[2*i+1]
+        # update fixed radii
+        indices = np.argwhere(np.isfinite(self.R) & (self.R != 0)).T
+        for i in range(len(fixed)):
+            self.R[indices[0,i],indices[1,i]] = fixed[i]
+        self.extS = self.S([0]*self.numJoints)
+
+    # Used to track controllability features across different poses
+
+    class Controllability:
+        def __init__(self, parent):
+            self.parent = parent
+            self.rankCondition = None
+            self.nullSpaceCondition = None
+            self.biasForceSpace = None
+
+        def __call__(self, THETA, suppress=True):
+            S = self.parent.S(THETA)
+            self.rankCondition = np.linalg.matrix_rank(S)>=self.parent.numJoints
+            # print(self.rankCondition)
+            if not self.rankCondition:
+                if not suppress:
+                    warnings.warn(f"WARNING: structure matrix failed rank condition (null space condition not checked) \nrank            : {np.linalg.matrix_rank(S)} \nnumber of Joints: {self.parent.numJoints}")
+                return False
+            nullSpace = sp.linalg.null_space(S)
+            # Condition the nullSpace output well for future checking
+            nullSpace[np.isclose(nullSpace, 0)] = 0
+            self.biasForceSpace = nullSpace
+            # Check to make sure that there exists an all-positive vector in the null space
+            if np.shape(self.biasForceSpace)[-1]>1:
+                # print("intersecting positive orthant")
+                self.nullSpaceCondition = intersects_positive_orthant(nullSpace.T)
+                for row in self.biasForceSpace:
+                    # print(row)
+                    if all([x==0 for x in row]):
+                        self.nullSpaceCondition =  False
+            else:
+                # simpler and (more reliable?) condition for valid null space assuming n+1 (1-D null space)
+                self.nullSpaceCondition = all([i > 0 for i in self.biasForceSpace])
+            if not self.nullSpaceCondition:
+                if not suppress:
+                    warnings.warn("WARNING: structure matrix failed null space condition (rank condition passed)")
+                return False
+
+            return True
 
 class NonlinearConstraintContainer():
     def __init__(self, function, type, *args) -> None:
         self.function = function
         self.type = type
         self.args = args
+        if type=='ineq':
+            self.constraint = NonlinearConstraint(self, lb=0, ub=np.inf)
+        elif type=='eq':
+            self.constraint = NonlinearConstraint(self, lb=-.001, ub=.001)
     def __call__(self, rvec):
         return self.function(rvec, *self.args)
 

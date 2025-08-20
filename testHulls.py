@@ -10,7 +10,7 @@ D = np.array([[-1, -1, -1,  1],
               [ 0, -1,  1, -1],
               [ 0,  0,  1, -1]])
 R = np.ones_like(D)
-S = StrucMatrix(R=R, D=D, name='test')
+S = obj(R=R, D=D, name='test')
 for orthant in range(8):
     # print(orthant.equations)
     print(intersection_with_orthant(S.torqueDomainVolume()[0], orthant+1).volume)
