@@ -9,7 +9,7 @@ from numpy.linalg import matrix_rank as rank
 from scipy.optimize import minimize, NonlinearConstraint
 
 from combinatorics import generate_canonical_well_posed_qutsm, generate_centered_qutsm, generate_rankValid_well_posed_qutsm, generate_valid_dimensional_qutsm
-from strucMatrices import NonlinearConstraintContainer, Constraint, obj, r_from_vector, centeredType1, centeredType2, centeredType3, naiiveAmbrose, quasiHollow, diagonal, test, balancedType1, individualType1, resultant, resultant2, canonA, canonB
+from strucMatrices import GraspConstraintWrapper, Constraint, StrucMatrix, r_from_vector, centeredType1, centeredType2, centeredType3, naiiveAmbrose, quasiHollow, diagonal, test, balancedType1, individualType1, resultant, resultant2, canonA, canonB
 from utils import nullity, hsv_to_rgb, intersection_with_orthant
 from grasps import generateAllVertices, generateNecessaryVertices
 
@@ -36,7 +36,7 @@ def test3dofn1():
     # S = centeredType3
     # S = naiiveAmbrose
     # S = centeredType2
-    S = obj(S = np.array([[1,-0.5,1  ,-0.5],
+    S = StrucMatrix(S = np.array([[1,-0.5,1  ,-0.5],
                                   [0,-0.5,0.5,-0.5],
                                   [0,0   ,1  ,-0.5]]))
     print(S())
@@ -75,7 +75,7 @@ def testVariable():
                 R = np.array([[r1,r,r,r],
                               [r,r2,r,r],
                               [r,r,r3,r]])
-                S = obj(R, D)
+                S = StrucMatrix(R, D)
                 Sn = S()/np.max(S())
                 # color = hsv_to_rgb(r1/r,r2/r,r3/r)
                 color = [r1/r,r2/r,r3/r]
@@ -121,7 +121,7 @@ def optimize_filter(D, res0, constraints=[], useZero=False, suppress=False):
         try:
             vct = list(vct)
             R = r_from_vector(vct, D)
-            S = obj(R, D, constraints=constraints)
+            S = StrucMatrix(R, D, constraints=constraints)
             if S.validity:
                 valids.append(S)
                 strength = S.maxGrip()
@@ -173,7 +173,7 @@ def testOptimizer():
     print(bestGrip)
     # print(f"there are {len(valids)} valid structures")
     # print(f"there are {len(equivalents)} equivalent structures")
-    bestS = obj(R = r_from_vector(bestR, S.D), D = S.D, name='best')
+    bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, name='best')
     print(np.array2string(bestS(), precision=3, suppress_small=True))
 
     bestS.plotCapability(colorOverride='xkcd:blue')
@@ -195,7 +195,7 @@ def testOptimizer2():
     bestR, bestGrip = S.optimizer2()
     # report out:
     print("best grip in InLbs:", bestGrip)
-    bestS = obj(R = r_from_vector(bestR, S.D), D = S.D, name='best')
+    bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, name='best')
     print('Optimal Structure:')
     print(np.array2string(bestS(), precision=3, suppress_small=True))
 
@@ -218,16 +218,16 @@ def testOptimizer3():
     boundaryGrasps = np.array([[0.98,0.98,0.98]])
     graspConstraints = []
     for grasp in necessaryGrasps:
-        graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'ineq', grasp))
+        graspConstraints.append(GraspConstraintWrapper(S.contains_by, 'ineq', grasp))
         S.add_constraint(graspConstraints[-1])
     for grasp in boundaryGrasps:
-        graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'eq', grasp))
+        graspConstraints.append(GraspConstraintWrapper(S.contains_by, 'eq', grasp))
         S.add_constraint(graspConstraints[-1])
     # Run the optimizer
     bestR, bestCondition = S.optimizer3()
     # report out:
     print("Null Space Condition:", bestCondition)
-    bestS = obj(R = r_from_vector(bestR, S.D), D = S.D, name='best')
+    bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, name='best')
     print('Null Space:')
     print(bestS.biasForceSpace)
     print('Optimal Structure:')
@@ -250,14 +250,14 @@ def OptimizeAllCanonical():
     startingPoints = generate_canonical_well_posed_qutsm()
     i = 0
     for startingPoint in startingPoints:
-        S = obj(S=startingPoint, name=f'CanonForm{i}')
+        S = StrucMatrix(S=startingPoint, name=f'CanonForm{i}')
         necessaryGrasps = np.array([[0.5,0,0],[-0.25,0,0],[0,0.5,0],[0,-0.25,0],[0,0,0.5],[0,0,-0.25], [.98,.98,.98]])
         graspConstraints = []
         for grasp in necessaryGrasps:
-            graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'ineq', grasp))
+            graspConstraints.append(GraspConstraintWrapper(S.contains_by, 'ineq', grasp))
             S.add_constraint(graspConstraints[-1])
         bestR, bestCondition = S.optimizer3()
-        bestS = obj(R = r_from_vector(bestR, S.D), D = S.D, name=f'Best of {i}')
+        bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, name=f'Best of {i}')
         with open('allUpperTriangularOutput.S', 'a') as f:
             print("Null Space Condition:", bestCondition, file=f)
             print('Null Space:', file=f)
@@ -285,7 +285,7 @@ def dimensionalOptimizer():
     startingPoints = generate_canonical_well_posed_qutsm()
     i = 0
     for startingPoint in startingPoints:
-        S = obj(S=startingPoint, name=f'CanonForm{i}')
+        S = StrucMatrix(S=startingPoint, name=f'CanonForm{i}')
         S.R = S.R / 4
         S.F = np.array([50,50,50,50])
         S.reinit()
@@ -293,13 +293,13 @@ def dimensionalOptimizer():
         necessaryGrasps = np.array([[2.5,0,0],[-2.5,0,0],[0,2.5,0],[0,-2.5,0],[0,0,2.5],[0,0,-2.5],[0,0,0]])
         graspConstraints = []
         for grasp in necessaryGrasps:
-            graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'ineq', grasp))
+            graspConstraints.append(GraspConstraintWrapper(S.contains_by, 'ineq', grasp))
             S.add_constraint(graspConstraints[-1])
-        graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'eq', np.array([24.25,16.005,7.38])))
+        graspConstraints.append(GraspConstraintWrapper(S.contains_by, 'eq', np.array([24.25,16.005,7.38])))
         # Run the optimizer
         bestR, bestCondition = S.optimizer4()
         print(S.optSuccess)
-        bestS = obj(R = r_from_vector(bestR, S.D), D = S.D, name=f'Best of {i}')
+        bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, name=f'Best of {i}')
         bestS.F = np.array([50,50,50,50])
         bestS.reinit()
         with open('allUpperTriangularDimensional.S', 'a') as f:
@@ -343,7 +343,7 @@ def dimensionalOptimizer2():
     # print(necessaryGrasps)
     for startingPoint in startingPoints:
 
-        S = obj(S=startingPoint, F = np.array([50,50,50,50]), name=f"dimensional valid {i}", constraints=[])
+        S = StrucMatrix(S=startingPoint, F = np.array([50,50,50,50]), name=f"dimensional valid {i}", constraints=[])
         # S = StrucMatrix(R=r_from_vector(rnew, S.D), D=S.D, F=np.array([50,50,50,50]),
         #                       name=f"dimensional balanced canonical {i}")
         #[11.38,27.00,15.16]
@@ -354,10 +354,10 @@ def dimensionalOptimizer2():
         for grasp in necessaryGrasps:
             # print(grasp)
             if all([np.isclose(grasp[m],ref[m],atol=1e-2) for m in range(len(grasp))]):
-                graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'eq', grasp))
+                graspConstraints.append(GraspConstraintWrapper(S.contains_by, 'eq', grasp))
                 print('properly added equality constraint')
             else:
-                graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'ineq', grasp))
+                graspConstraints.append(GraspConstraintWrapper(S.contains_by, 'ineq', grasp))
             # S.add_constraint(graspConstraints[-1])
         for constraint in graspConstraints:
             S.add_constraint(constraint)
@@ -368,7 +368,7 @@ def dimensionalOptimizer2():
         bestR, bestCondition = S.optimizer5(bounds)
         print(f"optimizing {S.name}")
         print(S.optSuccess)
-        bestS = obj(R = r_from_vector(bestR, S.D), D = S.D, F=np.array([50,50,50,50]), name=f'Best of {S.name}')
+        bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, F=np.array([50,50,50,50]), name=f'Best of {S.name}')
 
         with open(f'dimensional_upper_triangular_6.12Lbf_0.125_0.4.S', 'a') as f:
             print(f'Matrix index: {i}', file=f)
@@ -416,7 +416,7 @@ def dimensionalOptimizer3():
     # print(necessaryGrasps)
     for startingPoint in startingPoints:
 
-        S = obj(S=startingPoint, F = np.array([50,50,50,50]), name=f"dimensional valid {i}", constraints=[])
+        S = StrucMatrix(S=startingPoint, F = np.array([50,50,50,50]), name=f"dimensional valid {i}", constraints=[])
         # S = StrucMatrix(R=r_from_vector(rnew, S.D), D=S.D, F=np.array([50,50,50,50]),
         #                       name=f"dimensional balanced canonical {i}")
         #[11.38,27.00,15.16]
@@ -430,7 +430,7 @@ def dimensionalOptimizer3():
             #     graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'eq', grasp))
             #     print('properly added equality constraint')
             # else:
-                graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'ineq', grasp))
+                graspConstraints.append(GraspConstraintWrapper(S.contains_by, 'ineq', grasp))
             # S.add_constraint(graspConstraints[-1])
         for constraint in graspConstraints:
             S.add_constraint(constraint)
@@ -441,7 +441,7 @@ def dimensionalOptimizer3():
         bestR, bestCondition = S.optimizer6(bounds)
         print(f"optimizing {S.name}")
         print(S.optSuccess)
-        bestS = obj(R = r_from_vector(bestR, S.D), D = S.D, F=np.array([50,50,50,50]), name=f'Best of {S.name}')
+        bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, F=np.array([50,50,50,50]), name=f'Best of {S.name}')
 
         with open(f'MAXGRIP_dimensional_upper_triangular_6.12Lbf_0.125_0.4.S2', 'a') as f:
             print(f'Matrix index: {i}', file=f)
@@ -484,7 +484,7 @@ def dimensionalOptimizerGlobal():
     i = 0
     for startingPoint in startingPoints:
 
-        S = obj(S=startingPoint, name=f"balanced canonical {i}")
+        S = StrucMatrix(S=startingPoint, name=f"balanced canonical {i}")
 
         necessaryGrasps, _ = generateNecessaryVertices(np.array([1.375,1.4375,1.23]))
         allGrasps = generateAllVertices(np.array([1.375,1.4375,1.23]))
@@ -492,15 +492,15 @@ def dimensionalOptimizerGlobal():
         ref = np.array([20.2125,13.3775,6.15])
         for grasp in necessaryGrasps:
             if all(np.isclose(grasp[m],ref[m]) for m in range(len(necessaryGrasps))):
-                graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'eq', grasp))
+                graspConstraints.append(GraspConstraintWrapper(S.contains_by, 'eq', grasp))
             else:
-                graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'ineq', grasp))
+                graspConstraints.append(GraspConstraintWrapper(S.contains_by, 'ineq', grasp))
             S.add_constraint(graspConstraints[-1])
         # graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'eq', np.array([24.25,16.005,7.38])))
         # Run the optimizer
         bestR, bestCondition = S.globalOptimizer()
         print(S.optSuccess)
-        bestS = obj(R = r_from_vector(bestR, S.D), D = S.D, F=np.array([50,50,50,50]), name=f'Best of {S.name}')
+        bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, F=np.array([50,50,50,50]), name=f'Best of {S.name}')
         with open('PhysicalUpperTriangularDimensionalGlobal.S', 'w') as f:
             print("")
         with open('PhysicalUpperTriangularDimensionalGlobal.S', 'a') as f:
@@ -544,19 +544,19 @@ def quasiDimensionalOptimizer():
     # print(allGrasps)
     i = 0
     for startingPoint in startingPoints:
-        S = obj(S=startingPoint, name=f"QUASIDIMENSIONAL balanced canonical {i}")
+        S = StrucMatrix(S=startingPoint, name=f"QUASIDIMENSIONAL balanced canonical {i}")
         #[11.38,27.00,15.16]
         # necessaryGrasps = np.array([[2.5,0,0],[-2.5,0,0],[0,2.5,0],[0,-2.5,0],[0,0,2.5],[0,0,-2.5],[0,0,0]])
 
         graspConstraints = []
         for grasp in necessaryGrasps:
-            graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'ineq', grasp))
+            graspConstraints.append(GraspConstraintWrapper(S.contains_by, 'ineq', grasp))
             S.add_constraint(graspConstraints[-1])
         # graspConstraints.append(NonlinearConstraintContainer(S.contains_by, 'eq', np.array([24.25,16.005,7.38])))
         # Run the optimizer
         bestR, bestCondition = S.optimizer4()
         print(S.optSuccess)
-        bestS = obj(R = r_from_vector(bestR, S.D), D = S.D, F=np.array([1,1,1,1]), name=f'Best of {S.name}')
+        bestS = StrucMatrix(R = r_from_vector(bestR, S.D), D = S.D, F=np.array([1,1,1,1]), name=f'Best of {S.name}')
 
         with open('PhysicalUpperTriangularNonDimensional.S', 'a') as f:
             print(f'Matrix index: {i}', file=f)

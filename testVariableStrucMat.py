@@ -6,40 +6,75 @@ from strucMatrices import VariableStrucMatrix
 D = np.array([[1,1,1,-1],
               [1,1,1,-1],
               [1,1,1,-1]])
+r = .1625
+R = np.array([[np.nan,r     ,r     ,r],
+              [r     ,np.nan,r     ,r],
+              [r     ,r     ,np.nan,r]])
 
-R = np.array([[np.nan,1     ,1     ,1],
-              [1     ,np.nan,1     ,1],
-              [1     ,1     ,np.nan,1]])
-skinnyLegend = VariableStrucMatrix(R, D, ranges=[(0,1)]*np.sum(np.isnan(R)), name='Skinny Legend')
+r_1 = .261281
+r_2 = .190271
+r_3 = .307475
+
+c_1 = .42378
+c_2 = .35277
+c_3 = .46997
+
+skinnyLegend = VariableStrucMatrix(R, D, ranges=[(c_1*np.sqrt(2)/2-r_1,c_1-r_1),
+                                                 (c_2*np.sqrt(2)/2-r_2,c_2-r_2),
+                                                 (c_3*np.sqrt(2)/2-r_3,c_3-r_3),],
+                                         types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
+                                         name='Skinny Legend')
 
 D = np.array([[1,1,1,-1],
               [0,1,1,-1],
               [0,0,1,-1]])
 
-R = np.array([[np.nan,np.nan,np.nan,1],
-              [0     ,np.nan,np.nan,1],
-              [0     ,0     ,np.nan,1]])
-theAmbrose = VariableStrucMatrix(R, D, ranges=[(.1,1)]*np.sum(np.isnan(R)), name='The Ambrose')
+R = np.array([[.203125,.203125,.203125,.171875],
+              [0      ,np.nan ,np.nan ,.125   ],
+              [0      ,0      ,np.nan ,.101103]])
+c1 = .9541575
+c2 = .9505297
+r = .5625
+dimensionalAmbrose = VariableStrucMatrix(R, D, ranges=[(c1*np.sqrt(2)/2-r,c1-r)]*2+[(c2*np.sqrt(2)/2-r,c2-r)], types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)), name='The Ambrose')
 
-print(skinnyLegend)
-print(theAmbrose)
+for effortFunction in dimensionalAmbrose.effortFunctions:
+    print(effortFunction(0))
+    print(effortFunction.min)
+    print(effortFunction(np.pi/2))
+    print(effortFunction.max)
+    print("--")
 
-print(skinnyLegend.constraints)
-print(theAmbrose.constraints)
-# add a grasp at full extension:
-skinnyLegend.add_grasp([0,0,0], [1,0.5,0.25], type='ineq')
-theAmbrose.add_grasp([0,0,0], [1,0.5,0.25], type='ineq')
-# add a grasp at full flexionf:
-skinnyLegend.add_grasp([np.pi/2,np.pi/2,np.pi/2], [1,0.5,0.25], type='ineq')
-theAmbrose.add_grasp([np.pi/2,np.pi/2,np.pi/2], [1,0.5,0.25], type='ineq')
+print('---------------------------------------')
+for effortFunction in skinnyLegend.effortFunctions:
+    print(effortFunction(0))
+    print(effortFunction.min)
+    print(effortFunction(np.pi/2))
+    print(effortFunction.max)
+    print("--")
 
-rtestSL = skinnyLegend.flatten_r_matrix()
-# rtestTA = theAmbrose.flatten_r_matrix()
+# print(skinnyLegend)
+# print(dimensionalAmbrose)
 
-for constraintContainer in skinnyLegend.constraints:
-    result = constraintContainer.constraint.fun(rtestSL)
-    print("Constraint value at x_test:", result)
-    print("Lower bound:", constraintContainer.constraint.lb, "Upper bound:", constraintContainer.constraint.ub)
+# print(skinnyLegend.constraints)
+# print(dimensionalAmbrose.constraints)
+# # add a grasp at full extension:
+# skinnyLegend.add_grasp([0,0,0], [1,0.5,0.25], type='ineq')
+# # add a grasp at full flexion:
+# skinnyLegend.add_grasp([np.pi/2,np.pi/2,np.pi/2], [1,0.5,0.25], type='ineq')
+
+# rtestSL = skinnyLegend.flatten_r_matrix()
+# # rtestTA = theAmbrose.flatten_r_matrix()
+
+# for constraintContainer in skinnyLegend.constraints:
+#     result = constraintContainer.constraint.fun(rtestSL)
+#     print("Constraint value at x_test:", result)
+#     print("Lower bound:", constraintContainer.constraint.lb, "Upper bound:", constraintContainer.constraint.ub)
+
+# print(skinnyLegend.ffNorm(np.inf))
+# newr = skinnyLegend.flatten_r_matrix()/2
+# print(newr)
+# skinnyLegend.reinit(newr)
+# print(skinnyLegend.ffNorm(np.inf))
 
 # Test that the NonlinearConstraints work properly
 

@@ -764,6 +764,22 @@ class VariableStrucMatrix():
         def __call__(self, theta, *args, **kwds):
             return (self.max-self.min)/(np.pi/2)*theta
 
+    class convergent_circles_joint():
+        def __init__(self, min, max, idx):
+            self.min = min
+            self.max = max
+            self.idx = idx
+            # distance from center of convergent circle to joint
+            self.c = (self.max-self.min)/(1-np.sqrt(2)/2)
+            # radius of convergent circle
+            self.r = self.c-self.max
+
+            self.min = self(0)
+            self.max = self(np.pi/2)
+
+        def __call__(self, theta):
+            return self.c*np.cos((np.pi/2-theta)/2)-self.r
+
     def __init__(self, R, D, F=None, ranges=None, types=None, constraints=None, name='Placeholder'):
 
         # Avoid mutable defaults
@@ -805,10 +821,14 @@ class VariableStrucMatrix():
         # default to linear if none specified
         if types==[]:
             types = [self.linear_effort_change_joint]*len(self.variableTendons)
-        # create function and add to list for each variable tendon
-        for i, idx in enumerate(self.variableTendons):
-            setattr(self, f'j{idx[0]}t{idx[1]}r', types[i](0,1,idx))
-            self.effortFunctions.append(getattr(self, f'j{idx[0]}t{idx[1]}r'))
+            # create function and add to list for each variable tendon
+            for i, idx in enumerate(self.variableTendons):
+                setattr(self, f'j{idx[0]}t{idx[1]}r', types[i](ranges[i][0],ranges[i][1],idx))
+                self.effortFunctions.append(getattr(self, f'j{idx[0]}t{idx[1]}r'))
+        else:
+            for i, idx in enumerate(self.variableTendons):
+                setattr(self, f'j{idx[0]}t{idx[1]}r', types[i](ranges[i][0],ranges[i][1],idx))
+                self.effortFunctions.append(getattr(self, f'j{idx[0]}t{idx[1]}r'))
 
         # Force-based scaling vector
         if F is None:
@@ -903,7 +923,7 @@ class VariableStrucMatrix():
             return check1
 
     def add_grasp(self, THETA, grip, type='ineq'):
-        constraint = NonlinearConstraintContainer(self.contains_by, type, THETA, grip)
+        constraint = GraspConstraintWrapper(self.contains_by, type, THETA, grip)
         self.constraints.append(constraint)
 
     def contains_by(self, rvec, THETA, grip):
@@ -937,6 +957,55 @@ class VariableStrucMatrix():
             self.R[indices[0,i],indices[1,i]] = fixed[i]
         self.extS = self.S([0]*self.numJoints)
 
+    def ffNorm(self, order):
+        rvec = self.flatten_r_matrix()
+        limitingRadii = np.concatenate([rvec[:self.numFixed], rvec[self.numFixed+1::2]])
+        return(np.linalg.norm(limitingRadii, order))
+
+    def optimizer(self):
+        method='trust-constr'
+
+        def radiusLimit(rvec):
+            self.reinit(rvec)
+            return self.ffNorm(np.inf)
+
+        def plotCallback(intermediate_result: OptimizeResult):
+            # iteration += 1
+            global best_x
+            if (not method=='TNC') and (not method=='SLSQP') and (not method=='COBYLA'):
+                print(intermediate_result.x)
+                best_x = intermediate_result.x.copy()
+            else:
+                print(intermediate_result)
+                best_x = intermediate_result
+            # self.plotCapability()
+
+        def slackness(rvec):
+            return min(abs(np.array([self.contains_by(rvec, point) for point in [constraint.args for constraint in self.constraints]])))
+
+        rvecInit = self.flatten_r_matrix()
+        print('starting with:', rvecInit)
+        objective = radiusLimit
+
+        # validityConstraint = NonlinearConstraint(validity, -.5, 0.5)
+        # Apply the appropriate grasp constraints to the optimizer
+        constraints = [con.constraint for con in self.constraints]
+        # For each grasp constraint passed to the StrucMatrix instance,
+        print(f"Receiving {len(self.constraints)} constraints in the optimizer")
+        # If we did not include an equality constraint, we need to make sure that at least one of the constraints is active
+        if not any([constraint.type=='eq' for constraint in self.constraints]):
+            constraints.append(NonlinearConstraint(slackness, -0.001, 0.001))
+            print("enforcing slackness")
+
+        try:
+            E = minimize(objective, rvecInit, method=method, constraints=constraints, callback=plotCallback,
+                         options={'gtol': 1e-4, 'xtol': 1e-4, 'maxiter': 1000, 'initial_constr_penalty': 2})
+            self.optSuccess = str(str(E.success)+str(E.message))
+            return E.x, E.fun
+        except KeyboardInterrupt:
+            self.optSuccess = str(str(E.success)+str(E.message))
+            return best_x, objective(best_x)
+        # print(E.success, E.message)
     # Used to track controllability features across different poses
 
     class Controllability:
@@ -976,7 +1045,7 @@ class VariableStrucMatrix():
 
             return True
 
-class NonlinearConstraintContainer():
+class GraspConstraintWrapper():
     def __init__(self, function, type, *args) -> None:
         self.function = function
         self.type = type
