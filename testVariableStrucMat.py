@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from strucMatrices import VariableStrucMatrix
-
+from grasps import generateGrasps
 
 D = np.array([[1,1,1,-1],
               [1,1,1,-1],
@@ -62,8 +62,21 @@ for effortFunction in skinnyLegend.effortFunctions:
 # # add a grasp at full flexion:
 # skinnyLegend.add_grasp([np.pi/2,np.pi/2,np.pi/2], [1,0.5,0.25], type='ineq')
 
-# rtestSL = skinnyLegend.flatten_r_matrix()
-# # rtestTA = theAmbrose.flatten_r_matrix()
+print(skinnyLegend.constraints)
+print(theAmbrose.constraints)
+# add human-like boundary grasps:
+
+l = np.array([1.375,1.4375,1.23])
+for grasp in generateGrasps(l):
+    skinnyLegend.add_grasp(grasp[0], grasp[1], type='ineq')
+    theAmbrose.add_grasp(grasp[0], grasp[1], type='ineq')
+
+# add a grasp at full extension:
+# skinnyLegend.add_grasp([0,0,0], [1,0.5,0.25], type='ineq')
+# theAmbrose.add_grasp([0,0,0], [1,0.5,0.25], type='ineq')
+# # add a grasp at full flexion:
+# skinnyLegend.add_grasp([np.pi/2,np.pi/2,np.pi/2], [1,0.5,0.25], type='ineq')
+# theAmbrose.add_grasp([np.pi/2,np.pi/2,np.pi/2], [1,0.5,0.25], type='ineq')
 
 # for constraintContainer in skinnyLegend.constraints:
 #     result = constraintContainer.constraint.fun(rtestSL)
