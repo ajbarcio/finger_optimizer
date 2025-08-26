@@ -140,7 +140,11 @@ def generateNecessaryVertices(L):
     # boundaryAngles = np.vstack((boundaryAngles, np.array([0, 0])))
     return boundaryPoints, boundaryAngles
 
-if __name__ == '__main__':
+def generateGrasps(L):
+    taus, thetaPhis = generateNecessaryVertices(L)
+    return np.array([[[theta[0], theta[0], theta[0]], list(tau)] for tau, theta in zip(taus, thetaPhis)])
+
+def main():
     l = np.array([1.375,1.4375,1.23])
     verts, angles = generateNecessaryVertices(l)
     print(verts)
@@ -313,3 +317,8 @@ if __name__ == '__main__':
     legend_ax.set_yticks([])
 
     plt.show()
+
+if __name__ == '__main__':
+    # main()
+    l = np.array([1.375,1.4375,1.23])
+    print(generateGrasps(l))
