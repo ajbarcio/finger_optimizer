@@ -765,6 +765,13 @@ class VariableStrucMatrix():
             return (self.max-self.min)/(np.pi/2)*theta
 
     class convergent_circles_joint():
+        """
+        A class to define a type of tendon routing where each link in the joint
+            has an arc, the two of which converge to a single circle at 90
+            degrees of deflection. Max and Min are passed as the distance from
+            the pivot to the tendon at 90 degrees and 0 degrees respectively,
+            and the distance at any angle theta is calculated based on geometry.
+        """
         def __init__(self, min, max, idx):
             self.min = min
             self.max = max
@@ -779,6 +786,32 @@ class VariableStrucMatrix():
 
         def __call__(self, theta):
             return self.c*np.cos((np.pi/2-theta)/2)-self.r
+
+    class convergent_circles_joint_with_limit():
+        """
+        Similar to convergent circles, but with a convex arc around 
+        """
+        def __init__(self, min, max, idx, minOverwrite=None):
+            self.min = min
+            self.max = max
+
+            self.idx = idx
+            if minOverwrite is None:
+                minOverwrite = 0
+
+            # distance from center of convergent circle to joint
+            self.c = (self.max-minOverwrite)/(1-np.sqrt(2)/2)
+            # radius of convergent circle
+            self.r = self.c-self.max
+            # Check to confirm
+            self.max = self(np.pi/2)
+
+        def __call__(self, theta):
+            val = self.c*np.cos((np.pi/2-theta)/2)-self.r
+            if val <= self.min:
+                return self.min
+            else:
+                return val
 
     def __init__(self, R, D, F=None, ranges=None, types=None, constraints=None, name='Placeholder'):
 
@@ -860,6 +893,18 @@ class VariableStrucMatrix():
         S = self.D*R
         return S
 
+    def maxGrip(self, THETA):
+        maxStrength = 0
+        _, boundaryGrasps = self.torqueDomainVolume(THETA)
+        # print(self.boundaryGrasps)
+        for grasp in boundaryGrasps:
+            strength = np.linalg.norm(grasp)
+            # if intersects_positive_orthant(grasp) and strength>maxStrength:
+            if strength>maxStrength:
+                    # print(grasp)
+                    maxStrength = strength
+        return maxStrength
+
     def torqueDomainVolume(self, THETA):
         S = self.S(THETA)
         singleForceVectors = list(np.transpose(S @ np.diag(self.F)))
@@ -921,6 +966,9 @@ class VariableStrucMatrix():
         else:
             warnings.warn(f'the two checking methods disagree, linprog says {check1}, geometry says {check2}')
             return check1
+
+    def grip_from_tensions(self, THETA, tensions):
+        pass # TODO: PLOT GRASPS FROM TENDON TENSIONS
 
     def add_grasp(self, THETA, grip, type='ineq'):
         constraint = GraspConstraintWrapper(self.contains_by, type, THETA, grip)
@@ -1011,36 +1059,42 @@ class VariableStrucMatrix():
     class Controllability:
         def __init__(self, parent):
             self.parent = parent
-            self.rankCondition = None
-            self.nullSpaceCondition = None
+            self.rankCriterion = None
+            self.nullSpaceCriterion = None
             self.biasForceSpace = None
+            self.biasForceCondition = None
 
         def __call__(self, THETA, suppress=True):
             S = self.parent.S(THETA)
-            self.rankCondition = np.linalg.matrix_rank(S)>=self.parent.numJoints
+            self.rankCriterion = np.linalg.matrix_rank(S, tol=1e-6)>=self.parent.numJoints
             # print(self.rankCondition)
-            if not self.rankCondition:
+            if not self.rankCriterion:
                 if not suppress:
-                    warnings.warn(f"WARNING: structure matrix failed rank condition (null space condition not checked) \nrank            : {np.linalg.matrix_rank(S)} \nnumber of Joints: {self.parent.numJoints}")
+                    warnings.warn(f"WARNING: structure matrix {self.parent.name} failed rank condition (null space condition not checked) \nrank            : {np.linalg.matrix_rank(S)} \nnumber of Joints: {self.parent.numJoints}")
                 return False
             nullSpace = sp.linalg.null_space(S)
             # Condition the nullSpace output well for future checking
             nullSpace[np.isclose(nullSpace, 0)] = 0
             self.biasForceSpace = nullSpace
+            # Record condition of the null space
+            if min(abs(self.biasForceSpace)) == 0:
+                self.biasForceCondition = np.inf
+            else:
+                self.biasForceCondition = np.max((self.biasForceSpace))/np.min((self.biasForceSpace))
             # Check to make sure that there exists an all-positive vector in the null space
             if np.shape(self.biasForceSpace)[-1]>1:
                 # print("intersecting positive orthant")
-                self.nullSpaceCondition = intersects_positive_orthant(nullSpace.T)
+                self.nullSpaceCriterion = intersects_positive_orthant(nullSpace.T)
                 for row in self.biasForceSpace:
                     # print(row)
                     if all([x==0 for x in row]):
-                        self.nullSpaceCondition =  False
+                        self.nullSpaceCriterion =  False
             else:
                 # simpler and (more reliable?) condition for valid null space assuming n+1 (1-D null space)
-                self.nullSpaceCondition = all([i > 0 for i in self.biasForceSpace])
-            if not self.nullSpaceCondition:
+                self.nullSpaceCriterion = all([i > 0 for i in self.biasForceSpace])
+            if not self.nullSpaceCriterion:
                 if not suppress:
-                    warnings.warn("WARNING: structure matrix failed null space condition (rank condition passed)")
+                    warnings.warn(f"WARNING: structure matrix {self.parent.name} failed null space condition (rank condition passed)")
                 return False
 
             return True
