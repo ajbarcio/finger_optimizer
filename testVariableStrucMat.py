@@ -161,11 +161,12 @@ for i in range(len(jointAngles)):
             # print(q)
             ABValids[i,j,k] = dimensionalAmbrose.controllability(q)
             SLValids[i,j,k] = skinnyLegend.controllability(q)
-            # ABConditions[i,j,k] = dimensionalAmbrose.controllability.biasForceCondition
-            # SLConditions[i,j,k] = skinnyLegend.controllability.biasForceCondition\
-            ABObjectives[i,j,k] = dimensionalAmbrose.maxGrip(q)
-            SLObjectives[i,j,k] = dimensionalAmbrose.maxGrip(q)
-            print(f"{l/n**3*100:3.2f}% done (calculating max strength at each position ...)", end = '\r')
+            ABObjectives[i,j,k] = dimensionalAmbrose.controllability.biasForceCondition
+            SLObjectives[i,j,k] = skinnyLegend.controllability.biasForceCondition
+            # ABObjectives[i,j,k] = dimensionalAmbrose.maxGrip(q)
+            # SLObjectives[i,j,k] = skinnyLegend.maxGrip(q)
+            if l == n-1 or not l%100:
+                print(f"{l/n**3*100:3.2f}% done (calculating max strength at each position ...)", end = '\r')
             l+=1
 def plot_conditions_depth_transparent(
         Conditions, Valids, jointAngles,
@@ -173,7 +174,7 @@ def plot_conditions_depth_transparent(
         s=6,
         near_alpha=0.15,   # alpha for points nearest to camera (more transparent)
         far_alpha=1.0,     # alpha for points farthest from camera (more opaque)
-        inf_multiplier=10,
+        inf_multiplier=1000,
         mode="power",      # "power", "exp", or "sigmoid"
         gamma=0.3,         # shape parameter for the mapping
         auto_flip_depth=True  # Automatically flip normalized depth so far->opaque
@@ -201,12 +202,12 @@ def plot_conditions_depth_transparent(
 
     # Handle infinite condition values for the log colormap
     finite_vals = cs[np.isfinite(cs)]
-    # vmax = finite_vals.max() * inf_multiplier if finite_vals.size > 0 else 1e6
-    vmax = finite_vals.max() if finite_vals.size > 0 else 1e6
+    vmax = finite_vals.max() * inf_multiplier if finite_vals.size > 0 else 1e6
+    # vmax = finite_vals.max() if finite_vals.size > 0 else 1e6
     vmin = finite_vals.min() if finite_vals.size > 0 else 1
     cs_plot = np.where(np.isinf(cs), vmax, cs)
 
-    norm = LogNorm(vmin=1, vmax=vmax)
+    norm = LogNorm(vmin=vmin, vmax=vmax)
     cmap = plt.colormaps["viridis_r"]  # modern API
 
     fig = plt.figure(figsize=(9, 7))

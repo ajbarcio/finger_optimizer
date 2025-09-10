@@ -967,8 +967,10 @@ class VariableStrucMatrix():
             warnings.warn(f'the two checking methods disagree, linprog says {check1}, geometry says {check2}')
             return check1
 
-    def grip_from_tensions(self, THETA, tensions):
-        pass # TODO: PLOT GRASPS FROM TENDON TENSIONS
+    def grip_from_tensions(self, THETA, T):
+        # pass # TODO: PLOT GRASPS FROM TENDON TENSIONS
+        Taus = self.S(THETA).dot(T)
+        return Taus
 
     def add_grasp(self, THETA, grip, type='ineq'):
         constraint = GraspConstraintWrapper(self.contains_by, type, THETA, grip)
@@ -1233,3 +1235,43 @@ D = -np.array([[1,-1,-1,1],
               [0, 1,-1,-1],
               [0, 0, 1,-1]])
 canonB = StrucMatrix(R,D,name='Canon B')
+
+
+D = np.array([[1,1,1,-1],
+              [1,1,1,-1],
+              [1,1,1,-1]])
+r = .1625
+R = np.array([[np.nan,r     ,r     ,r],
+              [r     ,np.nan,r     ,r],
+              [r     ,r     ,np.nan,r]])
+
+r_1 = .261281
+r_2 = .190271
+r_3 = .307475
+
+c_1 = .42378
+c_2 = .35277
+c_3 = .46997
+
+skinnyLegend = VariableStrucMatrix(R, D, ranges=[(c_1*np.sqrt(2)/2-r_1,c_1-r_1),
+                                                 (c_2*np.sqrt(2)/2-r_2,c_2-r_2),
+                                                 (c_3*np.sqrt(2)/2-r_3,c_3-r_3),],
+                                         types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
+                                         F = np.array([50]*4),
+                                         name='Skinny Legend')
+
+D = np.array([[1,1,1,-1],
+              [0,1,1,-1],
+              [0,0,1,-1]])
+
+R = np.array([[.203125,.203125,.203125,.171875],
+              [0      ,np.nan ,np.nan ,.125   ],
+              [0      ,0      ,np.nan ,.101103]])
+c1 = .9541575
+c2 = .9505297
+r = .5625
+dimensionalAmbrose = VariableStrucMatrix(R, D, ranges=[(c1*np.sqrt(2)/2-r,c1-r)]*2+
+                                                      [(c2*np.sqrt(2)/2-r,c2-r)],
+                                               types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
+                                               F = np.array([50]*4),
+                                               name='The Ambrose')

@@ -29,7 +29,7 @@ dimensionalAmbrose = VariableStrucMatrix(R, D, ranges=[(c1*np.sqrt(2)/2-r,c1-r)]
                                                F = np.array([50]*4),
                                                name='The Ambrose')
 THETA = np.array([np.pi/2]*3)
-F = np.array([50,50,50,2])
+F = np.array([50,50,50,0])
 S = dimensionalAmbrose(THETA)
 torques = S.dot(F)
 print(torques)
