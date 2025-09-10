@@ -203,6 +203,7 @@ def plot_conditions_depth_transparent(
     finite_vals = cs[np.isfinite(cs)]
     # vmax = finite_vals.max() * inf_multiplier if finite_vals.size > 0 else 1e6
     vmax = finite_vals.max() if finite_vals.size > 0 else 1e6
+    vmin = finite_vals.min() if finite_vals.size > 0 else 1
     cs_plot = np.where(np.isinf(cs), vmax, cs)
 
     norm = LogNorm(vmin=1, vmax=vmax)
