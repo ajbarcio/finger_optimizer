@@ -23,6 +23,20 @@ colors = [
 
 import itertools
 
+def clean_array(arr, tol=1e-8):
+    arr_np = np.asarray(arr, dtype=float)  # ensures vectorized ops
+    arr_np[np.isclose(arr_np, 0, atol=tol)] = 0
+
+    # return same type as input
+    if isinstance(arr, np.ndarray):
+        return arr_np
+    elif isinstance(arr, tuple):
+        return tuple(arr_np.tolist())
+    elif isinstance(arr, list):
+        return arr_np.tolist()
+    else:
+        return arr_np 
+
 def f_for_jac(x, l):
     x = np.asarray(x)
     # If jacobian passes shape (m, k) with k==1, reduce to (m,)

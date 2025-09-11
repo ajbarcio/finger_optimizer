@@ -8,6 +8,7 @@ from utils import find_axis_extent_lp, f_for_jac, rot, trans, jac
 
 F_global = 6.12
 
+
 def generateAllVertices(L):
     print("generating grasps")
     jointResl=25

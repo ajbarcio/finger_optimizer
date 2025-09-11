@@ -202,6 +202,9 @@ class StrucMatrix():
 
         if obj is None:
             obj = type(self)
+            print("object:", obj)
+        else:
+            print("object given as:", obj)
 
         color = colorOverride if colorOverride is not None else colors[obj.plot_count % len(colors)]
 
@@ -256,18 +259,25 @@ class StrucMatrix():
             warnings.warn("Cannot plot anything other than 3d grasps at this time")
         obj.plot_count += 1
 
-    def plotGrasp(self, grasp, showBool=False):
+    def plotGrasp(self, grasp, showBool=False, obj=None):
+        
+        if obj is None:
+            obj = type(self)
+            print("object:", obj)
+        else:
+            print("object given as:", obj)
+        
         if self.contains(grasp):
             color='xkcd:green'
         else:
             color='xkcd:red'
         # Handle figure reuse by name
-        if self.name in StrucMatrix.figures:
-            fig, ax = StrucMatrix.figures[self.name]
+        if self.name in obj.figures:
+            fig, ax = obj.figures[self.name]
         else:
             fig = plt.figure(f"Structure Matrix: {self.name}")
             ax = fig.add_subplot(111, projection="3d")
-            StrucMatrix.figures[self.name] = (fig, ax)
+            obj.figures[self.name] = (fig, ax)
 
         self.fig = fig
         self.ax = ax
@@ -911,6 +921,11 @@ class VariableStrucMatrix():
         domain, boundaryGrasps = special_minkowski(singleForceVectors)
         return domain, boundaryGrasps
 
+    def plotGrasp(self, THETA, grasp, showBool=False):
+        Smat = self.S(THETA)
+        S = StrucMatrix(S=Smat, F=self.F, name=self.name)
+        S.plotGrasp(grasp, showBool=showBool, obj=type(self))
+
     def plotCapability(self, THETA, showBool=False, colorOverride=None):
         Smat = self.S(THETA)
         S = StrucMatrix(S=Smat, F=self.F, name=self.name)
@@ -1067,13 +1082,15 @@ class VariableStrucMatrix():
             self.biasForceCondition = None
 
         def __call__(self, THETA, suppress=True):
+            returnFlag = 1
             S = self.parent.S(THETA)
             self.rankCriterion = np.linalg.matrix_rank(S, tol=1e-6)>=self.parent.numJoints
             # print(self.rankCondition)
             if not self.rankCriterion:
                 if not suppress:
                     warnings.warn(f"WARNING: structure matrix {self.parent.name} failed rank condition (null space condition not checked) \nrank            : {np.linalg.matrix_rank(S)} \nnumber of Joints: {self.parent.numJoints}")
-                return False
+                # return False
+                returnFlag = 0
             nullSpace = sp.linalg.null_space(S)
             # Condition the nullSpace output well for future checking
             nullSpace[np.isclose(nullSpace, 0)] = 0
@@ -1097,9 +1114,9 @@ class VariableStrucMatrix():
             if not self.nullSpaceCriterion:
                 if not suppress:
                     warnings.warn(f"WARNING: structure matrix {self.parent.name} failed null space condition (rank condition passed)")
-                return False
+                returnFlag = 0
 
-            return True
+            return returnFlag
 
 class GraspConstraintWrapper():
     def __init__(self, function, type, *args) -> None:

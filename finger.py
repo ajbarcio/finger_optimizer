@@ -1,7 +1,8 @@
 import numpy as np
 import warnings
 from strucMatrices import VariableStrucMatrix, StrucMatrix
-from utils import trans, jac
+from utils import trans, jac, clean_array
+from scipy.optimize import nnls, lsq_linear
 
 class StructureKineMismatch(Warning):
     def __init__(self, message='WARNING: number of link lengths does not match \
@@ -9,7 +10,7 @@ class StructureKineMismatch(Warning):
         super().__init__(message)
 
 class Finger():
-    def __init__(self, structure: VariableStrucMatrix | StrucMatrix, lengths):
+    def __init__(self, structure: VariableStrucMatrix | StrucMatrix, lengths, tensionLimit=50):
         self.structure = structure
         self.lengths = lengths
         if self.structure.numJoints != len(self.lengths):
@@ -17,18 +18,22 @@ class Finger():
 
         self.numJoints = self.structure.numJoints
         self.numTendons = self.structure.numTendons
+
+        self.tensionLimit = tensionLimit
     
     def get_jacobian_at_pose(self, THETA):
         # F = trans(THETA, self.lengths)
         J = jac(THETA,self.lengths)
         return J
 
-    def tip_wrench_to_grasp(self, THETA, F):
+    def tip_wrench_at_pose_to_grip(self, THETA, F):
         '''
         takes a tip wrench in the EE frame given a pose and generates a set of 
         joint torques to satisfy 
         '''
-        pass
+        Taus = (jac(THETA, self.lengths).T @ F).flatten()
+        Taus = clean_array(Taus)
+        return Taus
 
     def tensions_to_tip_wrench(self, THETA, T):
         if self.numTendons != len(T):
@@ -36,5 +41,55 @@ class Finger():
                 message=f'passed tension vector of length {len(T)}, \
                           expected {self.numTendons}'))
         # if 
-        taus = self.structure.grip_from_tensions(THETA, T)
-        
+        Taus = self.structure.grip_from_tensions(THETA, T)
+        print(Taus)
+        wrench = jac(THETA, self.lengths) @ Taus
+        wrench = clean_array(wrench)
+        return wrench
+    
+    def grasp_to_tensions(self, THETA, Taus, biasForce = 2):
+        self.structure.controllability(THETA)
+        controllability = self.structure.controllability
+        S = self.structure(THETA)
+        res = lsq_linear(S, Taus, bounds=(0,self.tensionLimit))
+        T = res.x
+        rnorm = np.linalg.norm(S @ res.x - Taus)
+        print(rnorm)
+        print("solution:", T)
+        if 0 in clean_array(T):
+            max_biases = []
+            min_biases = []
+            for i in range(len(T)):
+                if controllability.biasForceSpace[i] > 0:
+                    min_bias = (biasForce-T[i])/controllability.biasForceSpace[i]
+                    max_bias = (self.tensionLimit - T[i])/controllability.biasForceSpace[i]
+                elif controllability.biasForceSpace[i] < 0:
+                    min_bias = (self.tensionLimit - T[i])/controllability.biasForceSpace[i]
+                    max_bias = (biasForce-T[i])/controllability.biasForceSpace[i]
+                else:
+                    min_bias = biasForce
+                    max_bias = self.tensionLimit
+                max_biases.append(max_bias)
+                min_biases.append(min_bias)
+            if np.max(min_biases) < np.min(max_biases):
+                biasScale = np.min(max_biases)
+            else:
+                biasScale = 0
+            # biasScale = np.min(max_biases)
+            print(f"used calculated scale {biasScale}")
+            T = T + (controllability.biasForceSpace*biasScale).flatten()
+        else:
+            print("blind scale")
+            T = T + (controllability.biasForceSpace/np.max(controllability.biasForceSpace)*biasForce).flatten()
+        # print("normalized bias:", controllability.biasForceSpace.flatten())
+        # print("scaled bias", (controllability.biasForceSpace/np.max(controllability.biasForceSpace)*biasForce).flatten())
+        print("solution with bias:", T)
+        confirm = S @ T
+        # print(confirm)
+        # print(Taus)
+        confirm = clean_array(confirm)
+        Taus = clean_array(Taus)
+        if  np.allclose(confirm, Taus):
+            return T, "exact", confirm
+        else:
+            return T, "best-case", confirm
