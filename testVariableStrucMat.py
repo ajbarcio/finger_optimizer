@@ -147,159 +147,159 @@ dimensionalAmbrose.plotCapability([0]*dimensionalAmbrose.numJoints)
 dimensionalAmbrose.plotCapability([np.pi/2]*dimensionalAmbrose.numJoints)
 # # theAmbrose.plotCapabilityAcrossAllGrasps()
 
-jointAngles = np.linspace(0,np.pi/2,40)
-ABObjectives = np.zeros((len(jointAngles),len(jointAngles),len(jointAngles)))
-SLObjectives = np.zeros((len(jointAngles),len(jointAngles),len(jointAngles)))
-ABValids = np.zeros((len(jointAngles),len(jointAngles),len(jointAngles)), dtype=bool)
-SLValids = np.zeros((len(jointAngles),len(jointAngles),len(jointAngles)), dtype=bool)
-n = len(jointAngles)
-l = 0
-for i in range(len(jointAngles)):
-    for j in range(len(jointAngles)):
-        for k in range(len(jointAngles)):
-            q = [jointAngles[i],jointAngles[j],jointAngles[k]]
-            # print(q)
-            ABValids[i,j,k] = dimensionalAmbrose.controllability(q)
-            SLValids[i,j,k] = skinnyLegend.controllability(q)
-            ABObjectives[i,j,k] = dimensionalAmbrose.controllability.biasForceCondition
-            SLObjectives[i,j,k] = skinnyLegend.controllability.biasForceCondition
-            # ABObjectives[i,j,k] = dimensionalAmbrose.maxGrip(q)
-            # SLObjectives[i,j,k] = skinnyLegend.maxGrip(q)
-            if l == n-1 or not l%100:
-                print(f"{l/n**3*100:3.2f}% done (calculating max strength at each position ...)", end = '\r')
-            l+=1
-def plot_conditions_depth_transparent(
-        Conditions, Valids, jointAngles,
-        title="Conditions (depth-transparent)",
-        s=6,
-        near_alpha=0.15,   # alpha for points nearest to camera (more transparent)
-        far_alpha=1.0,     # alpha for points farthest from camera (more opaque)
-        inf_multiplier=1000,
-        mode="power",      # "power", "exp", or "sigmoid"
-        gamma=0.3,         # shape parameter for the mapping
-        auto_flip_depth=True  # Automatically flip normalized depth so far->opaque
-    ):
-    # Validate args (catch the 'passed the title instead of jointAngles' mistake)
-    if not isinstance(jointAngles, (list, np.ndarray)):
-        raise TypeError("jointAngles must be an array-like of numeric joint values. "
-                        "Call: plot_conditions_depth_transparent(Conditions, Valids, jointAngles, title='...')")
+# jointAngles = np.linspace(0,np.pi/2,40)
+# ABObjectives = np.zeros((len(jointAngles),len(jointAngles),len(jointAngles)))
+# SLObjectives = np.zeros((len(jointAngles),len(jointAngles),len(jointAngles)))
+# ABValids = np.zeros((len(jointAngles),len(jointAngles),len(jointAngles)), dtype=bool)
+# SLValids = np.zeros((len(jointAngles),len(jointAngles),len(jointAngles)), dtype=bool)
+# n = len(jointAngles)
+# l = 0
+# for i in range(len(jointAngles)):
+#     for j in range(len(jointAngles)):
+#         for k in range(len(jointAngles)):
+#             q = [jointAngles[i],jointAngles[j],jointAngles[k]]
+#             # print(q)
+#             ABValids[i,j,k] = dimensionalAmbrose.controllability(q)
+#             SLValids[i,j,k] = skinnyLegend.controllability(q)
+#             ABObjectives[i,j,k] = dimensionalAmbrose.controllability.biasForceCondition
+#             SLObjectives[i,j,k] = skinnyLegend.controllability.biasForceCondition
+#             # ABObjectives[i,j,k] = dimensionalAmbrose.maxGrip(q)
+#             # SLObjectives[i,j,k] = skinnyLegend.maxGrip(q)
+#             if l == n-1 or not l%100:
+#                 print(f"{l/n**3*100:3.2f}% done (calculating max strength at each position ...)", end = '\r')
+#             l+=1
+# def plot_conditions_depth_transparent(
+#         Conditions, Valids, jointAngles,
+#         title="Conditions (depth-transparent)",
+#         s=6,
+#         near_alpha=0.15,   # alpha for points nearest to camera (more transparent)
+#         far_alpha=1.0,     # alpha for points farthest from camera (more opaque)
+#         inf_multiplier=1000,
+#         mode="power",      # "power", "exp", or "sigmoid"
+#         gamma=0.3,         # shape parameter for the mapping
+#         auto_flip_depth=True  # Automatically flip normalized depth so far->opaque
+#     ):
+#     # Validate args (catch the 'passed the title instead of jointAngles' mistake)
+#     if not isinstance(jointAngles, (list, np.ndarray)):
+#         raise TypeError("jointAngles must be an array-like of numeric joint values. "
+#                         "Call: plot_conditions_depth_transparent(Conditions, Valids, jointAngles, title='...')")
 
-    # Build point arrays
-    n = len(jointAngles)
-    xs, ys, zs, cs = [], [], [], []
-    for ii in range(n):
-        for jj in range(n):
-            for kk in range(n):
-                if Valids[ii, jj, kk]:
-                    xs.append(jointAngles[ii])
-                    ys.append(jointAngles[jj])
-                    zs.append(jointAngles[kk])
-                    cs.append(Conditions[ii, jj, kk])
+#     # Build point arrays
+#     n = len(jointAngles)
+#     xs, ys, zs, cs = [], [], [], []
+#     for ii in range(n):
+#         for jj in range(n):
+#             for kk in range(n):
+#                 if Valids[ii, jj, kk]:
+#                     xs.append(jointAngles[ii])
+#                     ys.append(jointAngles[jj])
+#                     zs.append(jointAngles[kk])
+#                     cs.append(Conditions[ii, jj, kk])
 
-    xs = np.array(xs); ys = np.array(ys); zs = np.array(zs); cs = np.array(cs)
-    if xs.size == 0:
-        raise ValueError("No valid points to plot (Valids is all False).")
+#     xs = np.array(xs); ys = np.array(ys); zs = np.array(zs); cs = np.array(cs)
+#     if xs.size == 0:
+#         raise ValueError("No valid points to plot (Valids is all False).")
 
-    # Handle infinite condition values for the log colormap
-    finite_vals = cs[np.isfinite(cs)]
-    vmax = finite_vals.max() * inf_multiplier if finite_vals.size > 0 else 1e6
-    # vmax = finite_vals.max() if finite_vals.size > 0 else 1e6
-    vmin = finite_vals.min() if finite_vals.size > 0 else 1
-    cs_plot = np.where(np.isinf(cs), vmax, cs)
+#     # Handle infinite condition values for the log colormap
+#     finite_vals = cs[np.isfinite(cs)]
+#     vmax = finite_vals.max() * inf_multiplier if finite_vals.size > 0 else 1e6
+#     # vmax = finite_vals.max() if finite_vals.size > 0 else 1e6
+#     vmin = finite_vals.min() if finite_vals.size > 0 else 1
+#     cs_plot = np.where(np.isinf(cs), vmax, cs)
 
-    norm = LogNorm(vmin=vmin, vmax=vmax)
-    cmap = plt.colormaps["viridis_r"]  # modern API
+#     norm = LogNorm(vmin=vmin, vmax=vmax)
+#     cmap = plt.colormaps["viridis_r"]  # modern API
 
-    fig = plt.figure(figsize=(9, 7))
-    ax = fig.add_subplot(111, projection="3d")
+#     fig = plt.figure(figsize=(9, 7))
+#     ax = fig.add_subplot(111, projection="3d")
 
-    sc = ax.scatter(xs, ys, zs, c=cs_plot, cmap=cmap, norm=norm, s=s)
+#     sc = ax.scatter(xs, ys, zs, c=cs_plot, cmap=cmap, norm=norm, s=s)
 
-    mappable = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
-    mappable.set_array([])
-    fig.colorbar(mappable, ax=ax, label="Bias Force Condition (log scale)")
+#     mappable = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+#     mappable.set_array([])
+#     fig.colorbar(mappable, ax=ax, label="Bias Force Condition (log scale)")
 
-    ax.set_xlabel("Joint 1"); ax.set_ylabel("Joint 2"); ax.set_zlabel("Joint 3")
-    ax.set_title(title)
+#     ax.set_xlabel("Joint 1"); ax.set_ylabel("Joint 2"); ax.set_zlabel("Joint 3")
+#     ax.set_title(title)
 
-    base_colors = cmap(norm(cs_plot))
+#     base_colors = cmap(norm(cs_plot))
 
-    def depth_to_alpha(dnorm):
-        """Map normalized depth (0=nearest, 1=farthest) to alpha using chosen mode."""
-        if mode == "power":
-            dscaled = np.power(dnorm, gamma)
-        elif mode == "exp":
-            k = max(1e-6, gamma)
-            dscaled = 1 - np.exp(-k * dnorm)
-            dscaled = (dscaled - dscaled.min()) / (dscaled.max() - dscaled.min() + 1e-12)
-        elif mode == "sigmoid":
-            k = max(1e-6, gamma * 12)
-            dscaled = 1.0 / (1.0 + np.exp(-k * (dnorm - 0.5)))
-            dscaled = (dscaled - dscaled.min()) / (dscaled.max() - dscaled.min() + 1e-12)
-        else:
-            dscaled = dnorm
-        return near_alpha + (far_alpha - near_alpha) * dscaled
+#     def depth_to_alpha(dnorm):
+#         """Map normalized depth (0=nearest, 1=farthest) to alpha using chosen mode."""
+#         if mode == "power":
+#             dscaled = np.power(dnorm, gamma)
+#         elif mode == "exp":
+#             k = max(1e-6, gamma)
+#             dscaled = 1 - np.exp(-k * dnorm)
+#             dscaled = (dscaled - dscaled.min()) / (dscaled.max() - dscaled.min() + 1e-12)
+#         elif mode == "sigmoid":
+#             k = max(1e-6, gamma * 12)
+#             dscaled = 1.0 / (1.0 + np.exp(-k * (dnorm - 0.5)))
+#             dscaled = (dscaled - dscaled.min()) / (dscaled.max() - dscaled.min() + 1e-12)
+#         else:
+#             dscaled = dnorm
+#         return near_alpha + (far_alpha - near_alpha) * dscaled
 
-    def update_alpha(event=None):
-        """
-        Compute a depth value for each point using the axes projection,
-        normalize it, optionally flip polarity, then map to alpha.
-        """
-        # Use mpl projection to get consistent display depths
-        _, _, proj_z = proj3d.proj_transform(xs, ys, zs, ax.get_proj())
-        depths = np.array(proj_z)
+#     def update_alpha(event=None):
+#         """
+#         Compute a depth value for each point using the axes projection,
+#         normalize it, optionally flip polarity, then map to alpha.
+#         """
+#         # Use mpl projection to get consistent display depths
+#         _, _, proj_z = proj3d.proj_transform(xs, ys, zs, ax.get_proj())
+#         depths = np.array(proj_z)
 
-        dmin, dmax = depths.min(), depths.max()
-        denom = (dmax - dmin) if (dmax - dmin) != 0 else 1.0
-        dnorm = (depths - dmin) / denom  # 0..1 but polarity depends on projection convention
+#         dmin, dmax = depths.min(), depths.max()
+#         denom = (dmax - dmin) if (dmax - dmin) != 0 else 1.0
+#         dnorm = (depths - dmin) / denom  # 0..1 but polarity depends on projection convention
 
-        # Flip so that dnorm==0 => nearest and dnorm==1 => farthest, if requested.
-        # (Different Matplotlib versions / view setups sometimes invert this.)
-        if auto_flip_depth:
-            # Heuristic: prefer mapping where far points are more opaque.
-            # If current dnorm already gives far more opaque when used, don't flip.
-            # We'll test by mapping to alphas both ways and pick the one where the median depth
-            # yields expected relation (this is cheap).
-            alphas_direct = depth_to_alpha(dnorm)
-            alphas_flipped = depth_to_alpha(1.0 - dnorm)
+#         # Flip so that dnorm==0 => nearest and dnorm==1 => farthest, if requested.
+#         # (Different Matplotlib versions / view setups sometimes invert this.)
+#         if auto_flip_depth:
+#             # Heuristic: prefer mapping where far points are more opaque.
+#             # If current dnorm already gives far more opaque when used, don't flip.
+#             # We'll test by mapping to alphas both ways and pick the one where the median depth
+#             # yields expected relation (this is cheap).
+#             alphas_direct = depth_to_alpha(dnorm)
+#             alphas_flipped = depth_to_alpha(1.0 - dnorm)
 
-            # Heuristic to choose which orientation makes the far-most points have larger alpha:
-            # Compare mean alpha of the top-10% depths for direct vs flipped.
-            threshold = 0.9
-            mask_far = dnorm >= threshold
-            if mask_far.sum() > 0:
-                mean_direct_far = np.mean(alphas_direct[mask_far])
-                mean_flipped_far = np.mean(alphas_flipped[mask_far])
-                # Choose orientation where mean alpha of far points is larger
-                use_flipped = (mean_flipped_far > mean_direct_far)
-            else:
-                use_flipped = True  # fallback
+#             # Heuristic to choose which orientation makes the far-most points have larger alpha:
+#             # Compare mean alpha of the top-10% depths for direct vs flipped.
+#             threshold = 0.9
+#             mask_far = dnorm >= threshold
+#             if mask_far.sum() > 0:
+#                 mean_direct_far = np.mean(alphas_direct[mask_far])
+#                 mean_flipped_far = np.mean(alphas_flipped[mask_far])
+#                 # Choose orientation where mean alpha of far points is larger
+#                 use_flipped = (mean_flipped_far > mean_direct_far)
+#             else:
+#                 use_flipped = True  # fallback
 
-            chosen_alphas = alphas_flipped if use_flipped else alphas_direct
-            alphas = chosen_alphas
-        else:
-            alphas = depth_to_alpha(dnorm)
+#             chosen_alphas = alphas_flipped if use_flipped else alphas_direct
+#             alphas = chosen_alphas
+#         else:
+#             alphas = depth_to_alpha(dnorm)
 
-        colors = base_colors.copy()
-        colors[:, -1] = alphas
-        sc.set_facecolors(colors)
-        try:
-            sc.set_edgecolors(colors)
-        except Exception:
-            pass
+#         colors = base_colors.copy()
+#         colors[:, -1] = alphas
+#         sc.set_facecolors(colors)
+#         try:
+#             sc.set_edgecolors(colors)
+#         except Exception:
+#             pass
 
-        fig.canvas.draw_idle()
+#         fig.canvas.draw_idle()
 
-    fig.canvas.mpl_connect("draw_event", update_alpha)
-    fig.canvas.mpl_connect("button_release_event", update_alpha)
-    fig.canvas.mpl_connect("scroll_event", update_alpha)
+#     fig.canvas.mpl_connect("draw_event", update_alpha)
+#     fig.canvas.mpl_connect("button_release_event", update_alpha)
+#     fig.canvas.mpl_connect("scroll_event", update_alpha)
 
-    update_alpha()# Make the two plots
+#     update_alpha()# Make the two plots
 
-plot_conditions_depth_transparent(ABObjectives, ABValids, jointAngles,
-    title="AB Conditions", s=6, mode="sigmoid", gamma=0.25)
-plot_conditions_depth_transparent(SLObjectives, SLValids, jointAngles,
-    title="SL Conditions", s=6, mode="exp", gamma=0.25)
+# plot_conditions_depth_transparent(ABObjectives, ABValids, jointAngles,
+#     title="AB Conditions", s=6, mode="sigmoid", gamma=0.25)
+# plot_conditions_depth_transparent(SLObjectives, SLValids, jointAngles,
+#     title="SL Conditions", s=6, mode="exp", gamma=0.25)
 
 
 # # resls = np.logspace(0,3,5)
