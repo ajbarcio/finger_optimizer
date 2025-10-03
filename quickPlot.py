@@ -46,7 +46,7 @@ for torque in torques:
        # max torque is greater than required torque, needs at least 10 degrees of displacement before it reaches that torque, plus arbitrary form factor constraint
        feasibilityCriterion = (springData[:,1]>torque)
        preloadCriterion     = (torque-(springData[:,2]*10)>0)
-       formFactorCriterion  = (90-(torque-(springData[:,2]*10))/(springData[:,2])>=0)
+       formFactorCriterion  = (315-(torque-(springData[:,2]*10))/(springData[:,2])>=0)
        
        feasibleSprings = springData[feasibilityCriterion & preloadCriterion & formFactorCriterion]
        # hashable list of springs
