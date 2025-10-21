@@ -2,7 +2,9 @@ import sympy as sp
 import numpy as np
 from scipy.linalg import null_space
 from strucMatrices import *
+from combinatorics import generate_centered_qutsm
 
+np.set_printoptions(formatter={'float': '{:.5f}'.format})
 
 def find_positive_in_nullspace(N, normalize_bound=1.0, tol=1e-9):
     """
@@ -44,44 +46,69 @@ def find_positive_in_nullspace(N, normalize_bound=1.0, tol=1e-9):
         # No strictly positive vector found under normalization; return the best found
         return None, None, t_opt
 
-S = test
-A = S()
-# S = StrucMatrix(S=A)
-m, n = A.shape
+
+# Choose structure matrix
+# S = centeredType1
+# S = Optimus
+S = test2
+# S = canonB
+# S = LED
+# S = quasiHollow
+# S = generate_centered_qutsm([S()])
+# S = S[0]
+# # print(S)
+
+# # S = S()[:-1,:-1]
+# S = StrucMatrix(S=S)
+m = S.numJoints
+n = S.numTendons
+Sm = S() # Extract structure as matrix
+
+
+# Construct M s.t. M * diag(K_A) = (S * K_A * S^T)_p,q s.t. p != q (all non-diagonal elements)
+# K_A is by def a diagonal matrix, so
+# M * diag(K_A) = 0 => K_J diagonal (all off-diagonal elements equal to 0) 
 
 # Build M with one row per off-diagonal pair (p < q)
 rows = []
-for p in range(m):
-    for q in range(p+1, m):
-        rows.append(A[p, :] * A[q, :])
-M = np.vstack(rows) if len(rows) > 0 else np.zeros((0, n))
-print("structure:", A)
-print(A)
+# for each row  of K_J:
+for i in range(m):
+    # and each element in that row above the diagonal 
+    for j in range(i+1, m):
+        # there is a row in M that is the dot product of two rows in S
+        rows.append(Sm[i, :] * Sm[j, :])
+# And we want M * K_J = 0, so we need null space of M
+M = np.vstack(rows)
+print("structure:", Sm)
+print(Sm)
 print("M shape:", M.shape)
 print("Off-Diagonals:", M)
-# print(np.linalg.matrix_rank(M))
 # Compute null space of M
 ns = null_space(M)
 print("validity of structure:", S.biasForceSpace)
 print(S.rankCondition)
 print("validity of off-diagonal condition:", ns)
+print("off-diagonal producing matrix", M)
+print(np.linalg.matrix_rank(M))
 
 if ns.size == 0:
     print("Only trivial b=0 exists.")
 else:
     print("Nullspace shape:", ns.shape)
-    # choose a basis vector (first column) and scale for readability
-    b_raw = ns[:, 0]
-    # b_raw = find_positive_in_nullspace(ns)[0]
-    print(b_raw)
-    # scale to integer example: find scalar s so s*b_raw is close to integers
-    # here we know theoretical solution proportional to [-8, 3], so we can scale
-    s = 1.0/np.min(b_raw) if np.min(b_raw) != 0 else 1.0
-    b = b_raw * s
-    print("b (up to scale):", b)
-    # Show the matrix A B A^T to verify off-diagonals are (close to) zero
-    B = np.diag(b)
-    ABA = A.dot(B).dot(A.T)
-    print("ABA^T =\n", ABA)
-    # print("Off-diagonal entries:", ABA - np.diag(np.diag(ABA)))
+    # For a 3x4 structure matrix, we expect only one basis vector, but I did testing on 2x3 matrices that have a 2-dimensional stiffness null space
+    # stiffness_dir = ns[:, 0]
+    stiffness_dir = find_positive_in_nullspace(ns)[0] # wanted to make sure the stiffnesses were all positive. 
+    if stiffness_dir is None:
+        stiffness_dir = ns[:, 0]
+    # For a 1-dimensional null space this ends up being redundant; uniformly-signed null spaces come out as pos.
+    print(stiffness_dir)
+    # scale to unit minimum: this just generally results in rounder numbers
+    scale = 1.0/np.min(stiffness_dir) if np.min(stiffness_dir) != 0 else 1.0
+    # scale = 1.0
+    stiffnesses = stiffness_dir * scale
+    print("tendon-space stiffnesses (to scale):", stiffnesses)
+    # Confirm results
+    K_A = np.diag(stiffnesses)
+    K_J = Sm.dot(K_A).dot(Sm.T)
+    print("K_J =\n", K_J)
 

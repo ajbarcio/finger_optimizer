@@ -3,6 +3,8 @@ from strucMatrices import *
 import itertools
 from scipy.optimize import least_squares
 
+obj=StrucMatrix # why on earth is this here, what did I do, what weird merge conflict created this
+
 def generate_valid_dimensional_qutsm(S_, bounds):
     def evenness(radii, D):
         R = r_from_vector(radii, D)
@@ -48,8 +50,11 @@ def generate_valid_dimensional_qutsm(S_, bounds):
 def generate_centered_qutsm(S_):
     def evenness(radii, D):
         R = r_from_vector(radii, D)
+        # print("R", R)
         S = D * R
+        # print("S", S)
         N = null_space(S)
+        # print(N)
         return (N-np.array([[0.5],[0.5],[0.5],[0.5]])).flatten()
 
     def valid_debug_callback(x):
@@ -59,16 +64,24 @@ def generate_centered_qutsm(S_):
 
     evenStructures = []
     i=0
+    print("starting for loop")
     for S in S_:
         i+=1
-        print(f"trying to even out {i}", end="\r")
+        print(f"trying to even out {i}") #, end="\r")
         Struc = obj(S=S)
         # if not Struc.validity:
         D = Struc.D
+        # print(D)
         mask = D != 0
         positions = np.argwhere(mask)
         nRadii = positions.shape[0]
         radii = np.ones(nRadii)*0.5
+        R = r_from_vector(radii, D)
+        S = D*R
+        N = null_space(S)
+        if N.shape[1] > 1:
+            radii = Struc.flatten_r_matrix()
+        print(radii)
         result = least_squares(evenness, radii, bounds=(0,1), args=[D], callback=valid_debug_callback)
         evenRadii = result.x/np.max(result.x)
         if np.isclose(result.cost,0) or not (any([np.isclose(r,0,atol=1e-4) for r in evenRadii])):

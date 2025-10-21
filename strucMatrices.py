@@ -1200,6 +1200,16 @@ D = np.array([[0,1,1,-1],
               [1,1,0,-1]])
 quasiHollow = StrucMatrix(R,D,name='Hollow')
 
+# low-effort diagonal
+r = 1
+R = np.array([[r,r,r,r],
+              [r,r,r,r],
+              [r,r,r,r]])
+D = np.array([[1/3,1,1,-1/3],
+              [1,1/3,1,-1/3],
+              [1,1,1/3,-1/3]])
+LED = StrucMatrix(R,D,name='LED')
+
 # Diagonal Design
 r = 1
 R = np.array([[r,r,r,r/3],
@@ -1218,7 +1228,17 @@ R = np.array([[r,r,r,r],
 D = np.array([[-1, 1,1,-1],
               [ 1,-1,1,-1],
               [ 1, 1,-1,-1]])
-test = StrucMatrix(R,D, name='Test')
+Optimus = StrucMatrix(R,D, name='Optimus')
+
+# test2
+r = 1
+R = np.array([[2*r/3,r,r,r/3],
+              [r,2*r/3,r,r/3],
+              [r,r,2*r/3,r/3]])
+D = np.array([[-1, 1,1,-1],
+              [ 1,-1,1,-1],
+              [ 1, 1,-1,-1]])
+test2 = StrucMatrix(R,D, name='test2')
 
 # free result
 r = 1
