@@ -1292,3 +1292,7 @@ dimensionalAmbrose = VariableStrucMatrix(R, D, ranges=[(c1*np.sqrt(2)/2-r,c1-r)]
                                                types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
                                                F = np.array([50]*4),
                                                name='The Ambrose')
+
+optimusMaximus = StrucMatrix(S=np.array([[ 0.4,  0.4, -0.4,  0.193],
+                                         [ 0.   ,  0.4, -0.3,  0.4],
+                                         [ 0.   ,  0.   , -0.125,  0.4]]))
