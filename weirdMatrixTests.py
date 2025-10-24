@@ -80,13 +80,13 @@ for i in [2,3,4,5,6,7,8,9]:
 
     # Construct M s.t. M * diag(K_A) = (S * K_A * S^T)_p,q s.t. p != q (all non-diagonal elements)
     # K_A is by def a diagonal matrix, so
-    # M * diag(K_A) = 0 => K_J diagonal (all off-diagonal elements equal to 0) 
+    # M * diag(K_A) = 0 => K_J diagonal (all off-diagonal elements equal to 0)
 
     # Build M with one row per off-diagonal pair (p < q)
     rows = []
     # for each row  of K_J:
     for i in range(m):
-        # and each element in that row above the diagonal 
+        # and each element in that row above the diagonal
         for j in range(i+1, m):
             # there is a row in M that is the dot product of two rows in S
             rows.append(Sm[i, :] * Sm[j, :])
@@ -110,7 +110,7 @@ for i in [2,3,4,5,6,7,8,9]:
         print("Nullspace shape:", ns.shape)
         # For a 3x4 structure matrix, we expect only one basis vector, but I did testing on 2x3 matrices that have a 2-dimensional stiffness null space
         # stiffness_dir = ns[:, 0]
-        stiffness_dir = find_positive_in_nullspace(ns)[0] # wanted to make sure the stiffnesses were all positive. 
+        stiffness_dir = find_positive_in_nullspace(ns)[0] # wanted to make sure the stiffnesses were all positive.
         if stiffness_dir is None:
             stiffness_dir = ns[:, 0]
         # For a 1-dimensional null space this ends up being redundant; uniformly-signed null spaces come out as pos.

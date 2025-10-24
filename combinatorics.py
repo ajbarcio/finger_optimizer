@@ -2,16 +2,23 @@ from utils import *
 from strucMatrices import *
 import itertools
 from scipy.optimize import least_squares
+from scipy.linalg import null_space
 
 obj=StrucMatrix # why on earth is this here, what did I do, what weird merge conflict created this
 
 def identify_strict_sign_central(S: StrucMatrix):
     success = True
     struc = S()
-    Ds = signings_of_order(S.numJoints)
+    m = S.numJoints
+    n = S.numTendons
+    Ds = signings_of_order(m)
     for i in range(len(Ds)):
         check = Ds[i] @ struc
-        success &= np.any(np.all(check >=0, axis=0) & np.any(check != 0, axis=0))
+        valid = False
+        for j in range(n):
+            if np.all(check[:,j] >=0) & np.any(check[:,j] != 0):
+                valid = True
+        success &= valid
     return success
 
 def identify_sign_central(S: StrucMatrix):
@@ -493,7 +500,8 @@ def generate_all_unique_qutsm():
     return uniqueQUTSM
 
 if __name__ == "__main__":
-    try: 
+    m = 3
+    try:
         uniqueAll = np.load("allUnique3x4.npy", mmap_mode='r')
     except:
         uniqueAll = generate_all_unique([3,4])
@@ -505,6 +513,34 @@ if __name__ == "__main__":
     print('all possible:', 3**12)
     print(len(uniqueAll))
     print(len(dense))
+    universal = []
+    j=0
+    for i in uniqueAll:
+        print(j, end="\r")
+        if identify_strict_sign_central(StrucMatrix(S=i)):
+            # print(i, "True")
+            universal.append(i)
+    print(len(universal))
+    alwaysControllableDecouplable = []
+    for Sm in universal:
+        # create the decouplability matrix
+        rows = []
+        # for each row  of K_J:
+        for i in range(m):
+            # and each element in that row above the diagonal
+            for j in range(i+1, m):
+                # there is a row in M that is the dot product of two rows in S
+                rows.append(Sm[i, :] * Sm[j, :])
+        # And we want M * K_J = 0, so we need null space of M
+        M = np.vstack(rows)
+        # instead of manually checking the null space, check for
+        # strict centrality and strict sign centrality
+        # StC = identify_strict_central(M)
+        SSC = identify_strict_sign_central(StrucMatrix(S=M))
+        # if StC:
+        if SSC:
+            alwaysControllableDecouplable.append(Sm)
+    print(len(alwaysControllableDecouplable))
     # allUniqueValids = generate_rankValid_well_posed_qutsm()
     # uniqueQUTSM = generate_all_unique_qutsm()
     # print(f"there are {len(uniqueQUTSM)} unique upper triangular matrices")
