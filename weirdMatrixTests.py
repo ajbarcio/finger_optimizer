@@ -46,7 +46,7 @@ def find_positive_in_nullspace(N, normalize_bound=1.0, tol=1e-9):
         # No strictly positive vector found under normalization; return the best found
         return None, None, t_opt
 
-for i in [2,3,4,5,6,7,8,9]:
+for i in [2,3]:
     print("-----------------------------------------------------------------------------")
     print(i)
     # Choose structure matrix
