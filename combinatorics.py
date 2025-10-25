@@ -5,6 +5,71 @@ from scipy.optimize import least_squares
 
 obj=StrucMatrix # why on earth is this here, what did I do, what weird merge conflict created this
 
+def identify_strict_sign_central(S: StrucMatrix):
+    success = True
+    struc = S()
+    Ds = signings_of_order(S.numJoints)
+    for i in range(len(Ds)):
+        check = Ds[i] @ struc
+        success &= np.any(np.all(check >=0, axis=0) & np.any(check != 0, axis=0))
+    return success
+
+def identify_sign_central(S: StrucMatrix):
+    success = True
+    struc = S()
+    Ds = strict_signings_of_order(S.numJoints)
+    for i in range(len(Ds)):
+        check = Ds[i] @ struc
+        # print(check)
+        # print(np.any(np.all(check >= 0, axis=0)))
+        success &= (np.any(np.all(check >= 0, axis=0)))
+    return success
+
+def identify_strict_central(S: StrucMatrix):
+    struc = S()
+    c = [np.sum(struc[i,:]) for i in range(S.numJoints)]
+    res = linprog(c)
+    if res.status == 3:
+        success = False
+    else:
+        print(res.fun)
+        success = True
+    return success
+
+def generate_all_unique(shape):
+    # D = np.array([[1,1,1,1],
+    #               [1,1,1,1],
+    #               [1,1,1,1]])
+    D = np.ones(shape)
+    signs = [0,-1,1]
+
+    positions = np.argwhere(D != 0)
+    total = len(signs) ** len(positions)
+    allSM = []
+
+    for i, mat  in enumerate(generate_matrices_from_pattern(D, signs)):
+        try:
+            S = obj(S=mat)
+            allSM.append(S.S)
+            print(f'trying {i:3d} of {total}', end='\r')
+        except KeyboardInterrupt:
+            break
+    print("                                 ", end='\r')
+
+    uniqueSM = remove_isomorphic(allSM)
+    length = len(uniqueSM)
+    while True:
+        uniqueSM = remove_isomorphic(uniqueSM)
+        if length == len(uniqueSM):
+            break
+        else:
+            length = len(uniqueSM)
+    # print(f"there are {len(uniqueQUTSM)} unique qutsm")
+    # for i in range(len(uniqueSM)):
+    #     print(uniqueSM[i])
+
+    return uniqueSM
+
 def generate_valid_dimensional_qutsm(S_, bounds):
     def evenness(radii, D):
         R = r_from_vector(radii, D)
@@ -159,11 +224,11 @@ def generate_uniformly_valid_qutsm():
             print(f'trying {i:6d} of {total}', end='\r')
     print("                                 ", end='\r')
 
-    fullValidUnique = remove_isomorphic(fullyValids)
+    fullValidUnique = remove_isomorphic_QUTSM(fullyValids)
     # for i, m in enumerate(fullValidUnique):
     #     print(f"matrix {i}:")
     #     print(m, '\n')
-    fullValidUnique = remove_isomorphic(fullValidUnique)
+    fullValidUnique = remove_isomorphic_QUTSM(fullValidUnique)
     return fullValidUnique
 
 def generate_canonical_well_posed_qutsm():
@@ -193,15 +258,15 @@ def generate_canonical_well_posed_qutsm():
             print(f'trying {i:6d} of {total}', end='\r')
     print("                                 ", end='\r')
 
-    fullValidUnique = remove_isomorphic(fullyValids)
+    fullValidUnique = remove_isomorphic_QUTSM(fullyValids)
     # for i, m in enumerate(fullValidUnique):
     #     print(f"matrix {i}:")
     #     print(m, '\n')
-    fullValidUnique = remove_isomorphic(fullValidUnique)
+    fullValidUnique = remove_isomorphic_QUTSM(fullValidUnique)
     # for i, m in enumerate(fullValidUnique):
     #     print(f"matrix {i}:")
     #     print(m, '\n')
-    unique = remove_isomorphic(halfValids)
+    unique = remove_isomorphic_QUTSM(halfValids)
 
     jointUniformValids = []
     for m in unique:
@@ -238,7 +303,7 @@ def generate_canonical_well_posed_qutsm():
             jointAndExtensionUniformValids.append(S1.D)
 
     allValids = fullValidUnique+jointUniformValids+extensionUniformValids+jointAndExtensionUniformValids
-    allUniqueValids = remove_isomorphic(allValids)
+    allUniqueValids = remove_isomorphic_QUTSM(allValids)
 
     for i, m in enumerate(allUniqueValids):
         print(f"well-posing {i} of {len(allUniqueValids)}", end="\r")
@@ -310,8 +375,8 @@ def generate_rankValid_qutsm():
             print(f'trying {i:6d} of {total}', end='\r')
     print("                                 ", end='\r')
 
-    unique = remove_isomorphic(halfValids)
-    allUniqueValids = remove_isomorphic(unique)
+    unique = remove_isomorphic_QUTSM(halfValids)
+    allUniqueValids = remove_isomorphic_QUTSM(unique)
 
     return allUniqueValids
 
@@ -342,18 +407,18 @@ def generate_rankValid_well_posed_qutsm():
             print(f'trying {i:6d} of {total}', end='\r')
     print("                                 ", end='\r')
 
-    fullValidUnique = remove_isomorphic(fullyValids)
+    fullValidUnique = remove_isomorphic_QUTSM(fullyValids)
     # for i, m in enumerate(fullValidUnique):
     #     print(f"matrix {i}:")
     #     print(m, '\n')
-    fullValidUnique = remove_isomorphic(fullValidUnique)
+    fullValidUnique = remove_isomorphic_QUTSM(fullValidUnique)
     # for i, m in enumerate(fullValidUnique):
     #     print(f"matrix {i}:")
     #     print(m, '\n')
-    unique = remove_isomorphic(halfValids)
+    unique = remove_isomorphic_QUTSM(halfValids)
 
     allValids = unique+fullValidUnique
-    allUniqueValids = remove_isomorphic(allValids)
+    allUniqueValids = remove_isomorphic_QUTSM(allValids)
 
     for i, m in enumerate(allUniqueValids):
         print(f"well-posing {i} of {len(allUniqueValids)}", end="\r")
@@ -421,42 +486,54 @@ def generate_all_unique_qutsm():
         print(f'trying {i:3d} of {total}', end='\r')
     print("                                 ", end='\r')
 
-    uniqueQUTSM = remove_isomorphic(allQUTSM)
-    uniqueQUTSM = remove_isomorphic(uniqueQUTSM)
+    uniqueQUTSM = remove_isomorphic_QUTSM(allQUTSM)
+    uniqueQUTSM = remove_isomorphic_QUTSM(uniqueQUTSM)
     # print(f"there are {len(uniqueQUTSM)} unique qutsm")
 
     return uniqueQUTSM
 
 if __name__ == "__main__":
+    try: 
+        uniqueAll = np.load("allUnique3x4.npy", mmap_mode='r')
+    except:
+        uniqueAll = generate_all_unique([3,4])
+        print(len(uniqueAll))
+        np.save("allUnique3x4.npy", uniqueAll)
+    dense = uniqueAll[np.count_nonzero(uniqueAll == 0, axis=(1,2)) <= 1]
+    # for i in dense:
+    #     print(i)
+    print('all possible:', 3**12)
+    print(len(uniqueAll))
+    print(len(dense))
     # allUniqueValids = generate_rankValid_well_posed_qutsm()
-    uniqueQUTSM = generate_all_unique_qutsm()
-    print(f"there are {len(uniqueQUTSM)} unique upper triangular matrices")
-    uniformQUTSM = generate_uniformly_valid_qutsm()
-    print(f"there are {len(uniformQUTSM)} valid qutsm with uniform radii")
-    rankValidQUTSM = generate_rankValid_qutsm()
-    print(f"there are {len(rankValidQUTSM)} unique qutsm which fulfill the rank condition")
-    allDimensionalValids = generate_valid_dimensional_qutsm(uniqueQUTSM, (0.125,0.4))
-    allCenteredValids = generate_centered_qutsm(uniqueQUTSM)
-    allCenterableValids = find_centerable_qutsm(uniqueQUTSM)
-    if np.array_equal(uniqueQUTSM, rankValidQUTSM):
-        print("the unique qutsm and rank-valid qutsm are identical")
+    # uniqueQUTSM = generate_all_unique_qutsm()
+    # print(f"there are {len(uniqueQUTSM)} unique upper triangular matrices")
+    # uniformQUTSM = generate_uniformly_valid_qutsm()
+    # print(f"there are {len(uniformQUTSM)} valid qutsm with uniform radii")
+    # rankValidQUTSM = generate_rankValid_qutsm()
+    # print(f"there are {len(rankValidQUTSM)} unique qutsm which fulfill the rank condition")
+    # allDimensionalValids = generate_valid_dimensional_qutsm(uniqueQUTSM, (0.125,0.4))
+    # allCenteredValids = generate_centered_qutsm(uniqueQUTSM)
+    # allCenterableValids = find_centerable_qutsm(uniqueQUTSM)
+    # if np.array_equal(uniqueQUTSM, rankValidQUTSM):
+    #     print("the unique qutsm and rank-valid qutsm are identical")
 
-    for i, valid in enumerate(allDimensionalValids):
-        # valid = valid/np.max(valid)
-        S = obj(S=valid)
-        print(f"valid matrix {i}")
-        print(np.array2string(valid, precision=3, suppress_small=True), end="\n")
-        print(np.max(abs(S.flatten_r_matrix()))/np.min(abs(S.flatten_r_matrix())))
-        print(S.biasCondition())
-    print(f"there are {len(allDimensionalValids)} valid qutsm within dimensional bounds")
-    print(f"there are {len(allCenterableValids)} centerable qutsm")
-    print(f"there are {len(allCenteredValids)} centered qutsm")
-    for i, valid in enumerate(allCenteredValids):
-        S = obj(S=valid)
-        print(f"centered matrix {i}")
-        print(np.array2string(valid, precision=3, suppress_small=True), end="\n")
-        print(np.max(abs(S.flatten_r_matrix()))/np.min(abs(S.flatten_r_matrix())))
-        print(S.biasCondition())
+    # for i, valid in enumerate(allDimensionalValids):
+    #     # valid = valid/np.max(valid)
+    #     S = obj(S=valid)
+    #     print(f"valid matrix {i}")
+    #     print(np.array2string(valid, precision=3, suppress_small=True), end="\n")
+    #     print(np.max(abs(S.flatten_r_matrix()))/np.min(abs(S.flatten_r_matrix())))
+    #     print(S.biasCondition())
+    # print(f"there are {len(allDimensionalValids)} valid qutsm within dimensional bounds")
+    # print(f"there are {len(allCenterableValids)} centerable qutsm")
+    # print(f"there are {len(allCenteredValids)} centered qutsm")
+    # for i, valid in enumerate(allCenteredValids):
+    #     S = obj(S=valid)
+    #     print(f"centered matrix {i}")
+    #     print(np.array2string(valid, precision=3, suppress_small=True), end="\n")
+    #     print(np.max(abs(S.flatten_r_matrix()))/np.min(abs(S.flatten_r_matrix())))
+    #     print(S.biasCondition())
         # print(null_space(valid))
     # i=0
     # for S in allUniqueValids:

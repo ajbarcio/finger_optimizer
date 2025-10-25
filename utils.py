@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.differentiate import jacobian
-
+from itertools import combinations
+from math import comb
 colors = [
     'xkcd:neon green',     # #0cff0c – retina-searing green
     'xkcd:electric blue',  # #0652ff – deep glowing blue
@@ -22,6 +23,23 @@ colors = [
 ]
 
 import itertools
+
+def signings_of_order(m, strict=False):
+   if strict:
+    vals = [1,-1]
+   else:
+    vals = [0,1,-1]
+   n = len(vals)
+   signings = np.zeros([n**m, m, m])
+   combs = list(itertools.product(vals, repeat=m))
+   for i in range(n**m):
+      signings[i,:,:] = np.diag(combs[i])
+   if not strict:
+      signings = np.delete(signings, 0, axis=0)
+   return signings
+
+def strict_signings_of_order(m):
+   return signings_of_order(m, strict=True)
 
 def clean_array(arr, tol=1e-8):
     arr_np = np.asarray(arr, dtype=float)  # ensures vectorized ops
@@ -173,27 +191,10 @@ def generate_matrices_from_pattern(D, value_set={-1, 0, 1}):
             result[i, j] = val
         yield result
 
-# def canonical_form(mat):
-#     mat = mat.copy()
-
-#     # Step 1: Normalize each row's sign (first non-zero entry should be positive)
-#     for i in range(mat.shape[0]):
-#         row = mat[i]
-#         for val in row:
-#             if val != 0:
-#                 if val < 0:
-#                     mat[i] *= -1
-#                 break
-
-#     # Step 2: Sort columns lexicographically
-#     col_order = np.lexsort(mat[::-1])
-#     mat_sorted = mat[:, col_order]
-
-#     # Step 3: Convert to a hashable structure
-#     return tuple(map(tuple, mat_sorted))
-
 def normalize_row_signs(mat):
     mat2 = mat.copy()
+    # print(mat2)
+    # print(mat2.shape[0])
     for i in range(mat2.shape[0]):
         row = mat2[i]
         for val in row:
@@ -223,14 +224,46 @@ def canonical_form(mat):
             candidate = tuple(map(tuple, permuted))
             if best is None or candidate < best:
                 best = candidate
+    if best is None:
+       print("WHAAAAAAAAAAAAAAAAAAAAAAAAAA")
     return best
+
+def lexical_column_order(mat):
+   m = mat.shape[0]
+   keys = tuple(mat[i,:] for i in range(m-1,-1,-1))
+   perm = np.lexsort(keys)
+   return perm
+
+def canonical_form_general(mat):
+   
+   mat = normalize_row_signs(mat)
+   perm = lexical_column_order(mat)
+   permuted = mat[:, perm]
+  #  print([type(x) for x in permuted])
+  #  print([type(x) for x in permuted[0]])
+   hashable = tuple(map(tuple, permuted))
+   return hashable
+      
+def remove_isomorphic_QUTSM(matrices):
+    seen = set()
+    unique = []
+
+    for mat in matrices:
+        canon = canonical_form(mat)
+        if canon not in seen:
+            seen.add(canon)
+            unique.append(np.array(canon))
+
+    return unique
 
 def remove_isomorphic(matrices):
     seen = set()
     unique = []
 
     for mat in matrices:
-        canon = canonical_form(mat)
+        # print(mat)
+        canon = canonical_form_general(mat)
+        # print(canon.__class__)
         if canon not in seen:
             seen.add(canon)
             unique.append(np.array(canon))
@@ -423,6 +456,8 @@ def find_axis_extent_lp(vertices, axis_direction):
     return p_min, p_max
 
 if __name__ == '__main__':
+   print(signings_of_order(3)[0])
+   print(strict_signings_of_order(3))
   # basis = np.array([[1, 1]]) #1d subspace of R^2
   # print(intersects_positive_orthant(basis)) #True
 
@@ -461,10 +496,10 @@ if __name__ == '__main__':
   # for i, variant in enumerate(variants):
   #     print(f"\nVariant {i + 1}:\n{variant}")
 
-  vecs = np.array([[1,1,0],[-1,1,0],[-1,-1,0],[1,-1,0],[0,0,1],[0,0,-1],])
-  hull = ConvexHull(vecs)
-  for i in range(8):
-    intersection = intersection_with_orthant(hull, i+1)
+  # vecs = np.array([[1,1,0],[-1,1,0],[-1,-1,0],[1,-1,0],[0,0,1],[0,0,-1],])
+  # hull = ConvexHull(vecs)
+  # for i in range(8):
+  #   intersection = intersection_with_orthant(hull, i+1)
 
   # vecs = np.array([[1,1,0],[-1,1,0],[-1,-1,0],[1,-1,0],[0,0,1],[0,0,-1],])
   # hull = ConvexHull(vecs)
