@@ -56,9 +56,8 @@ def generate_all_unique(shape):
 
     for i, mat  in enumerate(generate_matrices_from_pattern(D, signs)):
         try:
-            S = obj(S=mat)
-            allSM.append(S.S)
-            print(f'trying {i:3d} of {total}', end='\r')
+            allSM.append(mat)
+            print(f'generating {i:3d} of {total}', end='\r')
         except KeyboardInterrupt:
             break
     print("                                 ", end='\r')
@@ -529,31 +528,63 @@ if __name__ == "__main__":
         uniqueAll = np.load("allUnique3x4.npy", mmap_mode='r')
     except:
         uniqueAll = generate_all_unique([3,4])
-        print(len(uniqueAll))
+        print(uniqueAll[0].shape)
         np.save("allUnique3x4.npy", uniqueAll)
-    dense = uniqueAll[np.count_nonzero(uniqueAll == 0, axis=(1,2)) == 0]
+    # dense = uniqueAll[np.count_nonzero(uniqueAll == 0, axis=(1,2)) == 0]
     # for i in dense:
     #     print(i)
     print(f'There are all {3**12} possible 3dof n+1 tendon routings:', )
     print(f'{len(uniqueAll)} of them are unique')
-    uniqueRankValids = 0
+    uniqueRankValids = []
     for i in uniqueAll:
         if matrix_rank(i)==3:
-            uniqueRankValids+=1
-    print(f'{uniqueRankValids} are likely to be controllable, if the correct radii are chosen')
+            uniqueRankValids.append(i)
+    print(f'{len(uniqueRankValids)} are likely to be controllable, if the correct radii are chosen')
     # print(len(dense))
-    universal = []
-    uniform = []
-    j=0
-    for i in uniqueAll:
-        print(j, end="\r")
-        if identify_strict_sign_central(StrucMatrix(S=i)):
-            # print(i, "True")
-            universal.append(i)
-        if identify_strict_central(StrucMatrix(S=i)):
-            uniform.append(i)
-    print(f'{len(uniform)} are controllable if every radius is the same')
-    print(f'{len(universal)} of these are ALWAYS controllable, no matter what radii you choose')
+    try:
+        universal = np.load('universal.npy', mmap_mode='r')
+        uniform = np.load('uniform.npy', mmap_mode='r')
+        possiblyControllableDecouplable = np.load('possiblyControllableDecouplable.npy', mmap_mode='r')
+        possiblyControllableAlwaysDecouplable = np.load('possiblyControllableAlwaysDecouplable.npy', mmap_mode='r')
+    except:
+        universal = []
+        uniform = []
+        possiblyControllableDecouplable = []
+        possiblyControllableAlwaysDecouplable = []
+        for Sm in uniqueRankValids:
+            print(j, end="\r")
+            if identify_strict_sign_central(StrucMatrix(S=Sm)):
+                # print(i, "True")
+                universal.append(Sm)
+            if identify_strict_central(StrucMatrix(S=Sm)):
+                uniform.append(Sm)
+            rows = []
+            # for each row  of K_J:
+            for i in range(m):
+                # and each element in that row above the diagonal
+                for j in range(i+1, m):
+                    # there is a row in M that is the dot product of two rows in S
+                    rows.append(Sm[i, :] * Sm[j, :])
+            # And we want M * K_J = 0, so we need null space of M
+            M = np.vstack(rows)
+            # instead of manually checking the null space, check for
+            # strict centrality and strict sign centrality
+            StC = identify_strict_central(StrucMatrix(S=M))
+            SSC = identify_strict_sign_central(StrucMatrix(S=M))
+            if StC:
+                possiblyControllableDecouplable.append(Sm)
+            if SSC:
+                possiblyControllableAlwaysDecouplable.append(Sm)
+        np.save('universal.npy', np.array(universal))
+        np.save('uniform.npy', np.array(uniform))
+        np.save('possiblyControllableDecouplable.npy', np.array(possiblyControllableDecouplable))
+        np.save('possiblyControllableAlwaysDecouplable.npy', np.array(possiblyControllableAlwaysDecouplable))
+    print(f'{len(uniform)} of the rank-valid matrices are controllable for uniform radii')
+    print(f'{len(universal)} of these are inherently controllable')
+    print(f'{len(possiblyControllableDecouplable)} of the rank-valid matrices are decouplable for uniform radii')
+    print(f'{len(possiblyControllableAlwaysDecouplable)} are inherently decouplable (all of which are quasi-hollow)')
+    for i in possiblyControllableAlwaysDecouplable:
+        print(i)
     alwaysControllableDecouplable = []
     controllableUniformlyDecouplable = []
     for Sm in universal:
@@ -575,8 +606,8 @@ if __name__ == "__main__":
             controllableUniformlyDecouplable.append(Sm)
         if SSC:
             alwaysControllableDecouplable.append(Sm)
-    print(f'of these inherently controllable SM, {len(controllableUniformlyDecouplable)} are also decouplable with uniform radii')
-    print(f'and there are {len(alwaysControllableDecouplable)} which are both decoupleable and controllable regardless of radius choice')
+    print(f'of the inherently controllable SM, {len(controllableUniformlyDecouplable)} are also decouplable with uniform radii')
+    print(f'and there are {len(alwaysControllableDecouplable)} which are both inherently controllable and inherently decoupleable')
     # allUniqueValids = generate_rankValid_well_posed_qutsm()
     uniqueQUTSM = generate_all_unique_qutsm()
     print()
@@ -594,6 +625,7 @@ if __name__ == "__main__":
     universalPractical = []
     uniformPractical = []
     inherentlyDecouplable = []
+    uniformDecouplable = []
     j=0
     for i in constructibleRankValids:
         print(j, end="\r")
@@ -613,74 +645,79 @@ if __name__ == "__main__":
         # And we want M * K_J = 0, so we need null space of M
         M = np.vstack(rows)
         SSC = identify_strict_sign_central(StrucMatrix(S=M))
+        StC = identify_strict_central(StrucMatrix(S=M))
         if SSC:
             inherentlyDecouplable.append(i)
+        if StC:
+            uniformDecouplable.append(i)
     print(f'{len(uniformPractical)} of which are controllable for uniform radii and')
     print(f"{len(universalPractical)} of which are 'inherently' controllable:")
     # print(universalPractical)
     for i in universalPractical:
         print(i)
+    # print(f'{remove_isomorphic(universalPractical)}')
+    print(f'There are {len(uniformDecouplable)} routings which are practical to produce and decouplable for uniform radii')
     print(f"There are {len(inherentlyDecouplable)} routings which are practical to produce and also inherently decouplable")
     print()
-    print(f"Additionally, there are {len(uniqueQUTSM)} unique upper triangular matrices")
-    allDimensionalValids = generate_valid_dimensional_qutsm(uniqueQUTSM, (0.125,0.4))
-    print(f'{len(allDimensionalValids)} of which can be made controllable under certain practical constraints on radius size')
-    universalQUTSM = []
-    uniformQUTSM = []
-    j=0
-    for i in uniqueQUTSM:
-        print(j, end="\r")
-        if identify_strict_sign_central(StrucMatrix(S=i)):
-            # print(i, "True")
-            universalQUTSM.append(i)
-        if identify_strict_central(StrucMatrix(S=i)):
-            uniformQUTSM.append(i)
-    print(f'{len(uniformQUTSM)} of which are controllable for uniform radii and')
-    print(f"{len(universalQUTSM)} of which is 'inherently' controllable:")
-    print(universalQUTSM)
-    universalQUTSM = universalQUTSM[0]
-    # create the decouplability matrix
-    rows = []
-    # for each row  of K_J:
-    for i in range(m):
-        # and each element in that row above the diagonal
-        for j in range(i+1, m):
-            # there is a row in M that is the dot product of two rows in S
-            rows.append(universalQUTSM[i, :] * universalQUTSM[j, :])
-    # And we want M * K_J = 0, so we need null space of M
-    M = np.vstack(rows)
-    # instead of manually checking the null space, check for
-    # strict centrality and strict sign centrality
-    StC = identify_strict_central(StrucMatrix(S=M))
-    SSC = identify_strict_sign_central(StrucMatrix(S=M))
-    if SSC:
-        print('man you fucked up somewhere')
-    if StC:
-        print("This QUTSM which is inherently controllable is also decouplable in the uniform condition")
-    else:
-        print("for uniform radii, that QUTSM is not decouplable")
-    print("")
-    print(f"Using another perspective, there are {len(dense)} unique matrices which all terminate at the most distal joint")
-    rankValids = []
-    for i in dense:
-        if matrix_rank(i)==3:
-            rankValids.append(i)
-    print(f"{len(rankValids)} of these are likely to be controllable with correct choice of radii")
-    # print()
-    universal = []
-    uniform = []
-    j=0
-    for i in dense:
-        print(j, end="\r")
-        if identify_strict_sign_central(StrucMatrix(S=i)):
-            # print(i, "True")
-            universal.append(i)
-        if identify_strict_central(StrucMatrix(S=i)):
-            uniform.append(i)
-    # for i in rankValids:
-    #     print(i)
-    print(f'and {len(uniform)} are controllable for uniform radius, while')
-    print(f"{len(universal)} are controllable regardless of radius choice")
+    # print(f"Additionally, there are {len(uniqueQUTSM)} unique upper triangular matrices")
+    # allDimensionalValids = generate_valid_dimensional_qutsm(uniqueQUTSM, (0.125,0.4))
+    # print(f'{len(allDimensionalValids)} of which can be made controllable under certain practical constraints on radius size')
+    # universalQUTSM = []
+    # uniformQUTSM = []
+    # j=0
+    # for i in uniqueQUTSM:
+    #     print(j, end="\r")
+    #     if identify_strict_sign_central(StrucMatrix(S=i)):
+    #         # print(i, "True")
+    #         universalQUTSM.append(i)
+    #     if identify_strict_central(StrucMatrix(S=i)):
+    #         uniformQUTSM.append(i)
+    # print(f'{len(uniformQUTSM)} of which are controllable for uniform radii and')
+    # print(f"{len(universalQUTSM)} of which is 'inherently' controllable:")
+    # print(universalQUTSM)
+    # universalQUTSM = universalQUTSM[0]
+    # # create the decouplability matrix
+    # rows = []
+    # # for each row  of K_J:
+    # for i in range(m):
+    #     # and each element in that row above the diagonal
+    #     for j in range(i+1, m):
+    #         # there is a row in M that is the dot product of two rows in S
+    #         rows.append(universalQUTSM[i, :] * universalQUTSM[j, :])
+    # # And we want M * K_J = 0, so we need null space of M
+    # M = np.vstack(rows)
+    # # instead of manually checking the null space, check for
+    # # strict centrality and strict sign centrality
+    # StC = identify_strict_central(StrucMatrix(S=M))
+    # SSC = identify_strict_sign_central(StrucMatrix(S=M))
+    # if SSC:
+    #     print('man you fucked up somewhere')
+    # if StC:
+    #     print("This QUTSM which is inherently controllable is also decouplable in the uniform condition")
+    # else:
+    #     print("for uniform radii, that QUTSM is not decouplable")
+    # print("")
+    # print(f"Using another perspective, there are {len(dense)} unique matrices which all terminate at the most distal joint")
+    # rankValids = []
+    # for i in dense:
+    #     if matrix_rank(i)==3:
+    #         rankValids.append(i)
+    # print(f"{len(rankValids)} of these are likely to be controllable with correct choice of radii")
+    # # print()
+    # universal = []
+    # uniform = []
+    # j=0
+    # for i in dense:
+    #     print(j, end="\r")
+    #     if identify_strict_sign_central(StrucMatrix(S=i)):
+    #         # print(i, "True")
+    #         universal.append(i)
+    #     if identify_strict_central(StrucMatrix(S=i)):
+    #         uniform.append(i)
+    # # for i in rankValids:
+    # #     print(i)
+    # print(f'and {len(uniform)} are controllable for uniform radius, while')
+    # print(f"{len(universal)} are controllable regardless of radius choice")
     # print("[[-1 -1  1  1] \
     #         [-1  1 -1  1] \
     #         [ 1 -1 -1  1]]")

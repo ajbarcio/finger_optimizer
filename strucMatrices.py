@@ -204,7 +204,8 @@ class StrucMatrix():
             obj = type(self)
             print("object:", obj)
         else:
-            print("object given as:", obj)
+            # print("object given as:", obj)
+            pass
 
         color = colorOverride if colorOverride is not None else colors[obj.plot_count % len(colors)]
 
@@ -260,13 +261,14 @@ class StrucMatrix():
         obj.plot_count += 1
 
     def plotGrasp(self, grasp, showBool=False, obj=None):
-        
+
         if obj is None:
             obj = type(self)
             print("object:", obj)
         else:
-            print("object given as:", obj)
-        
+            # print("object given as:", obj)
+            pass
+
         if self.contains(grasp):
             color='xkcd:green'
         else:
@@ -799,7 +801,7 @@ class VariableStrucMatrix():
 
     class convergent_circles_joint_with_limit():
         """
-        Similar to convergent circles, but with a convex arc around 
+        Similar to convergent circles, but with a convex arc around
         """
         def __init__(self, min, max, idx, minOverwrite=None):
             self.min = min
@@ -851,7 +853,7 @@ class VariableStrucMatrix():
             self.numVDoF = len(ranges)
         # Allow a single range to be passed to all variable tendons
         elif len(ranges)==1:
-            ranges = ranges*np.xum(np.isnan(R))
+            ranges = ranges*np.sum(np.isnan(R))
             self.numVDoF = 1 # assume this means only one range
         # At this point, if a ranges has been passed of insufficient length, bitch about it
         if not np.sum(np.isnan(R)) == len(ranges):

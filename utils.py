@@ -53,7 +53,7 @@ def clean_array(arr, tol=1e-8):
     elif isinstance(arr, list):
         return arr_np.tolist()
     else:
-        return arr_np 
+        return arr_np
 
 def f_for_jac(x, l):
     x = np.asarray(x)
@@ -191,19 +191,6 @@ def generate_matrices_from_pattern(D, value_set={-1, 0, 1}):
             result[i, j] = val
         yield result
 
-def normalize_row_signs(mat):
-    mat2 = mat.copy()
-    # print(mat2)
-    # print(mat2.shape[0])
-    for i in range(mat2.shape[0]):
-        row = mat2[i]
-        for val in row:
-            if val != 0:
-                if val < 0:
-                    mat2[i] = -row
-                break
-    return mat2
-
 def is_upper_triangular_by_leading_zeros(mat):
     for i, row in enumerate(mat):
         if not np.all(row[:i] == 0):
@@ -229,21 +216,99 @@ def canonical_form(mat):
     return best
 
 def lexical_column_order(mat):
-   m = mat.shape[0]
-   keys = tuple(mat[i,:] for i in range(m-1,-1,-1))
-   perm = np.lexsort(keys)
+  m = mat.shape[0]
+  keys = tuple(mat[i,:] for i in range(m-1,-1,-1))
+  perm = np.lexsort(keys)
+  return perm
+
+def canonical_column_order(mat):
+   m, n = mat.shape
+   zero_counts = np.sum(mat == 0, axis=0)
+
+   # Find where the first zero appears (if none, use -1 so they sort last)
+   first_zero_idx = np.full(n, -1)
+   for j in range(n):
+       zeros = np.where(mat[:, j] == 0)[0]
+       if zeros.size > 0:
+           first_zero_idx[j] = zeros[0]
+
+  #  keys = tuple(mat[i,:] for i in range(m-1,-1,-1))
+   keys = tuple(mat[i, :] for i in range(m-1, -1, -1))
+  #  keys =
+   perm = np.lexsort(keys + (first_zero_idx, -zero_counts))
    return perm
 
+def normalize_row_signs(mat):
+    mat2 = mat.copy()
+    for i in range(mat2.shape[0]):
+        row = mat2[i]
+        for val in row:
+            if val != 0:
+                if val < 0:
+                    mat2[i] = -row
+                break
+    return mat2
+
+# def canonical_form_general(mat):
+#    m, n = mat.shape
+#    best = None
+#    for sign_pattern in itertools.product([-1,1], repeat=m):
+#       signed_mat = np.diag(sign_pattern) @ mat
+
+#       perm = lexical_column_order(mat)
+#       current = signed_mat[:, perm]
+#       hashable = tuple(map(tuple, current))
+#       if best is None or hashable < best:
+#          best = hashable
+#    return best
+
 def canonical_form_general(mat):
-   
-   mat = normalize_row_signs(mat)
-   perm = lexical_column_order(mat)
-   permuted = mat[:, perm]
-  #  print([type(x) for x in permuted])
-  #  print([type(x) for x in permuted[0]])
-   hashable = tuple(map(tuple, permuted))
-   return hashable
-      
+    m, n = mat.shape
+    best_tuple = None
+
+    # try all row sign combinations
+    for flip_pattern in itertools.product([-1, 1], repeat=m):
+        flipped = mat * np.array(flip_pattern)[:, None]
+
+        # sort columns: most zeros first, then first-zero index
+        zero_counts = np.sum(flipped == 0, axis=0)
+        first_zero_idx = np.full(n, m)
+        for j in range(n):
+            zeros = np.where(flipped[:, j] == 0)[0]
+            if zeros.size > 0:
+                first_zero_idx[j] = zeros[0]
+        keys = (first_zero_idx, -zero_counts)
+        perm = np.lexsort(keys)
+        candidate = flipped[:, perm]
+
+        # flip entire matrix if it has more -1s than +1s
+        num_pos = np.sum(candidate == 1)
+        num_neg = np.sum(candidate == -1)
+        if num_neg > num_pos:
+            candidate = -candidate
+
+        tup = tuple(map(tuple, candidate))
+        if best_tuple is None or tup < best_tuple:
+            best_tuple = tup
+
+    return best_tuple
+
+def remove_isomorphic(matrices):
+    seen = set()
+    unique = []
+    i = 1
+    for mat in matrices:
+        # print(mat)
+        print(f'checking for duplicates of matrix {i:3d} of {len(matrices)}, found {len(unique)}', end='\r')
+        canon = canonical_form_general(mat)
+        # print(canon.__class__)
+        if canon not in seen:
+            seen.add(canon)
+            unique.append(np.array(canon))
+        i+=1
+    print("")
+    return unique
+
 def remove_isomorphic_QUTSM(matrices):
     seen = set()
     unique = []
@@ -256,19 +321,6 @@ def remove_isomorphic_QUTSM(matrices):
 
     return unique
 
-def remove_isomorphic(matrices):
-    seen = set()
-    unique = []
-
-    for mat in matrices:
-        # print(mat)
-        canon = canonical_form_general(mat)
-        # print(canon.__class__)
-        if canon not in seen:
-            seen.add(canon)
-            unique.append(np.array(canon))
-
-    return unique
 
 def hsv_to_rgb(h, s, v):
    # Assume h, s, v are all given on [0,1]
@@ -410,7 +462,7 @@ def in_hull3(hull, x):
 def find_axis_extent_lp(vertices, axis_direction):
     m, n = vertices.shape
     d = axis_direction / np.linalg.norm(axis_direction)  # unit vector
-    
+
     # Variables: [lambda_1,...,lambda_m, t]
     # Objective: maximize t (or minimize t)
     c_max = np.zeros(m + 1)
