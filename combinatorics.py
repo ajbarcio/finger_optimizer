@@ -521,8 +521,7 @@ def generate_all_unique_qutsm():
 
     return uniqueQUTSM
 
-if __name__ == "__main__":
-
+def total_combinatoric_analysis():
     m = 3
     try:
         uniqueAll = np.load("allUnique3x4.npy", mmap_mode='r')
@@ -659,6 +658,10 @@ if __name__ == "__main__":
     print(f'There are {len(uniformDecouplable)} routings which are practical to produce and decouplable for uniform radii')
     print(f"There are {len(inherentlyDecouplable)} routings which are practical to produce and also inherently decouplable")
     print()
+
+if __name__ == "__main__":
+
+    total_combinatoric_analysis()
     # print(f"Additionally, there are {len(uniqueQUTSM)} unique upper triangular matrices")
     # allDimensionalValids = generate_valid_dimensional_qutsm(uniqueQUTSM, (0.125,0.4))
     # print(f'{len(allDimensionalValids)} of which can be made controllable under certain practical constraints on radius size')
