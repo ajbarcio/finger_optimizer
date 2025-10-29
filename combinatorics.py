@@ -33,15 +33,22 @@ def identify_sign_central(S: StrucMatrix):
     return success
 
 def identify_strict_central(S: StrucMatrix):
-    struc = S()
-    c = [np.sum(struc[i,:]) for i in range(S.numJoints)]
-    res = linprog(c)
-    if res.status == 3:
-        success = False
-    else:
-        # print(res.fun)
-        success = True
-    return success
+
+    """
+    Dual problem of the minimization for Theorem 2.1 presented by
+    Brunaldi and Dahl in Strict Sign-Central Matrices
+    """
+    A = S()
+    n = A.shape[1]
+    e = np.ones(n)
+
+    c = np.zeros(n)                 # objective: minimize 0
+    A_eq = A                        # equality: A w = -A e
+    b_eq = -A @ e
+    bounds = [(0, None)] * n        # w >= 0
+
+    res = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
+    return res.success
 
 def generate_all_unique(shape):
     # D = np.array([[1,1,1,1],
@@ -70,10 +77,8 @@ def generate_all_unique(shape):
             break
         else:
             length = len(uniqueSM)
-    # print(f"there are {len(uniqueQUTSM)} unique qutsm")
-    # for i in range(len(uniqueSM)):
-    #     print(uniqueSM[i])
-
+    for i, SM in enumerate(uniqueSM):
+        uniqueSM[i] = triangularize_and_orient(SM)
     return uniqueSM
 
 def select_all_possible(S_):
@@ -96,6 +101,25 @@ def select_all_possible(S_):
 
     return possibleStructures
 
+def select_all_controllable(S_):
+    controllableStructures = []
+    i=0
+    for S in S_:
+        if matrix_rank(S)==3:
+            if identify_strict_central(StrucMatrix(S=S)):
+                controllableStructures.append(S)
+
+    return controllableStructures
+
+def select_all_inherently_controllable(S_):
+    if len(select_all_controllable(S_))==len(S_):
+        inherentlyControllableStructures = []
+        for S in S_:
+            if identify_strict_sign_central(StrucMatrix(S=S)):
+                inherentlyControllableStructures.append(S)
+        return inherentlyControllableStructures
+    else:
+        print("please only submit uniformly controllable structures to this function. its not necessary but it enforces you being meticulous")
 
 def generate_valid_dimensional_qutsm(S_, bounds):
     def evenness(radii, D):
@@ -509,16 +533,20 @@ def generate_all_unique_qutsm():
     allQUTSM = []
 
     for i, mat  in enumerate(generate_matrices_from_pattern(D, signs)):
-        S = obj(S=mat)
-        allQUTSM.append(S.S)
-        print(f'trying {i:3d} of {total}', end='\r')
+        allQUTSM.append(mat)
+        print(f'generating {i:3d} of {total}', end='\r')
     print("                                 ", end='\r')
-
-    uniqueQUTSM = remove_isomorphic_QUTSM(allQUTSM)
-    uniqueQUTSM = remove_isomorphic_QUTSM(uniqueQUTSM)
-    # uniqueQUTSM = remove_isomorphic_QUTSM(uniqueQUTSM)
-    # print(f"there are {len(uniqueQUTSM)} unique qutsm")
-
+    # print("Not going to remove isomorphics")
+    uniqueQUTSM = remove_isomorphic(allQUTSM)
+    length = len(uniqueQUTSM)
+    while True:
+        uniqueQUTSM = remove_isomorphic(uniqueQUTSM)
+        if length == len(uniqueQUTSM):
+            break
+        else:
+            length = len(uniqueQUTSM)
+    for i, SM in enumerate(uniqueQUTSM):
+        uniqueQUTSM[i] = triangularize_and_orient(SM)
     return uniqueQUTSM
 
 def total_combinatoric_analysis():
@@ -529,9 +557,6 @@ def total_combinatoric_analysis():
         uniqueAll = generate_all_unique([3,4])
         print(uniqueAll[0].shape)
         np.save("allUnique3x4.npy", uniqueAll)
-    # dense = uniqueAll[np.count_nonzero(uniqueAll == 0, axis=(1,2)) == 0]
-    # for i in dense:
-    #     print(i)
     print(f'There are all {3**12} possible 3dof n+1 tendon routings:', )
     print(f'{len(uniqueAll)} of them are unique')
     uniqueRankValids = []
@@ -550,8 +575,9 @@ def total_combinatoric_analysis():
         uniform = []
         possiblyControllableDecouplable = []
         possiblyControllableAlwaysDecouplable = []
+        progress = 0
         for Sm in uniqueRankValids:
-            print(j, end="\r")
+            # print(j, end="\r")
             if identify_strict_sign_central(StrucMatrix(S=Sm)):
                 # print(i, "True")
                 universal.append(Sm)
@@ -574,6 +600,8 @@ def total_combinatoric_analysis():
                 possiblyControllableDecouplable.append(Sm)
             if SSC:
                 possiblyControllableAlwaysDecouplable.append(Sm)
+            progress+=1
+            print(progress, end="\r")
         np.save('universal.npy', np.array(universal))
         np.save('uniform.npy', np.array(uniform))
         np.save('possiblyControllableDecouplable.npy', np.array(possiblyControllableDecouplable))
@@ -608,7 +636,6 @@ def total_combinatoric_analysis():
     print(f'of the inherently controllable SM, {len(controllableUniformlyDecouplable)} are also decouplable with uniform radii')
     print(f'and there are {len(alwaysControllableDecouplable)} which are both inherently controllable and inherently decoupleable')
     # allUniqueValids = generate_rankValid_well_posed_qutsm()
-    uniqueQUTSM = generate_all_unique_qutsm()
     print()
     print(f"Considering practical issues of 'skipping joints',")
     print()
@@ -659,127 +686,24 @@ def total_combinatoric_analysis():
     print(f"There are {len(inherentlyDecouplable)} routings which are practical to produce and also inherently decouplable")
     print()
 
+def qutsm_focus():
+    print(f"there are {2**9} possible QUTSM (assuming that everything above the diagonal must be populated)")
+    allUniqueQUTSM = generate_all_unique_qutsm()
+    print(f"There are {len(allUniqueQUTSM)} QUTSM that are unique wrt isomorphisms")
+    # for S in allUniqueQUTSM:
+    #     print(S)
+    uniformControllableQUTSM = select_all_controllable(allUniqueQUTSM)
+    print(f"there are {len(uniformControllableQUTSM)} which are controllable for uniform radius:")
+    for S in uniformControllableQUTSM:
+        print(S)
+    inherentlyControllableQUTSM = select_all_inherently_controllable(uniformControllableQUTSM)
+    print(f"there is {len(inherentlyControllableQUTSM)} QUTSM which is inherently controllable:")
+    for S in inherentlyControllableQUTSM:
+        print(S)
+        StrucMatrix(S=S).plotCapability()
+    plt.show()
+
 if __name__ == "__main__":
 
     total_combinatoric_analysis()
-    # print(f"Additionally, there are {len(uniqueQUTSM)} unique upper triangular matrices")
-    # allDimensionalValids = generate_valid_dimensional_qutsm(uniqueQUTSM, (0.125,0.4))
-    # print(f'{len(allDimensionalValids)} of which can be made controllable under certain practical constraints on radius size')
-    # universalQUTSM = []
-    # uniformQUTSM = []
-    # j=0
-    # for i in uniqueQUTSM:
-    #     print(j, end="\r")
-    #     if identify_strict_sign_central(StrucMatrix(S=i)):
-    #         # print(i, "True")
-    #         universalQUTSM.append(i)
-    #     if identify_strict_central(StrucMatrix(S=i)):
-    #         uniformQUTSM.append(i)
-    # print(f'{len(uniformQUTSM)} of which are controllable for uniform radii and')
-    # print(f"{len(universalQUTSM)} of which is 'inherently' controllable:")
-    # print(universalQUTSM)
-    # universalQUTSM = universalQUTSM[0]
-    # # create the decouplability matrix
-    # rows = []
-    # # for each row  of K_J:
-    # for i in range(m):
-    #     # and each element in that row above the diagonal
-    #     for j in range(i+1, m):
-    #         # there is a row in M that is the dot product of two rows in S
-    #         rows.append(universalQUTSM[i, :] * universalQUTSM[j, :])
-    # # And we want M * K_J = 0, so we need null space of M
-    # M = np.vstack(rows)
-    # # instead of manually checking the null space, check for
-    # # strict centrality and strict sign centrality
-    # StC = identify_strict_central(StrucMatrix(S=M))
-    # SSC = identify_strict_sign_central(StrucMatrix(S=M))
-    # if SSC:
-    #     print('man you fucked up somewhere')
-    # if StC:
-    #     print("This QUTSM which is inherently controllable is also decouplable in the uniform condition")
-    # else:
-    #     print("for uniform radii, that QUTSM is not decouplable")
-    # print("")
-    # print(f"Using another perspective, there are {len(dense)} unique matrices which all terminate at the most distal joint")
-    # rankValids = []
-    # for i in dense:
-    #     if matrix_rank(i)==3:
-    #         rankValids.append(i)
-    # print(f"{len(rankValids)} of these are likely to be controllable with correct choice of radii")
-    # # print()
-    # universal = []
-    # uniform = []
-    # j=0
-    # for i in dense:
-    #     print(j, end="\r")
-    #     if identify_strict_sign_central(StrucMatrix(S=i)):
-    #         # print(i, "True")
-    #         universal.append(i)
-    #     if identify_strict_central(StrucMatrix(S=i)):
-    #         uniform.append(i)
-    # # for i in rankValids:
-    # #     print(i)
-    # print(f'and {len(uniform)} are controllable for uniform radius, while')
-    # print(f"{len(universal)} are controllable regardless of radius choice")
-    # print("[[-1 -1  1  1] \
-    #         [-1  1 -1  1] \
-    #         [ 1 -1 -1  1]]")
-    # uniformQUTSM = generate_uniformly_valid_qutsm()
-    # print(f"there are {len(uniformQUTSM)} valid qutsm with uniform radii")
-    # rankValidQUTSM = generate_rankValid_qutsm()
-    # print(f"there are {len(rankValidQUTSM)} unique qutsm which fulfill the rank condition")
-
-    # allCenteredValids = generate_centered_qutsm(uniqueQUTSM)
-    # allCenterableValids = find_centerable_qutsm(uniqueQUTSM)
-    # if np.array_equal(uniqueQUTSM, rankValidQUTSM):
-    #     print("the unique qutsm and rank-valid qutsm are identical")
-
-    # for i, valid in enumerate(allDimensionalValids):
-    #     # valid = valid/np.max(valid)
-    #     S = obj(S=valid)
-    #     print(f"valid matrix {i}")
-    #     print(np.array2string(valid, precision=3, suppress_small=True), end="\n")
-    #     print(np.max(abs(S.flatten_r_matrix()))/np.min(abs(S.flatten_r_matrix())))
-    #     print(S.biasCondition())
-    # print(f"there are {len(allDimensionalValids)} valid qutsm within dimensional bounds")
-    # print(f"there are {len(allCenterableValids)} centerable qutsm")
-    # print(f"there are {len(allCenteredValids)} centered qutsm")
-    # for i, valid in enumerate(allCenteredValids):
-    #     S = obj(S=valid)
-    #     print(f"centered matrix {i}")
-    #     print(np.array2string(valid, precision=3, suppress_small=True), end="\n")
-    #     print(np.max(abs(S.flatten_r_matrix()))/np.min(abs(S.flatten_r_matrix())))
-    #     print(S.biasCondition())
-        # print(null_space(valid))
-    # i=0
-    # for S in allUniqueValids:
-    #     print(S)
-    #     if any([np.array_equal(M, centeredType1.D) for M in generate_structure_matrix_variants(S)]):
-    #         print(f'found type 1 at canon {i}:')
-    #         print(centeredType1.D)
-    #         print("-----------------")
-    #     elif any([np.array_equal(M, centeredType3.D) for M in generate_structure_matrix_variants(S)]):
-    #         print(f'found type 3 at canon {i}:')
-    #         print(centeredType3.D)
-    #         print("-----------------")
-    #     elif any([np.array_equal(M, centeredType2.D) for M in generate_structure_matrix_variants(S)]):
-    #         print(f'found type 2 at canon {i}:')
-    #         print(centeredType2.D)
-    #         print("-----------------")
-    #     T = StrucMatrix(S=S, name=f'e{i}')
-    #     T.plotCapability()
-    #     i+=1
-    # m = centeredType2.D
-    # R1 = np.diag([3,2,1])
-    # R2 = np.diag([1,2,3])
-    # newR1 = R1 @ m
-    # newR2 = R2 @ m
-    # result1 = np.array(newR1)
-    # result2 = np.array(newR2)
-    # result1[result1 < 0] = -4
-    # result2[result2 < 0] = -4
-    # S1 = StrucMatrix(S=result1)
-    # S2 = StrucMatrix(S=result2)
-    # if S1.validity or S2.validity:
-    #     print("yes")
-    # plt.show()
+    qutsm_focus()

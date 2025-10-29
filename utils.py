@@ -10,8 +10,8 @@ from scipy.differentiate import jacobian
 from itertools import combinations
 from math import comb
 colors = [
-    'xkcd:neon green',     # #0cff0c – retina-searing green
     'xkcd:electric blue',  # #0652ff – deep glowing blue
+    'xkcd:neon green',     # #0cff0c – retina-searing green
     'xkcd:hot pink',       # #ff028d – vibrant magenta-pink
     'xkcd:bright yellow',  # #fffd01 – classic highlighter yellow
     'xkcd:neon purple',    # #bc13fe – super-saturated violet
@@ -264,34 +264,20 @@ def normalize_row_signs(mat):
 
 def canonical_form_general(mat):
     m, n = mat.shape
-    best_tuple = None
+    canon_unique = None
 
     # try all row sign combinations
-    for flip_pattern in itertools.product([-1, 1], repeat=m):
-        flipped = mat * np.array(flip_pattern)[:, None]
+    for row_sign_pattern in itertools.product([-1, 1], repeat=m):
+        signed = mat * np.array(row_sign_pattern)[:, None]
+        for perm in itertools.permutations(range(n)):
+            signed_and_permuted = signed[:,perm]
+            if np.sum(signed_and_permuted < 0) > np.sum(signed_and_permuted > 0):
+               signed_and_permuted = -signed_and_permuted
+            hashable = tuple(map(tuple, signed_and_permuted))
+            if canon_unique is None or hashable < canon_unique:
+                canon_unique = hashable
 
-        # sort columns: most zeros first, then first-zero index
-        zero_counts = np.sum(flipped == 0, axis=0)
-        first_zero_idx = np.full(n, m)
-        for j in range(n):
-            zeros = np.where(flipped[:, j] == 0)[0]
-            if zeros.size > 0:
-                first_zero_idx[j] = zeros[0]
-        keys = (first_zero_idx, -zero_counts)
-        perm = np.lexsort(keys)
-        candidate = flipped[:, perm]
-
-        # flip entire matrix if it has more -1s than +1s
-        num_pos = np.sum(candidate == 1)
-        num_neg = np.sum(candidate == -1)
-        if num_neg > num_pos:
-            candidate = -candidate
-
-        tup = tuple(map(tuple, candidate))
-        if best_tuple is None or tup < best_tuple:
-            best_tuple = tup
-
-    return best_tuple
+    return canon_unique
 
 def remove_isomorphic(matrices):
     seen = set()
@@ -308,6 +294,37 @@ def remove_isomorphic(matrices):
         i+=1
     print("")
     return unique
+
+def triangularize_and_orient(canon_tuple):
+    mat = np.array(canon_tuple)
+    m, n = mat.shape
+    zero_counts = np.sum(mat == 0, axis=0)
+    first_zero_idx = np.full(mat.shape[1], mat.shape[0])
+    for j in range(mat.shape[1]):
+        zeros = np.where(mat[:, j] == 0)[0]
+        if zeros.size > 0:
+            first_zero_idx[j] = zeros[0]
+    perm = np.lexsort((-zero_counts, first_zero_idx))
+    permuted = mat[:,perm]
+    mostPositves = -1
+    bestSigned = None
+    for row_sign_pattern in itertools.product([-1, 1], repeat=m):
+        signed = permuted * np.array(row_sign_pattern)[:, None]
+        numPositives = np.sum(signed > 0)
+        if numPositives > mostPositves:
+           mostPositves = numPositives
+           bestSigned = signed
+    bestVersion = bestSigned[:,lexical_column_order(bestSigned)]
+    zero_counts = np.sum(mat == 0, axis=0)
+    first_zero_idx = np.full(mat.shape[1], mat.shape[0])
+    for j in range(mat.shape[1]):
+        zeros = np.where(mat[:, j] == 0)[0]
+        if zeros.size > 0:
+            first_zero_idx[j] = zeros[0]
+    perm = np.lexsort((-zero_counts, first_zero_idx))
+    bestVersion = bestVersion[:,perm]
+    # bestVersion = bestSigned
+    return bestVersion
 
 def remove_isomorphic_QUTSM(matrices):
     seen = set()
