@@ -7,7 +7,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.optimize import linprog
 from scipy.linalg import null_space
 
-from utils import intersects_positive_orthant, special_minkowski, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant, intersection_with_orthant, colors
+from utils import intersects_positive_orthant, special_minkowski, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant, intersection_with_orthant
 from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_annealing, differential_evolution
 from types import SimpleNamespace
 
@@ -22,18 +22,18 @@ def r_from_vector(r_vec, D):
         # print(r_vec[i], R[indices[0,i],indices[1,i]])
     return R
 
-# colors = [
-#     'xkcd:neon green',     # #0cff0c – retina-searing green
-#     'xkcd:electric blue',  # #0652ff – deep glowing blue
-#     'xkcd:hot pink',       # #ff028d – vibrant magenta-pink
-#     'xkcd:bright yellow',  # #fffd01 – classic highlighter yellow
-#     'xkcd:neon purple',    # #bc13fe – super-saturated violet
-#     'xkcd:bright orange',  # #ff5b00 – bold warm orange
-#     'xkcd:cyan',           # #00ffff – icy electric blue-green
-#     'xkcd:magenta',        # #c20078 – deeper than hot pink
-#     'xkcd:bright red',     # #ff000d – warning-light red
-#     'xkcd:bright turquoise' # #0ffef9 – glowing aqua
-# ]
+colors = [
+    'xkcd:neon green',     # #0cff0c – retina-searing green
+    'xkcd:electric blue',  # #0652ff – deep glowing blue
+    'xkcd:hot pink',       # #ff028d – vibrant magenta-pink
+    'xkcd:bright yellow',  # #fffd01 – classic highlighter yellow
+    'xkcd:neon purple',    # #bc13fe – super-saturated violet
+    'xkcd:bright orange',  # #ff5b00 – bold warm orange
+    'xkcd:cyan',           # #00ffff – icy electric blue-green
+    'xkcd:magenta',        # #c20078 – deeper than hot pink
+    'xkcd:bright red',     # #ff000d – warning-light red
+    'xkcd:bright turquoise' # #0ffef9 – glowing aqua
+]
 
 class Constraint():
     def __init__(self, function, args):
@@ -1141,6 +1141,14 @@ R = np.array([[1/3,1/3,1/3,3/3],
               [0,0,1,1]])
 centeredType1 = StrucMatrix(R,D,name='centered1')
 
+# Inherently contollable
+D = np.array([[-1,1,1,1],
+              [0,-1,1,1],
+              [0,0,-1,1]])
+r=1
+R = r*np.absolute(D)
+inherent = StrucMatrix(R,D,name='inherent')
+
 # Balanced type 1
 D = np.array([[1,1,1,-1],
               [0,1,1,-1],
@@ -1222,6 +1230,14 @@ D = np.array([[1,0,0,-1],
               [0,0,1,-1]])
 diagonal = StrucMatrix(R,D,name='Diagonal')
 
+maxGripOptimal = StrucMatrix(np.array([[0.4,0.4,0.193,0.4],
+                                       [0,0.4,0.4,0.3],
+                                       [0,0,0.4,0.126]]),
+                             np.array([[1,1,1,-1],
+                                       [0,1,1,-1],
+                                       [0,0,1,-1]]), name="maxGrip")
+
+
 # test
 r = 1
 R = np.array([[r,r,r,r],
@@ -1271,8 +1287,8 @@ canonA = StrucMatrix(R,D,name='Canon A')
 # canon B
 R = np.ones([3,4])
 D = -np.array([[1,-1,-1,1],
-              [0, 1,-1,-1],
-              [0, 0, 1,-1]])
+               [0, 1,-1,-1],
+               [0, 0, 1,-1]])
 canonB = StrucMatrix(R,D,name='Canon B')
 
 

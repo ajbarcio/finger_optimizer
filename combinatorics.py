@@ -6,6 +6,37 @@ from scipy.linalg import null_space
 from numpy.linalg import matrix_rank
 obj=StrucMatrix # why on earth is this here, what did I do, what weird merge conflict created this
 
+def create_decoupling_matrix(S):
+    rows = []
+    m, n = S.shape
+    M = np.zeros((int(m*(m-1)/2),n))
+    # for each row  of K_J:
+    for i in range(m):
+        # and each element in that row above the diagonal
+        for j in range(i+1, m):
+            # there is a row in M that is the dot product of two rows in S
+            # rows.append(S[i, :] * S[j, :])
+            M[i,:]=S[i, :] * S[j, :]
+    return M
+
+def test_functional_decoupling_matrix():
+    S1 = inherent
+    print(S1())
+    M = create_decoupling_matrix(S1())
+    print(M)
+    print(identify_strict_central(obj(S=M), boundsOverride=True))
+    S2 = balancedType1
+    print(S2())
+    M = create_decoupling_matrix(S2())
+    print(M)
+    print(identify_strict_central(obj(S=M), boundsOverride=True))
+
+    decoupled = select_all_decouplable([S1(), S2(), LED(), diagonal()])
+    # print(decoupled)
+    for i in decoupled:
+        print(i)
+
+
 def identify_strict_sign_central(S: StrucMatrix):
     success = True
     struc = S()
@@ -32,7 +63,7 @@ def identify_sign_central(S: StrucMatrix):
         success &= (np.any(np.all(check >= 0, axis=0)))
     return success
 
-def identify_strict_central(S: StrucMatrix):
+def identify_strict_central(S: StrucMatrix, boundsOverride=False):
 
     """
     Dual problem of the minimization for Theorem 2.1 presented by
@@ -43,12 +74,22 @@ def identify_strict_central(S: StrucMatrix):
     e = np.ones(n)
 
     c = np.zeros(n)                 # objective: minimize 0
+    # c = np.ones(n)                  # objective: minimize 1-norm of w
+    # c = -np.ones(n)                 # objective: maximize 1-norm of w
     A_eq = A                        # equality: A w = -A e
     b_eq = -A @ e
-    bounds = [(0, None)] * n        # w >= 0
+    if boundsOverride:
+        bounds = [(None, None)] * n        # allow for the return of any value
+    else:
+        bounds = [(0, None)] * n        # w >= 0
 
     res = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
-    return res.success
+    if res.x is not None:
+        if any(res.x[res.x<0]):
+            res.success = False
+    # if res.success:
+    # print(res.x)
+    return res.success, res.x
 
 def generate_all_unique(shape):
     # D = np.array([[1,1,1,1],
@@ -106,7 +147,7 @@ def select_all_controllable(S_):
     i=0
     for S in S_:
         if matrix_rank(S)==3:
-            if identify_strict_central(StrucMatrix(S=S)):
+            if identify_strict_central(StrucMatrix(S=S))[0]:
                 controllableStructures.append(S)
 
     return controllableStructures
@@ -120,6 +161,88 @@ def select_all_inherently_controllable(S_):
         return inherentlyControllableStructures
     else:
         print("please only submit uniformly controllable structures to this function. its not necessary but it enforces you being meticulous")
+
+def select_all_centerable(S_):
+    def evenness(radii, D):
+        R = r_from_vector(radii, D)
+        S = D * R
+        N = null_space(S)
+        return (N-np.array([[0.5],[0.5],[0.5],[0.5]])).flatten()
+
+    def valid_debug_callback(x):
+        if any([y<0 for y in x]):
+            print("INVALID")
+            raise StopIteration
+
+    centerableStructures = []
+    i=0
+    for S in S_:
+        i+=1
+        print(f"trying to even out {i}", end="\r")
+        Struc = obj(S=S)
+        if not Struc.validity:
+            D = Struc.D
+            mask = D != 0
+            positions = np.argwhere(mask)
+            nRadii = positions.shape[0]
+            radii = np.ones(nRadii)*0.5
+            result = least_squares(evenness, radii, bounds=(0,1), args=[D], callback=valid_debug_callback)
+            evenRadii = result.x/np.max(result.x)
+            if result.success:
+                R = r_from_vector(evenRadii, D)
+                Snew = obj(R=R, D=D)
+                # if Snew.validity:
+                centerableStructures.append(obj(R=R, D=D).S)
+        else:
+            centerableStructures.append(Struc)
+    print("                                   ", end="\r")
+    # successes = len(evenStructures)
+    # print(f"there were {successes} successes")
+    return centerableStructures
+ 
+def select_all_decouplable(S_):
+    def decoupledness(radii, D):
+        R = r_from_vector(radii, D)
+        S = D * R
+        M = create_decoupling_matrix(S)
+        # N = null_space(S)
+        valid, vector = identify_strict_central(obj(S=M), boundsOverride=True)
+        return (vector).flatten()
+
+    # def valid_debug_callback(x):
+    #     if any([y<0 for y in x]):
+    #         print("INVALID")
+    #         raise StopIteration
+
+    decouplableStructures = []
+    i=0
+    for S in S_:
+        i+=1
+        print(f"trying to decouple {i} of {len(S_)}", end="\r")
+        Struc = obj(S=S)
+        M = create_decoupling_matrix(S)
+        if not identify_strict_central(StrucMatrix(S=M))[0]:
+            D = Struc.D
+            mask = D != 0
+            positions = np.argwhere(mask)
+            nRadii = positions.shape[0]
+            radii = np.ones(nRadii)*0.5
+            result = least_squares(decoupledness, radii, bounds=(0,1), args=[D])
+            evenRadii = result.x/np.max(result.x)
+            if result.success:
+                R = r_from_vector(evenRadii, D)
+                # if Snew.validity:
+                decouplableStructures.append(obj(R=R, D=D).S)
+        else:
+            decouplableStructures.append(Struc.S)
+    print("                                   ", end="\r")
+    # successes = len(evenStructures)
+    # print(f"there were {successes} successes")
+    return decouplableStructures
+
+# ^^ General Combinatorics
+# --------------------------------------------------------------------------
+# vv QUTSM-Specific (old)
 
 def generate_valid_dimensional_qutsm(S_, bounds):
     def evenness(radii, D):
@@ -438,8 +561,8 @@ def generate_rankValid_well_posed_qutsm():
 #               [1,1,1,1],
 #               [1,1,1,1]])
     D = np.array([[1,1,1,1],
-                [0,1,1,1],
-                [0,0,1,1]])
+                  [0,1,1,1],
+                  [0,0,1,1]])
     signs = [-1,1]
     halfValids = []
     fullyValids = []
@@ -549,6 +672,10 @@ def generate_all_unique_qutsm():
         uniqueQUTSM[i] = triangularize_and_orient(SM)
     return uniqueQUTSM
 
+# ^^ QUTSM-specific
+# --------------------------------------------------------------------------
+# vv Functional processes
+
 def total_combinatoric_analysis():
     m = 3
     try:
@@ -581,7 +708,7 @@ def total_combinatoric_analysis():
             if identify_strict_sign_central(StrucMatrix(S=Sm)):
                 # print(i, "True")
                 universal.append(Sm)
-            if identify_strict_central(StrucMatrix(S=Sm)):
+            if identify_strict_central(StrucMatrix(S=Sm))[0]:
                 uniform.append(Sm)
             rows = []
             # for each row  of K_J:
@@ -594,7 +721,7 @@ def total_combinatoric_analysis():
             M = np.vstack(rows)
             # instead of manually checking the null space, check for
             # strict centrality and strict sign centrality
-            StC = identify_strict_central(StrucMatrix(S=M))
+            StC = identify_strict_central(StrucMatrix(S=M))[0]
             SSC = identify_strict_sign_central(StrucMatrix(S=M))
             if StC:
                 possiblyControllableDecouplable.append(Sm)
@@ -627,7 +754,7 @@ def total_combinatoric_analysis():
         M = np.vstack(rows)
         # instead of manually checking the null space, check for
         # strict centrality and strict sign centrality
-        StC = identify_strict_central(StrucMatrix(S=M))
+        StC = identify_strict_central(StrucMatrix(S=M))[0]
         SSC = identify_strict_sign_central(StrucMatrix(S=M))
         if StC:
             controllableUniformlyDecouplable.append(Sm)
@@ -658,7 +785,7 @@ def total_combinatoric_analysis():
         if identify_strict_sign_central(StrucMatrix(S=i)):
             # print(i, "True")
             universalPractical.append(i)
-        if identify_strict_central(StrucMatrix(S=i)):
+        if identify_strict_central(StrucMatrix(S=i))[0]:
             uniformPractical.append(i)
             # create the decouplability matrix
         rows = []
@@ -671,19 +798,39 @@ def total_combinatoric_analysis():
         # And we want M * K_J = 0, so we need null space of M
         M = np.vstack(rows)
         SSC = identify_strict_sign_central(StrucMatrix(S=M))
-        StC = identify_strict_central(StrucMatrix(S=M))
+        StC = identify_strict_central(StrucMatrix(S=M))[0]
         if SSC:
             inherentlyDecouplable.append(i)
         if StC:
             uniformDecouplable.append(i)
-    print(f'{len(uniformPractical)} of which are controllable for uniform radii and')
-    print(f"{len(universalPractical)} of which are 'inherently' controllable:")
+    uniformPracticalDecouplable = []
+    for i in uniformPractical:
+        rows = []
+        # for each row  of K_J:
+        for k in range(m):
+            # and each element in that row above the diagonal
+            for l in range(k+1, m):
+                # there is a row in M that is the dot product of two rows in S
+                rows.append(i[k, :] * i[l, :])
+        # And we want M * K_J = 0, so we need null space of M
+        M = np.vstack(rows)
+        StC = identify_strict_central(StrucMatrix(S=M))[0]
+        if StC:
+            uniformPracticalDecouplable.append(i)
+    print(f'{len(uniformPractical)} of which are controllable for uniform radii:')
+    for i in uniformPractical:
+        print(i)
+    print(f"and {len(universalPractical)} of which are 'inherently' controllable:")
     # print(universalPractical)
     for i in universalPractical:
         print(i)
     # print(f'{remove_isomorphic(universalPractical)}')
     print(f'There are {len(uniformDecouplable)} routings which are practical to produce and decouplable for uniform radii')
     print(f"There are {len(inherentlyDecouplable)} routings which are practical to produce and also inherently decouplable")
+    print(f'of the {len(uniformPractical)} controllable for uniform radii, {len(uniformPracticalDecouplable)} are also decouplable for uniform radii:')
+    for i in uniformPracticalDecouplable:
+        print(i)
+    
     print()
 
 def qutsm_focus():
@@ -705,5 +852,6 @@ def qutsm_focus():
 
 if __name__ == "__main__":
 
-    total_combinatoric_analysis()
-    qutsm_focus()
+    # total_combinatoric_analysis()
+    # qutsm_focus()
+    test_functional_decoupling_matrix()
