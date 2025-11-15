@@ -56,9 +56,11 @@ for i in [2,3]:
     # S = canonB
     # S = S()
     # S = StrucMatrix(S=S[:-1,:-1])
-    S = np.array(np.hstack([-2*np.eye(i)+np.ones((i,i)),np.atleast_2d(-np.ones(i)).T]))
+    # S = np.array(np.hstack([-2*np.eye(i)+np.ones((i,i)),np.atleast_2d(-np.ones(i)).T]))
+    # S = np.array()
     # print(S)
-    S = StrucMatrix(S=S)
+    # S = StrucMatrix(S=S)
+    S = inherent
     # S = LED
     # S = diagonal
     # S = quasiHollow

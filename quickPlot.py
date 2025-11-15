@@ -2,8 +2,21 @@ from strucMatrices import *
 from utils import *
 import itertools
 
-S = Optimus
-Optimus.plotCapability(showBool=True)
+# S = Optimus
+# Optimus.plotCapability(showBool=True)
+
+# D = np.array([[1,1,-1,-1,-1],
+#               [-1,1,1,1,1],
+#               [-1,1,1,1,0],
+#               [-1,1,1,0,0]])
+# R= np.absolute(D)
+# fourdof = StrucMatrix(R=R, D=D)
+# print(fourdof.S)
+# print(fourdof.isValid())
+# print(fourdof.biasForceSpace)
+# print(null_space(D))
+S = inherent
+S.plotCapability(showBool=True, colorOverride='blue')
 # # S1 = quasiHollow
 # # S = np.array([[ .1477, .1477,  .1477, -.1477],
 # #               [ 0.   ,  .1477, .1477, -.1477],

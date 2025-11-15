@@ -45,33 +45,44 @@ skinnyLegend = VariableStrucMatrix(R, D, ranges=[(c_1*np.sqrt(2)/2-r_1,c_1-r_1),
                                          types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
                                          F = np.array([50]*4),
                                          name='Skinny Legend')
-c = 1
-r = 1.9/2/25.4*4 # 4 times tendon radius (in inches)
-r_c = 0.5
 
-R = np.array([[np.nan,np.nan,np.nan,r],
-              [0     ,np.nan,np.nan,r],
-              [0,     0     ,np.nan,r]])
+D = np.array([[-1,1,1,-1],
+              [1,-1,1,-1],
+              [1,1,-1,-1]])
+
+improvedSkinnyLegend = VariableStrucMatrix(R, D, ranges=[(c_1*np.sqrt(2)/2-r_1,c_1-r_1),
+                                                 (c_2*np.sqrt(2)/2-r_2,c_2-r_2),
+                                                 (c_3*np.sqrt(2)/2-r_3,c_3-r_3),],
+                                         types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
+                                         F = np.array([50]*4),
+                                         name='Improved Skinny Legend')
+# c = 1
+# r = 1.9/2/25.4*4 # 4 times tendon radius (in inches)
+# r_c = 0.5
+
+# R = np.array([[np.nan,np.nan,np.nan,r],
+#               [0     ,np.nan,np.nan,r],
+#               [0,     0     ,np.nan,r]])
 D = np.array([[1,1,1,-1],
               [0,1,1,-1],
               [0,0,1,-1]])
 # R = 
-# R = np.array([[.203125,.203125,.203125,.171875],
-#               [0      ,np.nan ,np.nan ,.125   ],
-#               [0      ,0      ,np.nan ,.101103]])
-# c1 = .9541575
-# c2 = .9505297
-# r = .5625
-# conceptualAmbrose = VariableStrucMatrix(R, D, ranges=[(c1*np.sqrt(2)/2-r,c1-r)]*2+
-#                                                       [(c2*np.sqrt(2)/2-r,c2-r)],
-#                                                types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
-#                                                F = np.array([50]*4),
-#                                                name='The Ambrose')
-
-conceptualAmbrose = VariableStrucMatrix(R, D, ranges = [(c*np.sqrt(2)/2-r_c, c-r_c)],
-                                              types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
+R = np.array([[.203125,.203125,.203125,.171875],
+              [0      ,np.nan ,np.nan ,.125   ],
+              [0      ,0      ,np.nan ,.101103]])
+c1 = .9541575
+c2 = .9505297
+r = .5625
+conceptualAmbrose = VariableStrucMatrix(R, D, ranges=[(c1*np.sqrt(2)/2-r,c1-r)]*2+
+                                                      [(c2*np.sqrt(2)/2-r,c2-r)],
+                                               types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
                                                F = np.array([50]*4),
                                                name='The Ambrose')
+
+# conceptualAmbrose = VariableStrucMatrix(R, D, ranges = [(c*np.sqrt(2)/2-r_c, c-r_c)],
+#                                               types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
+#                                                F = np.array([50]*4),
+#                                                name='The Ambrose')
 
 for effortFunction in conceptualAmbrose.effortFunctions:
     print(effortFunction(0))
@@ -193,6 +204,8 @@ conceptualAmbrose.plotCapability([np.pi/2]*conceptualAmbrose.numJoints)
 inherentVariable.plotCapability([0]*conceptualAmbrose.numJoints)
 inherentVariable.plotCapability([np.pi/2]*conceptualAmbrose.numJoints)
 # inherentVariable.plotCapabilityAcrossAllGrasps()
+improvedSkinnyLegend.plotCapability([0]*improvedSkinnyLegend.numJoints)
+improvedSkinnyLegend.plotCapability([np.pi/2]*improvedSkinnyLegend.numJoints)
 
 jointAngles = np.linspace(0,np.pi/2,40)
 ABObjectives = np.zeros((len(jointAngles),len(jointAngles),len(jointAngles)))

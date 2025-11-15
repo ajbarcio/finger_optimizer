@@ -36,7 +36,6 @@ def test_functional_decoupling_matrix():
     for i in decoupled:
         print(i)
 
-
 def identify_strict_sign_central(S: StrucMatrix):
     success = True
     struc = S()
@@ -676,27 +675,28 @@ def generate_all_unique_qutsm():
 # --------------------------------------------------------------------------
 # vv Functional processes
 
-def total_combinatoric_analysis():
-    m = 3
+def total_combinatoric_analysis(m: int):
+    # m = 3
+    print(f'There are {3**(m*(m+1))} possible {m}dof n+1 tendon routings:', )
     try:
-        uniqueAll = np.load("allUnique3x4.npy", mmap_mode='r')
+        uniqueAll = np.load(f"allUnique{m}x{m+1}.npy", mmap_mode='r')
     except:
-        uniqueAll = generate_all_unique([3,4])
+        uniqueAll = generate_all_unique([m,m+1])
         print(uniqueAll[0].shape)
-        np.save("allUnique3x4.npy", uniqueAll)
-    print(f'There are all {3**12} possible 3dof n+1 tendon routings:', )
+        np.save(f"allUnique{m}x{m+1}.npy", uniqueAll)
+    
     print(f'{len(uniqueAll)} of them are unique')
     uniqueRankValids = []
     for i in uniqueAll:
-        if matrix_rank(i)==3:
+        if matrix_rank(i)==m:
             uniqueRankValids.append(i)
     print(f'{len(uniqueRankValids)} are likely to be controllable, if the correct radii are chosen')
     # print(len(dense))
     try:
-        universal = np.load('universal.npy', mmap_mode='r')
-        uniform = np.load('uniform.npy', mmap_mode='r')
-        possiblyControllableDecouplable = np.load('possiblyControllableDecouplable.npy', mmap_mode='r')
-        possiblyControllableAlwaysDecouplable = np.load('possiblyControllableAlwaysDecouplable.npy', mmap_mode='r')
+        universal = np.load(f'universal{m}x{m+1}.npy', mmap_mode='r')
+        uniform = np.load(f'uniform{m}x{m+1}.npy', mmap_mode='r')
+        possiblyControllableDecouplable = np.load(f'possiblyControllableDecouplable{m}x{m+1}.npy', mmap_mode='r')
+        possiblyControllableAlwaysDecouplable = np.load(f'possiblyControllableAlwaysDecouplable{m}x{m+1}.npy', mmap_mode='r')
     except:
         universal = []
         uniform = []
@@ -729,16 +729,19 @@ def total_combinatoric_analysis():
                 possiblyControllableAlwaysDecouplable.append(Sm)
             progress+=1
             print(progress, end="\r")
-        np.save('universal.npy', np.array(universal))
-        np.save('uniform.npy', np.array(uniform))
-        np.save('possiblyControllableDecouplable.npy', np.array(possiblyControllableDecouplable))
-        np.save('possiblyControllableAlwaysDecouplable.npy', np.array(possiblyControllableAlwaysDecouplable))
+        np.save(f'universal{m}x{m+1}.npy', np.array(universal))
+        np.save(f'uniform{m}x{m+1}.npy', np.array(uniform))
+        np.save(f'possiblyControllableDecouplable{m}x{m+1}.npy', np.array(possiblyControllableDecouplable))
+        np.save(f'possiblyControllableAlwaysDecouplable{m}x{m+1}.npy', np.array(possiblyControllableAlwaysDecouplable))
     print(f'{len(uniform)} of the rank-valid matrices are controllable for uniform radii')
     print(f'{len(universal)} of these are inherently controllable')
+    for i in universal:
+        if np.count_nonzero(i) == 8:
+            print(i)
     print(f'{len(possiblyControllableDecouplable)} of the rank-valid matrices are decouplable for uniform radii')
     print(f'{len(possiblyControllableAlwaysDecouplable)} are inherently decouplable (all of which are quasi-hollow)')
     for i in possiblyControllableAlwaysDecouplable:
-        print(i)
+            print(i)
     alwaysControllableDecouplable = []
     controllableUniformlyDecouplable = []
     for Sm in universal:
@@ -852,6 +855,6 @@ def qutsm_focus():
 
 if __name__ == "__main__":
 
-    # total_combinatoric_analysis()
+    total_combinatoric_analysis(3)
     # qutsm_focus()
-    test_functional_decoupling_matrix()
+    # test_functional_decoupling_matrix()
