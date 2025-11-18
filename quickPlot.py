@@ -15,7 +15,16 @@ import itertools
 # print(fourdof.isValid())
 # print(fourdof.biasForceSpace)
 # print(null_space(D))
-S = inherent
+# S = inherent
+# S.plotCapability(showBool=True, colorOverride='blue')
+D = np.array([[1,0,0,0],
+              [0,1,0,-1],
+              [0,0,1,-1],])
+S = StrucMatrix(S=D)
+
+print(S.validity)
+print(S.biasForceSpace)
+
 S.plotCapability(showBool=True, colorOverride='blue')
 # # S1 = quasiHollow
 # # S = np.array([[ .1477, .1477,  .1477, -.1477],

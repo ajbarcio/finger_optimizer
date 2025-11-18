@@ -5,7 +5,13 @@ from scipy.optimize import least_squares
 from scipy.linalg import null_space
 from numpy.linalg import matrix_rank
 import time
+import multiprocessing
+import tempfile
+import queue as _queue  
+import os
 obj=StrucMatrix # why on earth is this here, what did I do, what weird merge conflict created this
+
+from collections import deque
 
 def create_decoupling_matrix(S):
     rows = []
@@ -122,54 +128,262 @@ def generate_all_unique(shape):
         uniqueSM[i] = triangularize_and_orient(SM)
     return uniqueSM
 
+def unique_generator(generator):
+    seen = set()
+    start_time = time.perf_counter()
+    for i, mat in enumerate(generator, 1):
+        canon = canonical_form_general(mat)
+        if canon not in seen:
+            seen.add(canon)
+            yield np.array(canon)
+        if i % 10000 == 0:
+            end_time = time.perf_counter()
+            elapsed_time=end_time-start_time
+            start_time = time.perf_counter()
+            print(f"processed {i:,}, unique found: {len(seen):,}, needed {elapsed_time:.6f} seconds for last 10,000", end="\r")
+
 def generate_all_unique_large(shape):
-    # D = np.array([[1,1,1,1],
-    #               [1,1,1,1],
-    #               [1,1,1,1]])
     D = np.ones(shape)
     signs = [0,-1,1]
 
     positions = np.argwhere(D != 0)
     total = len(signs) ** len(positions)
     allSM = []
-
-    def unique_generator(generator):
-        seen = set()
-        start_time = time.perf_counter()
-        for i, mat in enumerate(generator, 1):
-            canon = canonical_form_general(mat)
-            if canon not in seen:
-                seen.add(canon)
-                yield np.array(canon)
-            if i % 10000 == 0:
-                end_time = time.perf_counter()
-                elapsed_time=end_time-start_time
-                start_time = time.perf_counter()
-                print(f"processed {i:,}, unique found: {len(seen):,}, needed {elapsed_time:.6f} seconds for 10,000", end="\r")
-
-    for unique_mat in unique_generator(generate_matrices_from_pattern(D, signs)):
+    uniqueGenerator = unique_generator(generate_matrices_from_pattern(D, signs))
+    for unique_mat in uniqueGenerator:
         allSM.append(unique_mat)
 
-    return np.stack(allSM)
-    # for i, mat  in enumerate(generate_matrices_from_pattern(D, signs)):
-    #     try:
-    #         allSM.append(mat)
-    #         print(f'generating {i:3d} of {total}', end='\r')
-    #     except KeyboardInterrupt:
-    #         break
-    # print("                                 ", end='\r')
+    return np.stack(allSM), uniqueGenerator
 
-    # uniqueSM = remove_isomorphic(allSM)
-    # length = len(uniqueSM)
-    # while True:
-    #     uniqueSM = remove_isomorphic(uniqueSM)
-    #     if length == len(uniqueSM):
-    #         break
-    #     else:
-    #         length = len(uniqueSM)
-    # for i, SM in enumerate(uniqueSM):
-    #     uniqueSM[i] = triangularize_and_orient(SM)
-    # return uniqueSM    
+def generate_all_unique_large_parallel(shape, processes=None):
+
+    if processes is None:
+        processes = os.cpu_count()-2
+
+    D = np.ones(shape)
+    signs = [0, -1, 1]
+    positions = np.argwhere(D != 0)
+    num_vars = len(positions)
+    total = len(signs)**num_vars
+    total_filtered = int(3**(shape[0]*shape[1])*(1-(1+2*shape[1])/(3**shape[1]))**shape[0])
+    print(f"Total combinations that could be useful: {total_filtered:,}")
+
+    # shared progress and queue to stream results
+    # queue = multiprocessing.Queue()
+    counter = multiprocessing.Value('i', 0)
+    counter_lock = multiprocessing.Lock()
+
+    # manager to collect results (OLD)
+    manager = multiprocessing.Manager()
+    return_dict = manager.dict()
+
+    # chunking
+    chunk_size = total // processes
+    procs = []
+
+    for worker_id in range(processes):
+        start = worker_id * chunk_size
+        end = total if worker_id == processes - 1 else (worker_id + 1) * chunk_size
+
+        p = multiprocessing.Process(
+            target=worker_chunk,
+            args=(D, signs, positions, start, end,
+                 counter, counter_lock, return_dict, worker_id)
+        )
+        p.start()
+        procs.append(p)
+
+    # progress loop
+    start_time = time.time()
+    last10speeds = deque(maxlen=10)
+    try:
+        while any(p.is_alive() for p in procs):
+            with counter_lock:
+                processed = counter.value
+
+            percent = processed / total_filtered * 100
+            elapsed = time.time() - start_time
+            speed = processed / (elapsed + 1e-9)
+            last10speeds.append(speed)
+            currentAverage = np.average(last10speeds)    
+            eta = (total_filtered - processed) / (currentAverage + 1e-9)
+            print(
+                f"Processed {processed:,}/{total_filtered:,} "
+                f"({percent:5.2f}%) | "
+                f"Speed: {currentAverage:,.0f}/sec | "
+                f"ETA: {(eta // 3600)}h {(eta % 3600) // 60}m {(eta % 3600)%60:.1f}s",
+                end="\r"
+            )
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        print("\nKeyboardInterrupt detected! Terminating workers...")
+        for p in procs:
+            p.terminate()
+    
+    finally:
+        for p in procs:
+            p.join()
+
+    print("\nWorkers finished/terminated. Merging...")
+
+    # merge unique canonical forms
+    final = set()
+    for s in return_dict.values():
+        final |= s
+
+    print(f"Unique found: {len(final):,}, out of {processed} processed")
+    return np.stack([np.array(c) for c in final])
+
+# def generate_all_unique_large_parallel(shape, processes=None):
+#     """
+#     shape: like [m, m+1] or (m, n) ; returns np.stack of unique canonical matrices discovered so far or total.
+#     Uses multiple processes and a queue to stream canonical reps to the parent, which keeps a global 'seen'.
+#     If memory would grow too large, intermediate unique chunks are saved to temporary .npy files and merged at the end.
+#     """
+#     if processes is None:
+#         processes = max(1, mp.cpu_count())
+
+#     m, n = int(shape[0]), int(shape[1])
+#     D = np.ones((m, n), dtype=int)
+#     signs = [0, -1, 1]
+#     positions = np.argwhere(D != 0)
+#     num_vars = positions.shape[0]
+#     total = len(signs) ** num_vars
+
+#     print(f"Total combinations: {total:,}  |  workers: {processes}")
+#     # queue + progress
+#     q = mp.Queue(maxsize=10000)  # allow some buffering
+#     counter = mp.Value('i', 0)
+#     counter_lock = mp.Lock()
+
+#     # temp directory for spill-to-disk chunks if memory pressure
+#     tmpdir = tempfile.mkdtemp(prefix="unique_chunks_")
+#     chunk_files = []
+#     max_in_mem = 200_000   # max number of unique matrices to hold in memory before flushing to disk (tweak for your RAM)
+#     # note: adjust max_in_mem up if you have lots of RAM and want maximum speed
+
+#     procs = []
+#     chunksize = total // processes
+
+#     # start workers
+#     for wid in range(processes):
+#         start = wid * chunksize
+#         end = total if wid == processes - 1 else (wid + 1) * chunksize
+#         p = mp.Process(
+#             target=worker_chunk_queue,
+#             args=(D, signs, positions, start, end,
+#                   counter, counter_lock, q, wid)
+#         )
+#         p.daemon = True
+#         p.start()
+#         procs.append(p)
+
+#     seen = set()
+#     unique_list = []
+#     remaining_workers = processes
+
+#     start_time = time.time()
+#     last_speeds = deque(maxlen=10)
+
+#     try:
+#         # Collect until all workers have signaled "__DONE__"
+#         while remaining_workers > 0:
+#             try:
+#                 item = q.get(timeout=1.0)
+#             except _queue.Empty:
+#                 # print progress even if no new canonical just to show liveness
+#                 with counter_lock:
+#                     processed = counter.value
+#                 elapsed = time.time() - start_time
+#                 speed = processed / (elapsed + 1e-9)
+#                 last_speeds.append(speed)
+#                 avg_speed = sum(last_speeds) / len(last_speeds)
+#                 percent = processed / total * 100
+#                 eta = (total - processed) / (avg_speed + 1e-9)
+#                 print(f"\rProcessed {processed:,}/{total:,} ({percent:5.2f}%) | "
+#                       f"avg_speed={avg_speed:,.0f}/s | ETA: {eta:,.1f}s", end="", flush=True)
+#                 continue
+
+#             # worker done signal
+#             if isinstance(item, tuple) and item[0] == "__DONE__":
+#                 remaining_workers -= 1
+#                 # final progress print
+#                 with counter_lock:
+#                     processed = counter.value
+#                 print(f"\rWorker {item[1]} DONE. Remaining workers: {remaining_workers}    ")
+#                 continue
+
+#             canon = item  # canonical tuple
+#             if canon not in seen:
+#                 seen.add(canon)
+#                 unique_list.append(np.array(canon))
+
+#             # periodically flush unique_list to disk to avoid OOM
+#             if len(unique_list) >= max_in_mem:
+#                 fname = os.path.join(tmpdir, f"chunk_{len(chunk_files)}.npy")
+#                 np.save(fname, np.stack(unique_list))
+#                 chunk_files.append(fname)
+#                 unique_list.clear()
+#                 print(f"\nFlushed chunk to disk: {fname} (total_chunks={len(chunk_files)})")
+
+#     except KeyboardInterrupt:
+#         print("\nKeyboardInterrupt detected in parent — terminating workers...")
+#         for p in procs:
+#             try:
+#                 p.terminate()
+#             except Exception:
+#                 pass
+
+#     finally:
+#         # ensure all processes are dead
+#         for p in procs:
+#             p.join(timeout=1.0)
+
+#     # also drain queue (in case items left) without blocking too long
+#     try:
+#         while True:
+#             item = q.get_nowait()
+#             if isinstance(item, tuple) and item[0] == "__DONE__":
+#                 continue
+#             if item not in seen:
+#                 seen.add(item)
+#                 unique_list.append(np.array(item))
+#             if len(unique_list) >= max_in_mem:
+#                 fname = os.path.join(tmpdir, f"chunk_{len(chunk_files)}.npy")
+#                 np.save(fname, np.stack(unique_list))
+#                 chunk_files.append(fname)
+#                 unique_list.clear()
+#     except _queue.Empty:
+#         pass
+
+#     print("\nWorkers finished. Merging final results...")
+
+#     # merge in-memory + chunks on disk
+#     arrays = []
+#     if unique_list:
+#         arrays.append(np.stack(unique_list))
+
+#     for fname in chunk_files:
+#         try:
+#             arrays.append(np.load(fname, mmap_mode=None))
+#         except Exception:
+#             # try loading with mmap if memory-tight
+#             arrays.append(np.load(fname, mmap_mode='r'))
+
+#     if not arrays:
+#         print("No unique matrices found.")
+#         return np.empty((0, m, n), dtype=int)
+
+#     # merge all arrays vertically
+#     try:
+#         merged = np.vstack(arrays)
+#     except MemoryError:
+#         # fallback: return list of arrays if no memory to vstack
+#         print("MemoryError while merging; returning concatenated object array instead.")
+#         return np.concatenate([a.reshape(-1, m, n) for a in arrays], axis=0)
+
+#     print(f"Total unique canonical matrices: {merged.shape[0]:,}")
+#     return merged
 
 def select_all_possible(S_):
     possibleStructures = []
@@ -198,7 +412,6 @@ def select_all_controllable(S_):
         if matrix_rank(S)==3:
             if identify_strict_central(StrucMatrix(S=S))[0]:
                 controllableStructures.append(S)
-
     return controllableStructures
 
 def select_all_inherently_controllable(S_):
@@ -725,6 +938,15 @@ def generate_all_unique_qutsm():
 # --------------------------------------------------------------------------
 # vv Functional processes
 
+def total_combinatoric_analysis_large(m: int):
+    print(f'There are {3**(m*(m+1)):,} possible {m}dof n+1 tendon routings:', )
+    try: 
+        unique = np.load(f"{m}x{m+1}_Unique.npy", mmap_mode='r')
+    except:
+        unique = generate_all_unique_large_parallel([m,m+1])
+        print(len(unique))
+        np.save(f"{m}x{m+1}_Unique.npy", unique)
+
 def total_combinatoric_analysis(m: int):
     # m = 3
     print(f'There are {3**(m*(m+1))} possible {m}dof n+1 tendon routings:', )
@@ -886,11 +1108,6 @@ def total_combinatoric_analysis(m: int):
     
     print()
 
-def total_combinatoric_analysis_large(m: int):
-    print(f'There are {3**(m*(m+1))} possible {m}dof n+1 tendon routings:', )
-    unique = generate_all_unique_large([m,m+1])
-    print(len(unique))
-
 def qutsm_focus():
     print(f"there are {2**9} possible QUTSM (assuming that everything above the diagonal must be populated)")
     allUniqueQUTSM = generate_all_unique_qutsm()
@@ -909,12 +1126,13 @@ def qutsm_focus():
     plt.show()
 
 if __name__ == "__main__":
+
+    # begin = time.perf_counter()
+    # total_combinatoric_analysis(3)
+    # end = time.perf_counter()
+    # print(f"without streaming it took {end-begin}")
     begin = time.perf_counter()
-    total_combinatoric_analysis(3)
-    end = time.perf_counter()
-    print(f"without streaming it took {end-begin}")
-    begin = time.perf_counter()
-    total_combinatoric_analysis_large(3)
+    total_combinatoric_analysis_large(4)
     end = time.perf_counter()
     print(f"with streaming it took {end-begin}")
     # qutsm_focus()

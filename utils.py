@@ -21,8 +21,139 @@ colors = [
     'xkcd:bright red',     # #ff000d – warning-light red
     'xkcd:bright turquoise' # #0ffef9 – glowing aqua
 ]
-
 import itertools
+
+# def worker_chunk_queue(D, signs, positions, start, end,
+#                        counter, counter_lock, out_queue, worker_id,
+#                        send_batch=256):
+#     """Worker: iterate indices [start, end), keep local seen to avoid re-sending duplicates,
+#     send canonical tuples to parent through out_queue in small batches to reduce IPC overhead."""
+#     base = len(signs)
+#     num_vars = len(positions)
+#     local_seen = set()
+#     send_buffer = []
+#     processed_local = 0
+
+#     for idx in range(start, end):
+#         # decode idx into base-len(signs) digits => values
+#         x = idx
+#         vals = []
+#         for _ in range(num_vars):
+#             x, r = divmod(x, base)
+#             vals.append(signs[r])
+#         vals.reverse()
+
+#         # build matrix
+#         result = D.copy().astype(int)
+#         for (i, j), v in zip(positions, vals):
+#             result[i, j] = v
+
+#         canon = canonical_form_general(result)
+
+#         if canon not in local_seen:
+#             local_seen.add(canon)
+#             send_buffer.append(canon)
+
+#         processed_local += 1
+#         # update shared counter in chunks to reduce lock contention
+#         if processed_local % 1024 == 0:
+#             with counter_lock:
+#                 counter.value += 1024
+
+#         # flush send buffer periodically
+#         if len(send_buffer) >= send_batch:
+#             try:
+#                 for c in send_buffer:
+#                     out_queue.put(c)
+#             except Exception:
+#                 # if queue broken, just exit
+#                 break
+#             send_buffer.clear()
+
+#     # final flush
+#     if send_buffer:
+#         try:
+#             for c in send_buffer:
+#                 out_queue.put(c)
+#         except Exception:
+#             pass
+
+#     # push any remaining processed count
+#     remainder = processed_local % 1024
+#     if remainder:
+#         with counter_lock:
+#             counter.value += remainder
+
+#     # signal done
+#     out_queue.put(("__DONE__", worker_id))
+
+def worker_chunk(D, signs, positions, chunk_start, chunk_end,
+                 counter, counter_lock, return_dict, worker_id):
+
+    checkpoint_file = f"worker_{worker_id}_checkpoint.npy"
+    results_file = f"worker_{worker_id}_results.npy"
+    try:
+        last_idx, processed_so_far = np.load(checkpoint_file)
+        start_idx = max(chunk_start, last_idx + 1)
+        seen = set(np.load(results_file, allow_pickle=True))
+    except FileNotFoundError:
+        start_idx = chunk_start
+        processed_so_far = 0
+        seen = set()
+
+    num_vars = len(positions)
+    base = len(signs)
+    with counter_lock:
+       counter.value = processed_so_far
+
+    row_map = {}
+    col_map = {}
+    for idx, (r, c) in enumerate(positions):
+        row_map.setdefault(r, []).append(idx)
+        col_map.setdefault(c, []).append(idx)
+
+    for idx in range(start_idx, chunk_end):
+        values = []
+        x = idx
+        for _ in range(num_vars):
+            x, r = divmod(x, base)
+            values.append(signs[r])
+        values.reverse()
+
+        # skip certain already-useless matrices
+        skip = False
+        for i in row_map:
+            if sum(values[idx] != 0 for idx in row_map[i]) <= 1:
+               skip = True
+               break
+        if not skip:
+            for j in col_map:
+                if all(values[idx] == 0 for idx in col_map[j]):
+                    skip = True
+                    break
+        if skip:
+            continue
+
+        result = D.copy().astype(int)
+        for (i, j), val in zip(positions, values):
+            result[i, j] = val
+
+        canon = canonical_form_general(result)
+        seen.add(canon)
+
+        if idx % 1000 == 0:
+            with counter_lock:
+                counter.value += 1000
+            np.save(results_file, np.array(list(seen), dtype=object))
+            np.save(checkpoint_file, np.array([idx, len(seen)], dtype=np.int64))
+
+    remainder = (chunk_end - chunk_start) % 1000
+    if remainder:
+        with counter_lock:
+            counter.value += remainder
+
+    # store results
+    return_dict[worker_id] = seen
 
 def signings_of_order(m, strict=False):
    if strict:
@@ -239,6 +370,23 @@ def generate_matrices_from_pattern(D, value_set={-1, 0, 1}):
         for (i, j), val in zip(positions, values):
             result[i, j] = val
         yield result
+
+def fill_matrix(D, positions, values):
+    """
+    Construct a matrix from a template D, where 'positions' are coordinates
+    that get replaced with the entries from 'values'.
+    """
+    mat = D.copy().astype(int)
+    for (i, j), val in zip(positions, values):
+        mat[i, j] = val
+    return mat
+
+def generator_index_to_values(idx, base, num_vars, value_list):
+    vals = []
+    for _ in range(num_vars):
+        vals.append(value_list[idx % base])
+        idx //= base
+    return tuple(vals[::-1])
 
 def is_upper_triangular_by_leading_zeros(mat):
     for i, row in enumerate(mat):
