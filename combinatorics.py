@@ -4,6 +4,7 @@ import itertools
 from scipy.optimize import least_squares
 from scipy.linalg import null_space
 from numpy.linalg import matrix_rank
+import time
 obj=StrucMatrix # why on earth is this here, what did I do, what weird merge conflict created this
 
 def create_decoupling_matrix(S):
@@ -120,6 +121,55 @@ def generate_all_unique(shape):
     for i, SM in enumerate(uniqueSM):
         uniqueSM[i] = triangularize_and_orient(SM)
     return uniqueSM
+
+def generate_all_unique_large(shape):
+    # D = np.array([[1,1,1,1],
+    #               [1,1,1,1],
+    #               [1,1,1,1]])
+    D = np.ones(shape)
+    signs = [0,-1,1]
+
+    positions = np.argwhere(D != 0)
+    total = len(signs) ** len(positions)
+    allSM = []
+
+    def unique_generator(generator):
+        seen = set()
+        start_time = time.perf_counter()
+        for i, mat in enumerate(generator, 1):
+            canon = canonical_form_general(mat)
+            if canon not in seen:
+                seen.add(canon)
+                yield np.array(canon)
+            if i % 10000 == 0:
+                end_time = time.perf_counter()
+                elapsed_time=end_time-start_time
+                start_time = time.perf_counter()
+                print(f"processed {i:,}, unique found: {len(seen):,}, needed {elapsed_time:.6f} seconds for 10,000", end="\r")
+
+    for unique_mat in unique_generator(generate_matrices_from_pattern(D, signs)):
+        allSM.append(unique_mat)
+
+    return np.stack(allSM)
+    # for i, mat  in enumerate(generate_matrices_from_pattern(D, signs)):
+    #     try:
+    #         allSM.append(mat)
+    #         print(f'generating {i:3d} of {total}', end='\r')
+    #     except KeyboardInterrupt:
+    #         break
+    # print("                                 ", end='\r')
+
+    # uniqueSM = remove_isomorphic(allSM)
+    # length = len(uniqueSM)
+    # while True:
+    #     uniqueSM = remove_isomorphic(uniqueSM)
+    #     if length == len(uniqueSM):
+    #         break
+    #     else:
+    #         length = len(uniqueSM)
+    # for i, SM in enumerate(uniqueSM):
+    #     uniqueSM[i] = triangularize_and_orient(SM)
+    # return uniqueSM    
 
 def select_all_possible(S_):
     possibleStructures = []
@@ -836,6 +886,11 @@ def total_combinatoric_analysis(m: int):
     
     print()
 
+def total_combinatoric_analysis_large(m: int):
+    print(f'There are {3**(m*(m+1))} possible {m}dof n+1 tendon routings:', )
+    unique = generate_all_unique_large([m,m+1])
+    print(len(unique))
+
 def qutsm_focus():
     print(f"there are {2**9} possible QUTSM (assuming that everything above the diagonal must be populated)")
     allUniqueQUTSM = generate_all_unique_qutsm()
@@ -854,7 +909,13 @@ def qutsm_focus():
     plt.show()
 
 if __name__ == "__main__":
-
+    begin = time.perf_counter()
     total_combinatoric_analysis(3)
+    end = time.perf_counter()
+    print(f"without streaming it took {end-begin}")
+    begin = time.perf_counter()
+    total_combinatoric_analysis_large(3)
+    end = time.perf_counter()
+    print(f"with streaming it took {end-begin}")
     # qutsm_focus()
     # test_functional_decoupling_matrix()

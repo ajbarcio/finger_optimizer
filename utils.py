@@ -179,6 +179,55 @@ def generate_structure_matrix_variants(A):
 
     return variants
 
+# WE ARE DOING CHAT SHIT HERE
+
+def normalize_row_signs_stream(mat):
+    out = mat.copy()
+    for i in range(out.shape[0]):
+        r = tuple(out[i])
+        rn = tuple(-out[i])
+        if rn < r:
+            out[i] = -out[i]
+    return out
+   
+def canonical_form_stream(mat):
+#    mat = np.array(mat)
+   mat = normalize_row_signs_stream(mat)
+   m, n = mat.shape
+
+   best = None
+
+   def search(partial_perm, remaining):
+        nonlocal best
+        k = len(partial_perm)
+
+        if k == n:
+            permuted = mat[:, partial_perm]
+            # global sign rule
+            if (permuted < 0).sum() > (permuted > 0).sum():
+                permuted = -permuted
+            tup = tuple(map(tuple, permuted))
+            if best is None or tup < best:
+                best = tup
+            return
+
+        for c in sorted(remaining):
+            newp = partial_perm + (c,)
+            partial_mat = mat[:, newp]
+
+            if best is not None:
+                bp = tuple(r[:len(newp)] for r in best)
+                cp = tuple(tuple(r) for r in partial_mat)
+                if cp > bp:
+                    continue
+
+            search(newp, remaining - {c})
+
+   search((), set(range(mat.shape[1])))
+   return best
+
+# WE ARE DONE DOING CHAT SHIT
+
 def generate_matrices_from_pattern(D, value_set={-1, 0, 1}):
     D = np.array(D)
     mask = D != 0  # where values are allowed to vary
