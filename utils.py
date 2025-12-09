@@ -92,14 +92,14 @@ def worker_chunk(D, signs, positions, chunk_start, chunk_end,
 
     checkpoint_file = f"worker_{worker_id}_checkpoint.npy"
     results_file = f"worker_{worker_id}_results.npy"
-    try:
-        last_idx, processed_so_far = np.load(checkpoint_file)
-        start_idx = max(chunk_start, last_idx + 1)
-        seen = set(np.load(results_file, allow_pickle=True))
-    except FileNotFoundError:
-        start_idx = chunk_start
-        processed_so_far = 0
-        seen = set()
+    # try:
+    #     last_idx, processed_so_far = np.load(checkpoint_file)
+    #     start_idx = max(chunk_start, last_idx + 1)
+    #     seen = set(np.load(results_file, allow_pickle=True))
+    # except FileNotFoundError:
+    start_idx = chunk_start
+    processed_so_far = 0
+    seen = set()
 
     num_vars = len(positions)
     base = len(signs)
@@ -121,18 +121,18 @@ def worker_chunk(D, signs, positions, chunk_start, chunk_end,
         values.reverse()
 
         # skip certain already-useless matrices
-        skip = False
-        for i in row_map:
-            if sum(values[idx] != 0 for idx in row_map[i]) <= 1:
-               skip = True
-               break
-        if not skip:
-            for j in col_map:
-                if all(values[idx] == 0 for idx in col_map[j]):
-                    skip = True
-                    break
-        if skip:
-            continue
+        # skip = False
+        # for i in row_map:
+        #     if sum(values[idx] != 0 for idx in row_map[i]) <= 1:
+        #        skip = True
+        #        break
+        # if not skip:
+        #     for j in col_map:
+        #         if all(values[idx] == 0 for idx in col_map[j]):
+        #             skip = True
+        #             break
+        # if skip:
+        #     continue
 
         result = D.copy().astype(int)
         for (i, j), val in zip(positions, values):
@@ -649,6 +649,40 @@ def special_minkowski(points):
   if not [0]*len(points[0]) in boundaryPoints:
     boundaryPoints.append([0]*len(points[0]))
   boundaryPoints = np.array(boundaryPoints)
+  try:
+    hull = ConvexHull(boundaryPoints)
+  except QhullError:
+    hull = ConvexHull(boundaryPoints, qhull_options='QJ')
+  return hull, boundaryPoints
+
+def special_minkowski_with_mins(points, minCoeffs):
+    
+  # this is apparently the amount of digits in the binary value 2**len(points)
+  width = len(points)+2
+  # vertexes for convex hull
+  boundaryPoints = []
+  # for each possible combination of vectors (2^num points, any binary combination of single force vectors)
+#   print(points)
+#   print("---------------------")
+  for i in range(2**(len(points))):
+    # turn index into binary list
+    coeffs = [int(digit) for digit in list(f"{i:0{width}b}")[2:]]
+    # initalize zero vector
+    partialSum = [0]*len(points[0])
+    # add each vector which you should add
+    for j in range(len(points)):
+      # add full value of each 'on' column
+      partialSum = [a+b for a, b, in zip(partialSum, [coeffs[j] * component for component in points[j]])]
+      # add min value of each 'off' column
+      partialSum = [a+b for a, b, in zip(partialSum, [[~c+2 for c in coeffs][j] * component * minCoeffs[j] for component in points[j]])]
+    # add the final vector to the boundary points
+    boundaryPoints.append(partialSum)
+  # honestly not sure why I insist on having the zero vector in here
+  if not [0]*len(points[0]) in boundaryPoints:
+    boundaryPoints.append([0]*len(points[0]))
+  # stick it in a numpy array
+  boundaryPoints = np.array(boundaryPoints)
+#   print(boundaryPoints)
   try:
     hull = ConvexHull(boundaryPoints)
   except QhullError:

@@ -7,7 +7,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.optimize import linprog
 from scipy.linalg import null_space
 
-from utils import intersects_positive_orthant, special_minkowski, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant, intersection_with_orthant
+from utils import intersects_positive_orthant, special_minkowski, special_minkowski_with_mins, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant, intersection_with_orthant
 from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_annealing, differential_evolution
 from types import SimpleNamespace
 
@@ -48,7 +48,7 @@ class StrucMatrix():
     figures = {}  # Dict to track figures by name
     figures_with_axes = set()
 
-    def __init__(self, R=None, D=None, S=None, F=None, constraints=[], name='Placeholder') -> None:
+    def __init__(self, R=None, D=None, S=None, F=None, minFactor=None, constraints=[], name='Placeholder') -> None:
         if R is not None and D is not None:
             self.R = R
             self.D = D
@@ -61,6 +61,7 @@ class StrucMatrix():
             self.F = np.ones(self.S.shape[1])
         else:
             self.F = F
+        self.minFactor = minFactor
         self.constraints = constraints
         # print("constraints passed to object,", self.constraints)
         # print("checked validity on init")
@@ -92,6 +93,7 @@ class StrucMatrix():
             self.D = np.sign(S)
             self.R = np.absolute(S)
         self.F = self.F
+        # self.minForce = self.F*0.05
         self.constraints = self.constraints
         self.domain,  self.boundaryGrasps = self.torqueDomainVolume()
         self.validity                     = self.isValid()
@@ -140,12 +142,15 @@ class StrucMatrix():
         return True
         # return (np.linalg.matrix_rank(S)>=numJoints) and (all([x>0 for x in sp.linalg.null_space(S)]))
 
-    def torqueDomainVolume(self):
+    def torqueDomainVolume(self, fOverride=None, enforcePosTension=False):
         numJoints = self.S.shape[0]
         numTendons = self.S.shape[1]
         # S is a structure matrix
         self.singleForceVectors = list(np.transpose(self.S @ np.diag(self.F)))
-        domain, boundaryGrasps = special_minkowski(self.singleForceVectors)
+        if enforcePosTension:
+            domain, boundaryGrasps = special_minkowski_with_mins(self.singleForceVectors, minCoeffs=np.array([self.minFactor]*len(self.singleForceVectors)))    
+        else:
+            domain, boundaryGrasps = special_minkowski(self.singleForceVectors)
         return domain, boundaryGrasps
 
     def pulleyVariation(self):
@@ -198,11 +203,11 @@ class StrucMatrix():
         self.reinit(R=R, D=self.D)
         return -np.max(self.domain.equations @ np.append(point, 1))
 
-    def plotCapability(self, showBool=False, colorOverride=None, transOverride=None, obj=None):
+    def plotCapability(self, showBool=False, colorOverride=None, transOverride=None, obj=None, enforcePosTension=False):
 
         if obj is None:
             obj = type(self)
-            print("object:", obj)
+            # print("object:", obj)
         else:
             # print("object given as:", obj)
             pass
@@ -223,15 +228,26 @@ class StrucMatrix():
         self.ax = ax
         figID = id(self.fig)
         numJoints = self.S.shape[0]
+
+        domain, boundaryGrasps = self.torqueDomainVolume(enforcePosTension=enforcePosTension)
+        # print(boundaryGrasps)
         if numJoints == 3:
-            singleForceVectors = list(np.transpose(self.S))
+            if enforcePosTension:
+                singleForceVectors = np.zeros_like(np.transpose(self.S), dtype=float)
+                for i in range((self.numTendons)):
+                    singleForceVectors[self.numTendons-1-i,:] = boundaryGrasps[2**i]
+            else:
+                singleForceVectors = (np.transpose(self.S @ np.diag(self.F)))
+                # print(singleForceVectors)
+            print(singleForceVectors.T)
+            singleForceVectors = list(singleForceVectors)
             # self.ax.scatter(*[0,0,0], color="black")
-            self.ax.scatter(*self.boundaryGrasps.T, color=color, alpha=alpha)
-            # for grasp in singleForceVectors:
-            #     self.ax.quiver(0,0,0,grasp[0],grasp[1],grasp[2],color="black")
+            self.ax.scatter(*boundaryGrasps.T, color=color, alpha=alpha)
+            for grasp in singleForceVectors:
+                self.ax.quiver(0,0,0,grasp[0],grasp[1],grasp[2],color="black")
                 # print(grasp)
-            for simplex in self.domain.simplices:
-                triangle = self.boundaryGrasps[simplex]
+            for simplex in domain.simplices:
+                triangle = boundaryGrasps[simplex]
                 self.ax.add_collection3d(Poly3DCollection([triangle], color=color, alpha=alpha))
             # if StrucMatrix.plot_count == 1: plt.tight_layout()
             # Axis limits
@@ -259,6 +275,67 @@ class StrucMatrix():
         else:
             warnings.warn("Cannot plot anything other than 3d grasps at this time")
         obj.plot_count += 1
+
+    # def plotFriction(self, showBool=False, colorOverride=None, transOverride=None, obj=None):
+    #     if obj is None:
+    #         obj = type(self)
+    #         # print("object:", obj)
+    #     else:
+    #         # print("object given as:", obj)
+    #         pass
+
+    #     color = colorOverride if colorOverride is not None else colors[obj.plot_count % len(colors)]
+
+    #     # Pick transparency
+    #     alpha = transOverride if transOverride is not None else 0.4
+    #     # Handle figure reuse by name
+    #     if self.name in obj.figures:
+    #         fig, ax = obj.figures[self.name]
+    #     else:
+    #         fig = plt.figure(f"Structure Matrix: {self.name}")
+    #         ax = fig.add_subplot(111, projection="3d")
+    #         obj.figures[self.name] = (fig, ax)
+
+    #     self.fig = fig
+    #     self.ax = ax
+    #     figID = id(self.fig)
+    #     numJoints = self.S.shape[0]
+    #     if numJoints == 3:
+    #         singleForceVectors = list(np.transpose(self.S))
+    #         # self.ax.scatter(*[0,0,0], color="black")
+    #         self.ax.scatter(*self.boundaryGrasps.T, color=color, alpha=alpha)
+    #         for grasp in singleForceVectors:
+    #             self.ax.quiver(0,0,0,grasp[0],grasp[1],grasp[2],color="black")
+    #             print(grasp)
+    #         for simplex in self.domain.simplices:
+    #             triangle = self.boundaryGrasps[simplex]
+    #             self.ax.add_collection3d(Poly3DCollection([triangle], color=color, alpha=alpha))
+    #         # if StrucMatrix.plot_count == 1: plt.tight_layout()
+    #         # Axis limits
+    #         # Draw "axes" through origin
+    #         if figID not in obj.figures_with_axes:
+    #             plt.tight_layout()
+    #             xlim = self.ax.get_xlim()
+    #             ylim = self.ax.get_ylim()
+    #             zlim = self.ax.get_zlim()
+    #             self.ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1)
+    #             self.ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
+    #             self.ax.plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
+    #             ax.set_xlabel('τ₁')
+    #             ax.set_ylabel('τ₂')
+    #             ax.set_zlabel('τ₃')
+    #             # ax.set_title('Torque Components τ₁, τ₂, τ₃')
+    #             ax.set_title(f'{self.name} Capability Polytope')
+    #             # ax.view_init(elev=30, azim=45)
+    #             ax.grid(True)
+    #             plt.tight_layout()
+
+    #             obj.figures_with_axes.add(figID)
+    #         if showBool:
+    #             plt.show()
+    #     else:
+    #         warnings.warn("Cannot plot anything other than 3d grasps at this time")
+    #     obj.plot_count += 1
 
     def plotGrasp(self, grasp, showBool=False, obj=None):
 

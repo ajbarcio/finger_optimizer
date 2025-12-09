@@ -17,15 +17,27 @@ import itertools
 # print(null_space(D))
 # S = inherent
 # S.plotCapability(showBool=True, colorOverride='blue')
-D = np.array([[1,0,0,0],
-              [0,1,0,-1],
-              [0,0,1,-1],])
-S = StrucMatrix(S=D)
+D = np.array([[-1,1,1,1],
+              [0,-1,1,1],
+              [0,0,-1,1],])
+S = StrucMatrix(S=D, minFactor=0.05)
 
 print(S.validity)
 print(S.biasForceSpace)
+S.plotCapability(showBool=False, enforcePosTension=True)
+S.plotCapability(showBool=True, enforcePosTension=False)
 
-S.plotCapability(showBool=True, colorOverride='blue')
+# _, pointsFull    = special_minkowski(S.singleForceVectors)
+# _, pointsDerated = special_minkowski_with_mins(S.singleForceVectors)
+
+# print(pointsFull)
+# print(pointsDerated)
+
+# friction = np.array([1,1,1])
+# friction = np.eye()
+# F = np.linalg.pinv(S()) @ friction
+# print(F)    
+# print(S.biasForceSpace)
 # # S1 = quasiHollow
 # # S = np.array([[ .1477, .1477,  .1477, -.1477],
 # #               [ 0.   ,  .1477, .1477, -.1477],

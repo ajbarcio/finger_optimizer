@@ -9,6 +9,7 @@ import multiprocessing
 import tempfile
 import queue as _queue  
 import os
+import glob
 obj=StrucMatrix # why on earth is this here, what did I do, what weird merge conflict created this
 
 from collections import deque
@@ -155,18 +156,23 @@ def generate_all_unique_large(shape):
 
     return np.stack(allSM), uniqueGenerator
 
-def generate_all_unique_large_parallel(shape, processes=None):
+def generate_all_unique_large_parallel(shape, D=None, signs=None, processes=None):
+
+    terminated = False
 
     if processes is None:
         processes = os.cpu_count()-2
-
-    D = np.ones(shape)
-    signs = [0, -1, 1]
+    
+    if D is None:
+        D = np.ones(shape)
+    if signs is None:
+        signs = [0, -1, 1]
     positions = np.argwhere(D != 0)
     num_vars = len(positions)
     total = len(signs)**num_vars
-    total_filtered = int(3**(shape[0]*shape[1])*(1-(1+2*shape[1])/(3**shape[1]))**shape[0])
-    print(f"Total combinations that could be useful: {total_filtered:,}")
+    total_filtered = total
+    # total_filtered = int(3**(shape[0]*shape[1])*(1-(1+2*shape[1])/(3**shape[1]))**shape[0])
+    # print(f"Total combinations that could be useful: {total_filtered:,}")
 
     # shared progress and queue to stream results
     # queue = multiprocessing.Queue()
@@ -219,6 +225,7 @@ def generate_all_unique_large_parallel(shape, processes=None):
         print("\nKeyboardInterrupt detected! Terminating workers...")
         for p in procs:
             p.terminate()
+        terminated = True
     
     finally:
         for p in procs:
@@ -230,6 +237,10 @@ def generate_all_unique_large_parallel(shape, processes=None):
     final = set()
     for s in return_dict.values():
         final |= s
+
+    if not terminated:
+        for f in glob.glob("worker*"):
+            os.remove(f)
 
     print(f"Unique found: {len(final):,}, out of {processed} processed")
     return np.stack([np.array(c) for c in final])
@@ -938,14 +949,23 @@ def generate_all_unique_qutsm():
 # --------------------------------------------------------------------------
 # vv Functional processes
 
-def total_combinatoric_analysis_large(m: int):
-    print(f'There are {3**(m*(m+1)):,} possible {m}dof n+1 tendon routings:', )
+def total_combinatoric_analysis_large(m: int, D=None, signs=None):
+    if signs is None:
+        states = 3
+    else:
+        states=len(signs)
+    print(f'There are {states**(m*(m+1)):,} possible fully dense {m}dof n+1 tendon routings:', )
+    if D is None and signs is None:
+        addOutName=""
+    else:
+        addOutName="_Special"
     try: 
-        unique = np.load(f"{m}x{m+1}_Unique.npy", mmap_mode='r')
+        unique = np.load(f"{m}x{m+1}_Unique{addOutName}.npy", mmap_mode='r')
     except:
-        unique = generate_all_unique_large_parallel([m,m+1])
+        unique = generate_all_unique_large_parallel([m,m+1], D=D, signs=signs)
         print(len(unique))
-        np.save(f"{m}x{m+1}_Unique.npy", unique)
+        np.save(f"{m}x{m+1}_Unique{addOutName}.npy", unique)
+    print(unique)
 
 def total_combinatoric_analysis(m: int):
     # m = 3
@@ -1132,7 +1152,7 @@ if __name__ == "__main__":
     # end = time.perf_counter()
     # print(f"without streaming it took {end-begin}")
     begin = time.perf_counter()
-    total_combinatoric_analysis_large(4)
+    total_combinatoric_analysis_large(3, signs=(-1,0,1))
     end = time.perf_counter()
     print(f"with streaming it took {end-begin}")
     # qutsm_focus()
