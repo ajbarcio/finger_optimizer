@@ -1,0 +1,138 @@
+Optimal Structure:
+[[-0.152  0.819  1.331  0.649]
+ [ 0.     0.174  1.194  1.718]
+ [ 0.     0.     0.385  0.555]]
+Null Space:
+[[ 9.78682781e-01]
+ [-2.32525792e-04]
+ [ 1.68663795e-01]
+ [-1.17185682e-01]]
+controllable: False
+torque grasp constraints: (one of these should be near 0)
+-6.587745826841946
+
+-2.1766273110510497
+
+-2.7029774050323576
+
+-6.5877458268419105
+
+Null Space Condition: 1000000000
+Quad1 Volume: 13699.30656036307
+bestGrip: 213.51126588436128
+
+Optimal Structure:
+[[-1.031  1.73   1.89   1.683]
+ [ 0.    -0.419  2.024  1.663]
+ [ 0.     0.     0.817  0.682]]
+Null Space:
+[[ 0.0010013 ]
+ [-0.04646758]
+ [-0.63987489]
+ [ 0.76707228]]
+controllable: False
+torque grasp constraints: (one of these should be near 0)
+-6.028537432397232
+
+-3.274589197663836
+
+-3.3312937875119757
+
+-6.028537432397196
+
+Null Space Condition: 1000000000
+Quad1 Volume: 77092.1607721274
+bestGrip: 320.27698780682135
+
+Optimal Structure:
+[[-0.375  0.807  0.885  0.726]
+ [ 0.    -0.09   0.945  0.708]
+ [ 0.     0.     0.164  0.124]]
+Null Space:
+[[ 3.96987797e-04]
+ [-5.61970022e-02]
+ [-6.01984152e-01]
+ [ 7.96527978e-01]]
+controllable: False
+torque grasp constraints: (one of these should be near 0)
+-7.239432537518811
+
+-1.3561058308011158
+
+-1.5125118238660455
+
+-7.239432537518775
+
+Null Space Condition: 1000000000
+Quad1 Volume: 1212.229571276591
+bestGrip: 144.65499442260682
+
+Optimal Structure:
+[[-0.459  0.395  0.706  0.416]
+ [ 0.    -0.262  0.462  0.56 ]
+ [ 0.     0.    -0.     0.102]]
+Null Space:
+[[8.33328520e-01]
+ [4.80950837e-01]
+ [2.72487833e-01]
+ [5.01807265e-04]]
+controllable: True
+torque grasp constraints: (one of these should be near 0)
+-7.4319005434921435
+
+-2.031105801013932
+
+-1.7315458817882465
+
+-7.42828696941665
+
+Null Space Condition: 1660.6545542254983
+Quad1 Volume: 7836.250516063174
+bestGrip: 85.0114422664948
+
+Optimal Structure:
+[[-1.031  1.73   1.89   1.683]
+ [ 0.    -0.419  2.024  1.663]
+ [ 0.     0.     0.817  0.682]]
+Null Space:
+[[ 0.0010013 ]
+ [-0.04646758]
+ [-0.63987489]
+ [ 0.76707228]]
+controllable: False
+torque grasp constraints: (one of these should be near 0)
+-6.028537432397232
+
+-3.274589197663836
+
+-3.3312937875119757
+
+-6.028537432397196
+
+Null Space Condition: 1000000000
+Quad1 Volume: 77092.1607721274
+bestGrip: 320.27698780682135
+
+Optimal Structure:
+[[-0.375  0.807  0.885  0.726]
+ [ 0.    -0.09   0.945  0.708]
+ [ 0.     0.     0.164  0.124]]
+Null Space:
+[[ 3.96987797e-04]
+ [-5.61970022e-02]
+ [-6.01984152e-01]
+ [ 7.96527978e-01]]
+controllable: False
+torque grasp constraints: (one of these should be near 0)
+-7.239432537518811
+
+-1.3561058308011158
+
+-1.5125118238660455
+
+-7.239432537518775
+
+Null Space Condition: 1000000000
+Quad1 Volume: 1212.229571276591
+bestGrip: 144.65499442260682
+

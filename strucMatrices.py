@@ -148,7 +148,7 @@ class StrucMatrix():
         # S is a structure matrix
         self.singleForceVectors = list(np.transpose(self.S @ np.diag(self.F)))
         if enforcePosTension:
-            domain, boundaryGrasps = special_minkowski_with_mins(self.singleForceVectors, minCoeffs=np.array([self.minFactor]*len(self.singleForceVectors)))    
+            domain, boundaryGrasps = special_minkowski_with_mins(self.singleForceVectors, minCoeffs=np.array([self.minFactor]*len(self.singleForceVectors)))
         else:
             domain, boundaryGrasps = special_minkowski(self.singleForceVectors)
         return domain, boundaryGrasps
@@ -853,6 +853,37 @@ class VariableStrucMatrix():
         def __call__(self, theta, *args, **kwds):
             return (self.max-self.min)/(np.pi/2)*theta
 
+    class convergent_circles_extension_joint():
+        """
+        A class to define a type of tendon routing where each link in the joint
+            has an arc, the two of which converge to a single circle at 90
+            degrees of deflection, which route the tendon around the outside of
+            the finger. Max and Min are passed as the distance from the pivot to
+            the tendon at 0 degrees and 90 degrees respectively, and the
+            distance at any angle theta is calculated based on geometry.
+        """
+        def __init__(self, min, max, idx):
+            self.min = min
+            self.max = max
+            self.idx = idx
+            # distance from center of convergent circle to joint
+            self.c = self.min
+            # radius of convergent circle
+            self.r = (self.max - np.sqrt(2)/2*self.c)/(1-np.sqrt(2)/2)
+            # make sure that shit is correct
+            # print(self.min)
+            # print(self.max)
+            # print(self(0))
+            # print(self(np.pi/2))
+            # print(self.c)
+            # print(self.r)
+            assert np.isclose(self.max,self(0))
+            assert np.isclose(self.min,self(np.pi/2))
+            # self.max = self(np.pi/2)
+
+        def __call__(self, theta):
+            return self.r+(self.c-self.r)*np.sin(np.pi/4+theta/2)
+
     class convergent_circles_joint():
         """
         A class to define a type of tendon routing where each link in the joint
@@ -876,6 +907,7 @@ class VariableStrucMatrix():
         def __call__(self, theta):
             return self.c*np.cos((np.pi/2-theta)/2)-self.r
 
+    # DOES THIS WORK YET? yes it do
     class convergent_circles_joint_with_limit():
         """
         Similar to convergent circles, but with a convex arc around
@@ -886,10 +918,15 @@ class VariableStrucMatrix():
 
             self.idx = idx
             if minOverwrite is None:
-                minOverwrite = 0
+                self.minOverwrite = 0
+            else:
+                self.minOverwrite = minOverwrite
+            # print(self.minOverwrite)
+            # if minOverwrite > self.min:
+            #     self.min = minOverwrite
 
             # distance from center of convergent circle to joint
-            self.c = (self.max-minOverwrite)/(1-np.sqrt(2)/2)
+            self.c = (self.max-self.min)/(1-np.sqrt(2)/2)
             # radius of convergent circle
             self.r = self.c-self.max
             # Check to confirm
@@ -897,12 +934,12 @@ class VariableStrucMatrix():
 
         def __call__(self, theta):
             val = self.c*np.cos((np.pi/2-theta)/2)-self.r
-            if val <= self.min:
-                return self.min
+            if val <= self.minOverwrite:
+                return self.minOverwrite
             else:
                 return val
 
-    def __init__(self, R, D, F=None, ranges=None, types=None, constraints=None, name='Placeholder'):
+    def __init__(self, R, D, F=None, ranges=None, types=None, minFactor=None, constraints=None, name='Placeholder'):
 
         # Avoid mutable defaults
         if ranges is None:
@@ -949,7 +986,11 @@ class VariableStrucMatrix():
                 self.effortFunctions.append(getattr(self, f'j{idx[0]}t{idx[1]}r'))
         else:
             for i, idx in enumerate(self.variableTendons):
-                setattr(self, f'j{idx[0]}t{idx[1]}r', types[i](ranges[i][0],ranges[i][1],idx))
+                if types[i]==self.convergent_circles_joint_with_limit:
+                    setattr(self, f'j{idx[0]}t{idx[1]}r', types[i](ranges[i][0],ranges[i][1],idx,ranges[i][2]))
+                    # self.effortFunctions.append(getattr(self, f'j{idx[0]}t{idx[1]}r'))
+                else:
+                    setattr(self, f'j{idx[0]}t{idx[1]}r', types[i](ranges[i][0],ranges[i][1],idx))
                 self.effortFunctions.append(getattr(self, f'j{idx[0]}t{idx[1]}r'))
 
         # Force-based scaling vector
@@ -957,6 +998,7 @@ class VariableStrucMatrix():
             self.F = np.ones(self.D.shape[1])
         else:
             self.F = F
+        self.minFactor = minFactor
 
         self.constraints = constraints
         self.name = name
@@ -1005,10 +1047,10 @@ class VariableStrucMatrix():
         S = StrucMatrix(S=Smat, F=self.F, name=self.name)
         S.plotGrasp(grasp, showBool=showBool, obj=type(self))
 
-    def plotCapability(self, THETA, showBool=False, colorOverride=None):
+    def plotCapability(self, THETA, showBool=False, colorOverride=None, enforcePosTension=False):
         Smat = self.S(THETA)
-        S = StrucMatrix(S=Smat, F=self.F, name=self.name)
-        S.plotCapability(showBool = showBool, colorOverride=colorOverride, obj=type(self))
+        S = StrucMatrix(S=Smat, F=self.F, name=self.name, minFactor=self.minFactor)
+        S.plotCapability(showBool = showBool, colorOverride=colorOverride, obj=type(self), enforcePosTension=enforcePosTension)
 
     def plotCapabilityAcrossAllGrasps(self, resl=10, showBool=False):
         # np.linspace
