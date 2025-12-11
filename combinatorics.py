@@ -12,7 +12,13 @@ import os
 import glob
 obj=StrucMatrix # why on earth is this here, what did I do, what weird merge conflict created this
 
+from numpy import ndarray
+
 from collections import deque
+# from numba import njit, prange
+from joblib import Parallel, delayed
+
+from concurrent.futures import ProcessPoolExecutor
 
 def create_decoupling_matrix(S):
     rows = []
@@ -44,14 +50,13 @@ def test_functional_decoupling_matrix():
     for i in decoupled:
         print(i)
 
-def identify_strict_sign_central(S: StrucMatrix):
+def identify_strict_sign_central(S: ndarray):
     success = True
-    struc = S()
-    m = S.numJoints
-    n = S.numTendons
+    m = S.shape[0]
+    n = S.shape[1]
     Ds = signings_of_order(m)
     for i in range(len(Ds)):
-        check = Ds[i] @ struc
+        check = Ds[i] @ S
         valid = False
         for j in range(n):
             if np.all(check[:,j] >=0) & np.any(check[:,j] != 0):
@@ -59,32 +64,33 @@ def identify_strict_sign_central(S: StrucMatrix):
         success &= valid
     return success
 
-def identify_sign_central(S: StrucMatrix):
+def identify_sign_central(S: ndarray):
     success = True
-    struc = S()
-    Ds = strict_signings_of_order(S.numJoints)
+    m = S.shape[0]
+    n = S.shape[1]
+    Ds = strict_signings_of_order(m)
     for i in range(len(Ds)):
-        check = Ds[i] @ struc
+        check = Ds[i] @ S
         # print(check)
         # print(np.any(np.all(check >= 0, axis=0)))
         success &= (np.any(np.all(check >= 0, axis=0)))
     return success
 
-def identify_strict_central(S: StrucMatrix, boundsOverride=False):
+def identify_strict_central(S: ndarray, boundsOverride=False):
 
     """
     Dual problem of the minimization for Theorem 2.1 presented by
     Brunaldi and Dahl in Strict Sign-Central Matrices
     """
-    A = S()
-    n = A.shape[1]
+    # A = S()
+    n = S.shape[1]
     e = np.ones(n)
 
     c = np.zeros(n)                 # objective: minimize 0
     # c = np.ones(n)                  # objective: minimize 1-norm of w
     # c = -np.ones(n)                 # objective: maximize 1-norm of w
-    A_eq = A                        # equality: A w = -A e
-    b_eq = -A @ e
+    A_eq = S                        # equality: A w = -A e
+    b_eq = -S @ e
     if boundsOverride:
         bounds = [(None, None)] * n        # allow for the return of any value
     else:
@@ -398,9 +404,9 @@ def generate_all_unique_large_parallel(shape, D=None, signs=None, processes=None
 
 def select_all_possible(S_):
     possibleStructures = []
-    i=0
+    k=0
     for S in S_:
-        i+=1
+        k+=1
         # for each column:
         success = True
         for j in range(S.shape[1]):
@@ -413,6 +419,7 @@ def select_all_possible(S_):
                     success = False
         if success:
             possibleStructures.append(S)
+        print(f"{k}/{len(S_)} processed, found {len(possibleStructures)}                      ", end = "\r")
 
     return possibleStructures
 
@@ -967,22 +974,49 @@ def total_combinatoric_analysis_large(m: int, D=None, signs=None):
         np.save(f"{m}x{m+1}_Unique{addOutName}.npy", unique)
     print(unique)
 
+## A BUNCH OF FUNCTIONS TO MAKE total_combinatoric_analysis MORE READABLE
+
+def rank_valid(mat_m_tuple):
+    mat, m = mat_m_tuple
+    # print("ee")
+    return matrix_rank(mat) == m
+
+
 def total_combinatoric_analysis(m: int):
     # m = 3
     print(f'There are {3**(m*(m+1))} possible {m}dof n+1 tendon routings:', )
     try:
-        uniqueAll = np.load(f"allUnique{m}x{m+1}.npy", mmap_mode='r')
+        # print(f"trying to load {m}x{m+1}_Unique.npy")
+        uniqueAll = np.load(f"{m}x{m+1}_Unique.npy", mmap_mode=None)
     except:
+        # print(f"didn't work")
         uniqueAll = generate_all_unique([m,m+1])
         print(uniqueAll[0].shape)
         np.save(f"allUnique{m}x{m+1}.npy", uniqueAll)
+    numUniques = len(uniqueAll)
+    print(f'{numUniques} of them are unique')
     
-    print(f'{len(uniqueAll)} of them are unique')
-    uniqueRankValids = []
-    for i in uniqueAll:
-        if matrix_rank(i)==m:
-            uniqueRankValids.append(i)
-    print(f'{len(uniqueRankValids)} are likely to be controllable, if the correct radii are chosen')
+    # with ProcessPoolExecutor() as ex:
+    #     mask = list(ex.map(rank_valid, ((A, m) for A in uniqueAll)))
+    # uniqueRankValids = [A for A, keep in zip(uniqueAll, mask) if keep]
+    try:
+        # print(f"trying to load {m}x{m+1}_Unique.npy")
+        uniqueRankValids = np.load(f"{m}x{m+1}_URank.npy", mmap_mode=None)
+        print(f'(loaded) {len(uniqueRankValids)} are likely to be controllable, if the correct radii are chosen (have sufficient rank for uniform radius)')
+    except:
+        # print(f"didn't work")
+        uniqueRankValids = []
+        count = 0
+        for i in uniqueAll:
+            if matrix_rank(i)==m:
+                print(f"{count}/{numUniques}", end="\r")
+                uniqueRankValids.append(i)
+                count+=1
+        print(f'{len(uniqueRankValids)} are likely to be controllable, if the correct radii are chosen (have sufficient rank for uniform radius)')
+        np.save(f"{m}x{m+1}_URank.npy", uniqueRankValids)
+        print(f'wrote {len(uniqueRankValids)} matrices to file')
+    
+    # quit()
     # print(len(dense))
     try:
         universal = np.load(f'universal{m}x{m+1}.npy', mmap_mode='r')
@@ -995,12 +1029,16 @@ def total_combinatoric_analysis(m: int):
         possiblyControllableDecouplable = []
         possiblyControllableAlwaysDecouplable = []
         progress = 0
+        numToProcess = len(uniqueRankValids)
         for Sm in uniqueRankValids:
             # print(j, end="\r")
-            if identify_strict_sign_central(StrucMatrix(S=Sm)):
+            shouldPrint = False
+            if identify_strict_sign_central(Sm):
                 # print(i, "True")
                 universal.append(Sm)
-            if identify_strict_central(StrucMatrix(S=Sm))[0]:
+                shouldPrint = False
+                # print("vv INHERENTLY CONTROLLABLE vv")
+            if identify_strict_central(Sm)[0]:
                 uniform.append(Sm)
             rows = []
             # for each row  of K_J:
@@ -1013,14 +1051,19 @@ def total_combinatoric_analysis(m: int):
             M = np.vstack(rows)
             # instead of manually checking the null space, check for
             # strict centrality and strict sign centrality
-            StC = identify_strict_central(StrucMatrix(S=M))[0]
-            SSC = identify_strict_sign_central(StrucMatrix(S=M))
+            StC = identify_strict_central(M)[0]
+            SSC = identify_strict_sign_central(M)
             if StC:
                 possiblyControllableDecouplable.append(Sm)
+                # shouldPrint = True
             if SSC:
                 possiblyControllableAlwaysDecouplable.append(Sm)
+                shouldPrint = True
+                print("vv INHERENTLY DECOUPLABLE vv")
             progress+=1
-            print(progress, end="\r")
+            if shouldPrint:
+                print(Sm)
+            print(f"{progress}/{numToProcess}", end="\r")
         np.save(f'universal{m}x{m+1}.npy', np.array(universal))
         np.save(f'uniform{m}x{m+1}.npy', np.array(uniform))
         np.save(f'possiblyControllableDecouplable{m}x{m+1}.npy', np.array(possiblyControllableDecouplable))
@@ -1028,7 +1071,7 @@ def total_combinatoric_analysis(m: int):
     print(f'{len(uniform)} of the rank-valid matrices are controllable for uniform radii')
     print(f'{len(universal)} of these are inherently controllable')
     for i in universal:
-        if np.count_nonzero(i) == 8:
+        # if np.count_nonzero(i) == 8:
             print(i)
     print(f'{len(possiblyControllableDecouplable)} of the rank-valid matrices are decouplable for uniform radii')
     print(f'{len(possiblyControllableAlwaysDecouplable)} are inherently decouplable (all of which are quasi-hollow)')
@@ -1036,6 +1079,8 @@ def total_combinatoric_analysis(m: int):
             print(i)
     alwaysControllableDecouplable = []
     controllableUniformlyDecouplable = []
+    progress = 0
+    numToProcess = len(universal)
     for Sm in universal:
         # create the decouplability matrix
         rows = []
@@ -1049,38 +1094,52 @@ def total_combinatoric_analysis(m: int):
         M = np.vstack(rows)
         # instead of manually checking the null space, check for
         # strict centrality and strict sign centrality
-        StC = identify_strict_central(StrucMatrix(S=M))[0]
-        SSC = identify_strict_sign_central(StrucMatrix(S=M))
+        StC = identify_strict_central(M)[0]
+        SSC = identify_strict_sign_central(M)
         if StC:
             controllableUniformlyDecouplable.append(Sm)
         if SSC:
             alwaysControllableDecouplable.append(Sm)
+        progress+=1
+        print(f"{progress}/{numToProcess}", end="\r")
+        print()
     print(f'of the inherently controllable SM, {len(controllableUniformlyDecouplable)} are also decouplable with uniform radii')
     print(f'and there are {len(alwaysControllableDecouplable)} which are both inherently controllable and inherently decoupleable')
     # allUniqueValids = generate_rankValid_well_posed_qutsm()
     print()
     print(f"Considering practical issues of 'skipping joints',")
     print()
-    constructible = select_all_possible(uniqueAll)
+    try:
+        constructible = np.load(f"{m}x{m+1}_constructible.npy", mmap_mode=None)
+        print("loading constructibles")
+    except:
+        constructible = select_all_possible(uniqueAll)
+        np.save(f"{m}x{m+1}_constructible.npy", constructible)
+        print(f'wrote {len(constructible)} to file')
+    
+    print(f"only {len(constructible)} of the {len(uniqueAll)} unique matrices are actually possible to construct")
     # for i in constructible:
     #     print(i)
-    print(f"only {len(constructible)} of the {len(uniqueAll)} unique matrices are actually possible to construct")
     constructibleRankValids = []
     for i in constructible:
-        if matrix_rank(i)==3:
+        if matrix_rank(i)==m:
             constructibleRankValids.append(i)
     print(f'and of these, {len(constructibleRankValids)} are likely to be controllable, if the correct radii are chosen')
     universalPractical = []
     uniformPractical = []
     inherentlyDecouplable = []
     uniformDecouplable = []
-    j=0
+    # j=0
+    progress = 0
+    numToProcess = len(constructibleRankValids)
+    print()
+    width = len(str(numToProcess))
     for i in constructibleRankValids:
-        print(j, end="\r")
-        if identify_strict_sign_central(StrucMatrix(S=i)):
+        # print(j, end="\r")
+        if identify_strict_sign_central(i):
             # print(i, "True")
             universalPractical.append(i)
-        if identify_strict_central(StrucMatrix(S=i))[0]:
+        if identify_strict_central(i)[0]:
             uniformPractical.append(i)
             # create the decouplability matrix
         rows = []
@@ -1092,13 +1151,17 @@ def total_combinatoric_analysis(m: int):
                 rows.append(i[k, :] * i[l, :])
         # And we want M * K_J = 0, so we need null space of M
         M = np.vstack(rows)
-        SSC = identify_strict_sign_central(StrucMatrix(S=M))
-        StC = identify_strict_central(StrucMatrix(S=M))[0]
+        SSC = identify_strict_sign_central(M)
+        StC = identify_strict_central(M)[0]
         if SSC:
             inherentlyDecouplable.append(i)
         if StC:
             uniformDecouplable.append(i)
+        progress+=1
+        print(f"{progress:{width}}/{numToProcess}", end="\r")
     uniformPracticalDecouplable = []
+    progress = 0
+    numToProcess = len(uniformPractical)
     for i in uniformPractical:
         rows = []
         # for each row  of K_J:
@@ -1109,9 +1172,11 @@ def total_combinatoric_analysis(m: int):
                 rows.append(i[k, :] * i[l, :])
         # And we want M * K_J = 0, so we need null space of M
         M = np.vstack(rows)
-        StC = identify_strict_central(StrucMatrix(S=M))[0]
+        StC = identify_strict_central(M)[0]
         if StC:
             uniformPracticalDecouplable.append(i)
+        progress+=1
+        print(f"{progress:{width}}/{numToProcess}", end="\r")        
     print(f'{len(uniformPractical)} of which are controllable for uniform radii:')
     for i in uniformPractical:
         print(i)
@@ -1152,7 +1217,7 @@ if __name__ == "__main__":
     # end = time.perf_counter()
     # print(f"without streaming it took {end-begin}")
     begin = time.perf_counter()
-    total_combinatoric_analysis_large(3, signs=(-1,0,1))
+    total_combinatoric_analysis(4)
     end = time.perf_counter()
     print(f"with streaming it took {end-begin}")
     # qutsm_focus()
