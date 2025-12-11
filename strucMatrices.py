@@ -239,7 +239,7 @@ class StrucMatrix():
             else:
                 singleForceVectors = (np.transpose(self.S @ np.diag(self.F)))
                 # print(singleForceVectors)
-            print(singleForceVectors.T)
+            print(singleForceVectors.T) 
             singleForceVectors = list(singleForceVectors)
             # self.ax.scatter(*[0,0,0], color="black")
             self.ax.scatter(*boundaryGrasps.T, color=color, alpha=alpha)
