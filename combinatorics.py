@@ -7,7 +7,7 @@ from numpy.linalg import matrix_rank
 import time
 import multiprocessing
 import tempfile
-import queue as _queue  
+import queue as _queue
 import os
 import glob
 obj=StrucMatrix # why on earth is this here, what did I do, what weird merge conflict created this
@@ -168,7 +168,7 @@ def generate_all_unique_large_parallel(shape, D=None, signs=None, processes=None
 
     if processes is None:
         processes = os.cpu_count()-2
-    
+
     if D is None:
         D = np.ones(shape)
     if signs is None:
@@ -217,7 +217,7 @@ def generate_all_unique_large_parallel(shape, D=None, signs=None, processes=None
             elapsed = time.time() - start_time
             speed = processed / (elapsed + 1e-9)
             last10speeds.append(speed)
-            currentAverage = np.average(last10speeds)    
+            currentAverage = np.average(last10speeds)
             eta = (total_filtered - processed) / (currentAverage + 1e-9)
             print(
                 f"Processed {processed:,}/{total_filtered:,} "
@@ -232,7 +232,7 @@ def generate_all_unique_large_parallel(shape, D=None, signs=None, processes=None
         for p in procs:
             p.terminate()
         terminated = True
-    
+
     finally:
         for p in procs:
             p.join()
@@ -479,7 +479,7 @@ def select_all_centerable(S_):
     # successes = len(evenStructures)
     # print(f"there were {successes} successes")
     return centerableStructures
- 
+
 def select_all_decouplable(S_):
     def decoupledness(radii, D):
         R = r_from_vector(radii, D)
@@ -966,7 +966,7 @@ def total_combinatoric_analysis_large(m: int, D=None, signs=None):
         addOutName=""
     else:
         addOutName="_Special"
-    try: 
+    try:
         unique = np.load(f"{m}x{m+1}_Unique{addOutName}.npy", mmap_mode='r')
     except:
         unique = generate_all_unique_large_parallel([m,m+1], D=D, signs=signs)
@@ -995,7 +995,7 @@ def total_combinatoric_analysis(m: int):
         np.save(f"allUnique{m}x{m+1}.npy", uniqueAll)
     numUniques = len(uniqueAll)
     print(f'{numUniques} of them are unique')
-    
+
     # with ProcessPoolExecutor() as ex:
     #     mask = list(ex.map(rank_valid, ((A, m) for A in uniqueAll)))
     # uniqueRankValids = [A for A, keep in zip(uniqueAll, mask) if keep]
@@ -1015,7 +1015,7 @@ def total_combinatoric_analysis(m: int):
         print(f'{len(uniqueRankValids)} are likely to be controllable, if the correct radii are chosen (have sufficient rank for uniform radius)')
         np.save(f"{m}x{m+1}_URank.npy", uniqueRankValids)
         print(f'wrote {len(uniqueRankValids)} matrices to file')
-    
+
     # quit()
     # print(len(dense))
     try:
@@ -1116,7 +1116,7 @@ def total_combinatoric_analysis(m: int):
         constructible = select_all_possible(uniqueAll)
         np.save(f"{m}x{m+1}_constructible.npy", constructible)
         print(f'wrote {len(constructible)} to file')
-    
+
     print(f"only {len(constructible)} of the {len(uniqueAll)} unique matrices are actually possible to construct")
     # for i in constructible:
     #     print(i)
@@ -1176,7 +1176,7 @@ def total_combinatoric_analysis(m: int):
         if StC:
             uniformPracticalDecouplable.append(i)
         progress+=1
-        print(f"{progress:{width}}/{numToProcess}", end="\r")        
+        print(f"{progress:{width}}/{numToProcess}", end="\r")
     print(f'{len(uniformPractical)} of which are controllable for uniform radii:')
     for i in uniformPractical:
         print(i)
@@ -1190,7 +1190,7 @@ def total_combinatoric_analysis(m: int):
     print(f'of the {len(uniformPractical)} controllable for uniform radii, {len(uniformPracticalDecouplable)} are also decouplable for uniform radii:')
     for i in uniformPracticalDecouplable:
         print(i)
-    
+
     print()
 
 def qutsm_focus():
