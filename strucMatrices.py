@@ -239,7 +239,11 @@ class StrucMatrix():
             else:
                 singleForceVectors = (np.transpose(self.S @ np.diag(self.F)))
                 # print(singleForceVectors)
-            print(singleForceVectors.T) 
+            # print(singleForceVectors.T) 
+            if enforcePosTension:
+                returnVal=singleForceVectors
+            else:
+                returnVal=None
             singleForceVectors = list(singleForceVectors)
             # self.ax.scatter(*[0,0,0], color="black")
             self.ax.scatter(*boundaryGrasps.T, color=color, alpha=alpha)
@@ -275,6 +279,7 @@ class StrucMatrix():
         else:
             warnings.warn("Cannot plot anything other than 3d grasps at this time")
         obj.plot_count += 1
+        return returnVal.T
 
     # def plotFriction(self, showBool=False, colorOverride=None, transOverride=None, obj=None):
     #     if obj is None:
@@ -1052,7 +1057,7 @@ class VariableStrucMatrix():
         S = StrucMatrix(S=Smat, F=self.F, name=self.name, minFactor=self.minFactor)
         S.plotCapability(showBool = showBool, colorOverride=colorOverride, obj=type(self), enforcePosTension=enforcePosTension)
 
-    def plotCapabilityAcrossAllGrasps(self, resl=10, showBool=False):
+    def plotCapabilityAcrossAllGrasps(self, resl=5, showBool=False):
         # np.linspace
         axes = [np.linspace(0*i,np.pi/2,resl) for i in range(self.numJoints)]
         grid = np.meshgrid(*axes, indexing='ij')
@@ -1068,7 +1073,7 @@ class VariableStrucMatrix():
             else:
                 color=[1,0,0]
                 a = 0.01
-            # [THETA[0]/(np.pi/2),THETA[1]/(np.pi/2),THETA[2]/(np.pi/2)]
+            [THETA[0]/(np.pi/2),THETA[1]/(np.pi/2),THETA[2]/(np.pi/2)]
             S.plotCapability(showBool = False, colorOverride=color, obj=type(self), transOverride=a)
             print(f"attempting to plot {self.name} for {', '.join(f'{x:.3f}' for x in THETA)}", end = "\r")
         print("")
@@ -1077,7 +1082,7 @@ class VariableStrucMatrix():
             plt.show()
         return valids/(resl**self.numJoints)
 
-    def plotCapabilityAcrossPowerGrasps(self, resl=100, showBool=False):
+    def plotCapabilityAcrossPowerGrasps(self, resl=50, showBool=False):
         # np.linspace
         valids = 0
         for theta in np.linspace(0,np.pi/2,resl):

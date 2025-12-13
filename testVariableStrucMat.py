@@ -16,15 +16,18 @@ D = np.array([[-1,1,1,1],
               [0,-1,1,1],
               [0,0,-1,1]])
 
+# D = np.array([[-1,1,1,1],
+#               [0,-1,1,1],
+#               [0,0,-1,1]])
 # D = np.array([[1,1,1,-1],
 #               [0,1,1,-1],
 #               [0,0,1,-1]])
 
-cflex = .95 # inches
+cflex = 1 # inches
 rflex = .7
-minim = .28687919/2
+minim = .125
 
-cext = .225
+cext = .25
 rext = .7
 
 wishfulThinking = VariableStrucMatrix(R, D, ranges = [(cext, rext+(cext-rext)*np.sqrt(2)/2)]+[(cflex*np.sqrt(2)/2-rflex, cflex-rflex, minim)]*3
@@ -237,15 +240,15 @@ conceptualAmbrose = VariableStrucMatrix(R, D, ranges=[(c1*np.sqrt(2)/2-r,c1-r)]*
 #     print(effortFunction(np.pi/2))
 #     print(effortFunction.max)
 #     print("--")
-print('---------------------------------------')
-print(dimensionalInherent.name)
-for effortFunction in dimensionalInherent.effortFunctions:
-    print(effortFunction(0))
-    print(effortFunction(0.01))
-    # print(effortFunction.min)
-    print(effortFunction(np.pi/2))
-    print(effortFunction.max)
-    print("--")
+# print('---------------------------------------')
+# print(dimensionalInherent.name)
+# for effortFunction in dimensionalInherent.effortFunctions:
+#     print(effortFunction(0))
+#     print(effortFunction(0.01))
+#     # print(effortFunction.min)
+#     print(effortFunction(np.pi/2))
+#     print(effortFunction.max)
+#     print("--")
 
 # quit()
 
@@ -314,17 +317,17 @@ for effortFunction in dimensionalInherent.effortFunctions:
 # print(f"rank valid? {skinnyLegend.controllability.rankCriterion}")
 # print(f"null space valid? {skinnyLegend.controllability.nullSpaceCriterion}, with condition {skinnyLegend.controllability.biasForceCondition}")
 # print(f"bias force direction: {skinnyLegend.controllability.biasForceSpace.T}")
-print("--------------------------------------------------------------------------------------")
-print(f"Ambrose overall valid at THETA={[0]*conceptualAmbrose.numJoints}? {conceptualAmbrose.controllability([0]*conceptualAmbrose.numJoints)}")
-print(conceptualAmbrose([0]*conceptualAmbrose.numJoints))
-print(f"rank valid? {conceptualAmbrose.controllability.rankCriterion}")
-print(f"null space valid? {conceptualAmbrose.controllability.nullSpaceCriterion}, with condition {conceptualAmbrose.controllability.biasForceCondition}")
-print(f"bias force direction: {conceptualAmbrose.controllability.biasForceSpace.T}")
-print(f"Ambrose overall valid at THETA={[np.pi/2]*conceptualAmbrose.numJoints}? {conceptualAmbrose.controllability([np.pi/2]*conceptualAmbrose.numJoints)}")
-print(conceptualAmbrose([np.pi/2]*conceptualAmbrose.numJoints))
-print(f"rank valid? {conceptualAmbrose.controllability.rankCriterion}")
-print(f"null space valid? {conceptualAmbrose.controllability.nullSpaceCriterion}, with condition {conceptualAmbrose.controllability.biasForceCondition}")
-print(f"bias force direction: {conceptualAmbrose.controllability.biasForceSpace.T}")
+# print("--------------------------------------------------------------------------------------")
+# print(f"Ambrose overall valid at THETA={[0]*conceptualAmbrose.numJoints}? {conceptualAmbrose.controllability([0]*conceptualAmbrose.numJoints)}")
+# print(conceptualAmbrose([0]*conceptualAmbrose.numJoints))
+# print(f"rank valid? {conceptualAmbrose.controllability.rankCriterion}")
+# print(f"null space valid? {conceptualAmbrose.controllability.nullSpaceCriterion}, with condition {conceptualAmbrose.controllability.biasForceCondition}")
+# print(f"bias force direction: {conceptualAmbrose.controllability.biasForceSpace.T}")
+# print(f"Ambrose overall valid at THETA={[np.pi/2]*conceptualAmbrose.numJoints}? {conceptualAmbrose.controllability([np.pi/2]*conceptualAmbrose.numJoints)}")
+# print(conceptualAmbrose([np.pi/2]*conceptualAmbrose.numJoints))
+# print(f"rank valid? {conceptualAmbrose.controllability.rankCriterion}")
+# print(f"null space valid? {conceptualAmbrose.controllability.nullSpaceCriterion}, with condition {conceptualAmbrose.controllability.biasForceCondition}")
+# print(f"bias force direction: {conceptualAmbrose.controllability.biasForceSpace.T}")
 # print("--------------------------------------------------------------------------------------")
 # print(f"Inherent overall valid at THETA={[0]*inherentVariable.numJoints}? {inherentVariable.controllability([0]*inherentVariable.numJoints)}")
 # print(inherentVariable([0]*inherentVariable.numJoints))
@@ -336,17 +339,17 @@ print(f"bias force direction: {conceptualAmbrose.controllability.biasForceSpace.
 # print(f"rank valid? {inherentVariable.controllability.rankCriterion}")
 # print(f"null space valid? {inherentVariable.controllability.nullSpaceCriterion}, with condition {inherentVariable.controllability.biasForceCondition}")
 # print(f"bias force direction: {inherentVariable.controllability.biasForceSpace.T}")
-print("--------------------------------------------------------------------------------------")
-print(f"Inherent overall valid at THETA={[0]*dimensionalInherent.numJoints}? {dimensionalInherent.controllability([0]*dimensionalInherent.numJoints)}")
-print(dimensionalInherent([0]*dimensionalInherent.numJoints))
-print(f"rank valid? {dimensionalInherent.controllability.rankCriterion}")
-print(f"null space valid? {dimensionalInherent.controllability.nullSpaceCriterion}, with condition {dimensionalInherent.controllability.biasForceCondition}")
-print(f"bias force direction: {dimensionalInherent.controllability.biasForceSpace.T}")
-print(f"Inherent overall valid at THETA={[np.pi/2]*dimensionalInherent.numJoints}? {dimensionalInherent.controllability([np.pi/2]*dimensionalInherent.numJoints)}")
-print(dimensionalInherent([np.pi/2]*dimensionalInherent.numJoints))
-print(f"rank valid? {dimensionalInherent.controllability.rankCriterion}")
-print(f"null space valid? {dimensionalInherent.controllability.nullSpaceCriterion}, with condition {dimensionalInherent.controllability.biasForceCondition}")
-print(f"bias force direction: {dimensionalInherent.controllability.biasForceSpace.T}")
+# print("--------------------------------------------------------------------------------------")
+# print(f"Inherent overall valid at THETA={[0]*dimensionalInherent.numJoints}? {dimensionalInherent.controllability([0]*dimensionalInherent.numJoints)}")
+# print(dimensionalInherent([0]*dimensionalInherent.numJoints))
+# print(f"rank valid? {dimensionalInherent.controllability.rankCriterion}")
+# print(f"null space valid? {dimensionalInherent.controllability.nullSpaceCriterion}, with condition {dimensionalInherent.controllability.biasForceCondition}")
+# print(f"bias force direction: {dimensionalInherent.controllability.biasForceSpace.T}")
+# print(f"Inherent overall valid at THETA={[np.pi/2]*dimensionalInherent.numJoints}? {dimensionalInherent.controllability([np.pi/2]*dimensionalInherent.numJoints)}")
+# print(dimensionalInherent([np.pi/2]*dimensionalInherent.numJoints))
+# print(f"rank valid? {dimensionalInherent.controllability.rankCriterion}")
+# print(f"null space valid? {dimensionalInherent.controllability.nullSpaceCriterion}, with condition {dimensionalInherent.controllability.biasForceCondition}")
+# print(f"bias force direction: {dimensionalInherent.controllability.biasForceSpace.T}")
 print("--------------------------------------------------------------------------------------")
 print(f"Dev overall valid at THETA={[0]*wishfulThinking.numJoints}? {wishfulThinking.controllability([0]*wishfulThinking.numJoints)}")
 print(wishfulThinking([0]*wishfulThinking.numJoints))
@@ -358,29 +361,37 @@ print(wishfulThinking([np.pi/2]*wishfulThinking.numJoints))
 print(f"rank valid? {wishfulThinking.controllability.rankCriterion}")
 print(f"null space valid? {wishfulThinking.controllability.nullSpaceCriterion}, with condition {wishfulThinking.controllability.biasForceCondition}")
 print(f"bias force direction: {wishfulThinking.controllability.biasForceSpace.T}")
-
+print(f"weird thing: ")
+print((wishfulThinking([np.pi/2]*wishfulThinking.numJoints)).T @ (wishfulThinking([np.pi/2]*wishfulThinking.numJoints)))
 # skinnyLegend.plotCapability([0]*skinnyLegend.numJoints)
 # skinnyLegend.plotCapability([np.pi/2]*skinnyLegend.numJoints)
 # skinnyLegend.plotCapabilityAcrossAllGrasps()
-ambroseInherent.plotCapability([0]*ambroseInherent.numJoints, enforcePosTension=True)
-ambroseInherent.plotCapability([0]*ambroseInherent.numJoints, enforcePosTension=False)
-ambroseInherent.plotCapability([np.pi/2]*ambroseInherent.numJoints, enforcePosTension=True)
-ambroseInherent.plotCapability([np.pi/2]*ambroseInherent.numJoints, enforcePosTension=False)
-# dimensionalAmbrose.plotCapabilityAcrossAllGrasps()
-dimensionalInherent.plotCapability([0]*dimensionalInherent.numJoints, enforcePosTension=True)
-dimensionalInherent.plotCapability([0]*dimensionalInherent.numJoints, enforcePosTension=False)
-dimensionalInherent.plotCapability([np.pi/2]*dimensionalInherent.numJoints, enforcePosTension=True)
-dimensionalInherent.plotCapability([np.pi/2]*dimensionalInherent.numJoints, enforcePosTension=False)
-# inherentVariable.plotCapabilityAcrossAllGrasps()
-improvedSkinnyLegend.plotCapability([0]*improvedSkinnyLegend.numJoints, enforcePosTension=True)
-improvedSkinnyLegend.plotCapability([0]*improvedSkinnyLegend.numJoints, enforcePosTension=False)
-improvedSkinnyLegend.plotCapability([np.pi/2]*improvedSkinnyLegend.numJoints, enforcePosTension=True)
-improvedSkinnyLegend.plotCapability([np.pi/2]*improvedSkinnyLegend.numJoints, enforcePosTension=False)
+# ambroseInherent.plotCapability([0]*ambroseInherent.numJoints, enforcePosTension=True)
+# ambroseInherent.plotCapability([0]*ambroseInherent.numJoints, enforcePosTension=False)
+# ambroseInherent.plotCapability([np.pi/2]*ambroseInherent.numJoints, enforcePosTension=True)
+# ambroseInherent.plotCapability([np.pi/2]*ambroseInherent.numJoints, enforcePosTension=False)
+# # dimensionalAmbrose.plotCapabilityAcrossAllGrasps()
+# dimensionalInherent.plotCapability([0]*dimensionalInherent.numJoints, enforcePosTension=True)
+# dimensionalInherent.plotCapability([0]*dimensionalInherent.numJoints, enforcePosTension=False)
+# dimensionalInherent.plotCapability([np.pi/2]*dimensionalInherent.numJoints, enforcePosTension=True)
+# dimensionalInherent.plotCapability([np.pi/2]*dimensionalInherent.numJoints, enforcePosTension=False)
+# # inherentVariable.plotCapabilityAcrossAllGrasps()
+# improvedSkinnyLegend.plotCapability([0]*improvedSkinnyLegend.numJoints, enforcePosTension=True)
+# improvedSkinnyLegend.plotCapability([0]*improvedSkinnyLegend.numJoints, enforcePosTension=False)
+# improvedSkinnyLegend.plotCapability([np.pi/2]*improvedSkinnyLegend.numJoints, enforcePosTension=True)
+# improvedSkinnyLegend.plotCapability([np.pi/2]*improvedSkinnyLegend.numJoints, enforcePosTension=False)
 
-wishfulThinking.plotCapability([0]*improvedSkinnyLegend.numJoints, enforcePosTension=True)
-wishfulThinking.plotCapability([0]*improvedSkinnyLegend.numJoints, enforcePosTension=False)
-wishfulThinking.plotCapability([np.pi/2]*improvedSkinnyLegend.numJoints, enforcePosTension=True)
-wishfulThinking.plotCapability([np.pi/2]*improvedSkinnyLegend.numJoints, enforcePosTension=False)
+wishfulThinking.plotCapability([0]*wishfulThinking.numJoints, enforcePosTension=True)
+wishfulThinking.plotCapability([0]*wishfulThinking.numJoints, enforcePosTension=False)
+wishfulThinking.plotCapability([np.pi/2]*wishfulThinking.numJoints, enforcePosTension=True)
+wishfulThinking.plotCapability([np.pi/2]*wishfulThinking.numJoints, enforcePosTension=False)
+
+conceptualAmbrose.plotCapability([0]*conceptualAmbrose.numJoints, enforcePosTension=True)
+conceptualAmbrose.plotCapability([0]*conceptualAmbrose.numJoints, enforcePosTension=False)
+conceptualAmbrose.plotCapability([np.pi/2]*conceptualAmbrose.numJoints, enforcePosTension=True)
+conceptualAmbrose.plotCapability([np.pi/2]*conceptualAmbrose.numJoints, enforcePosTension=False)
+
+# wishfulThinking.plotCapabilityAcrossPowerGrasps()
 
 jointAngles = np.linspace(0,np.pi/2,40)
 ABObjectives = np.zeros((len(jointAngles),len(jointAngles),len(jointAngles)))
@@ -546,14 +557,14 @@ def plot_conditions_depth_transparent(
 
     update_alpha()# Make the two plots
 
-plot_conditions_depth_transparent(ABObjectives, ABValids, jointAngles,
-    title="AB Conditions", s=6, mode="sigmoid", gamma=0.25)
-plot_conditions_depth_transparent(SLObjectives, SLValids, jointAngles,
-    title="ISL Conditions", s=6, mode="exp", gamma=0.25)
-# plot_conditions_depth_transparent(IVObjectives, IVValids, jointAngles,
-#     title="IV Conditions", s=6, mode="exp", gamma=0.25)
-plot_conditions_depth_transparent(DIObjectives, DIValids, jointAngles,
-    title="DI Conditions", s=6, mode="sigmoid", gamma=0.25)
+# plot_conditions_depth_transparent(ABObjectives, ABValids, jointAngles,
+#     title="AB Conditions", s=6, mode="sigmoid", gamma=0.25)
+# plot_conditions_depth_transparent(SLObjectives, SLValids, jointAngles,
+#     title="ISL Conditions", s=6, mode="exp", gamma=0.25)
+# # plot_conditions_depth_transparent(IVObjectives, IVValids, jointAngles,
+# #     title="IV Conditions", s=6, mode="exp", gamma=0.25)
+# plot_conditions_depth_transparent(DIObjectives, DIValids, jointAngles,
+#     title="DI Conditions", s=6, mode="sigmoid", gamma=0.25)
 plot_conditions_depth_transparent(WTObjectives, WTValids, jointAngles,
     title="WT Conditions", s=6, mode="sigmoid", gamma=0.25)
 

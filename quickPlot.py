@@ -1,5 +1,6 @@
 from strucMatrices import *
 from utils import *
+from combinatorics import *
 import itertools
 
 # S = Optimus
@@ -17,42 +18,66 @@ import itertools
 # print(null_space(D))
 # S = inherent
 # S.plotCapability(showBool=True, colorOverride='blue')
-ext = .16929
-flx = .2825
-
-R = np.array([[ext,flx,flx,flx],
-              [0,ext,flx,flx],
-              [0,0,ext,flx],])
 
 D = np.array([[-1,1,1,1],
               [0,-1,1,1],
               [0,0,-1,1],])
-S = StrucMatrix(R=R, D=D, minFactor=0.01, name="flexed")
-S.F = np.array([50,50,50,50])
-S.reinit()
 
-ext = 0.24
-flx = 0.125
+test = StrucMatrix(S=D)
+tests = [test()]
 
-R2 = np.array([[ext,flx,flx,flx],
-              [0,ext,flx,flx],
-              [0,0,ext,flx],])
+p = generate_centered_qutsm(tests)[0]
 
-S2 = StrucMatrix(R=R2, D=D, minFactor=0.01, name="extended")
-S2.F = np.array([50,50,50,50])
-S2.reinit()
+print(p)
+print(null_space(p))
 
-print(S.validity)
-print(S.biasForceSpace)
-S.plotCapability(showBool=False, enforcePosTension=True)
-S.plotCapability(showBool=False, enforcePosTension=False)
-
-print(S2.validity)
-print(S2.biasForceSpace)
-S2.plotCapability(showBool=False, enforcePosTension=True)
-S2.plotCapability(showBool=False, enforcePosTension=False)
-
+for m in np.linspace(0,1,2):
+    test2 =StrucMatrix(S=p, minFactor=m)
+    result = test2.plotCapability(enforcePosTension=True)
+    print(result)
+    print(null_space(result))
 plt.show()
+
+
+
+
+
+# ext = .16929
+# flx = .2825
+
+# R = np.array([[ext,flx,flx,flx],
+#               [0,ext,flx,flx],
+#               [0,0,ext,flx],])
+
+# D = np.array([[-1,1,1,1],
+#               [0,-1,1,1],
+#               [0,0,-1,1],])
+# S = StrucMatrix(R=R, D=D, minFactor=0.01, name="flexed")
+# S.F = np.array([50,50,50,50])
+# S.reinit()
+
+# ext = 0.24
+# flx = 0.125
+
+# R2 = np.array([[ext,flx,flx,flx],
+#               [0,ext,flx,flx],
+#               [0,0,ext,flx],])
+
+# S2 = StrucMatrix(R=R2, D=D, minFactor=0.01, name="extended")
+# S2.F = np.array([50,50,50,50])
+# S2.reinit()
+
+# print(S.validity)
+# print(S.biasForceSpace)
+# S.plotCapability(showBool=False, enforcePosTension=True)
+# S.plotCapability(showBool=False, enforcePosTension=False)
+
+# print(S2.validity)
+# print(S2.biasForceSpace)
+# S2.plotCapability(showBool=False, enforcePosTension=True)
+# S2.plotCapability(showBool=False, enforcePosTension=False)
+
+# plt.show()
 # _, pointsFull    = special_minkowski(S.singleForceVectors)
 # _, pointsDerated = special_minkowski_with_mins(S.singleForceVectors)
 
