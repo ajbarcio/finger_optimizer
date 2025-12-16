@@ -28,19 +28,26 @@ rflex = .7
 minim = 1/16+1/32+2.25/25.4/2
 
 cext = .25
-rext = .4125
+rext = .5
 
-maxs = [0.35,0.3,0.25]
-mins = [minim*1.2,minim*1.1,minim]
+maxs = [0.5*0.75,.5*2/3,.5/3*1.25]
+cflexs = [max+rflex for max in maxs]
+mins = [cflex*np.sqrt(2)/2-rflex for cflex in cflexs]
+print(mins)
+print(minim)
+rexts = [rext]*3
+cexts = [.3125,.25,.2]
+# rexts.reverse()
+# mins = [minim*3,minim*2,minim]
 
 maxs.reverse()
 mins.reverse()
 
-print(maxs, mins)
+# print(maxs, mins)
 
-wishfulThinking = VariableStrucMatrix(R, D, ranges =  [(mins[0], maxs[0], minim)]*3+[(0.35, rext+(0.35-rext)*np.sqrt(2)/2)]
-                                                     +[(mins[1], maxs[1], minim)]*2+[(cext, rext+(cext-rext)*np.sqrt(2)/2)]
-                                                     +[(mins[2], maxs[2], minim)]+[(0.2, rext+(0.2-rext)*np.sqrt(2)/2)],
+wishfulThinking = VariableStrucMatrix(R, D, ranges =  [(mins[0], maxs[0], minim)]*3+[(cexts[0], rexts[0]+(cexts[0]-rexts[0])*np.sqrt(2)/2)]
+                                                     +[(mins[1], maxs[1], minim)]*2+[(cexts[1], rexts[1]+(cexts[1]-rexts[1])*np.sqrt(2)/2)]
+                                                     +[(mins[2], maxs[2], minim)]+  [(cexts[2], rexts[2]+(cexts[2]-rexts[2])*np.sqrt(2)/2)],
                                                 types = [VariableStrucMatrix.convergent_circles_joint_with_limit]*3+[VariableStrucMatrix.convergent_circles_extension_joint]
                                                        +[VariableStrucMatrix.convergent_circles_joint_with_limit]*2+[VariableStrucMatrix.convergent_circles_extension_joint]
                                                        +[VariableStrucMatrix.convergent_circles_joint_with_limit]+[VariableStrucMatrix.convergent_circles_extension_joint],
