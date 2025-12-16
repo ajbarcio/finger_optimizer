@@ -241,7 +241,7 @@ class StrucMatrix():
                 # print(singleForceVectors)
             # print(singleForceVectors.T) 
             if enforcePosTension:
-                returnVal=singleForceVectors
+                returnVal=singleForceVectors.T
             else:
                 returnVal=None
             singleForceVectors = list(singleForceVectors)
@@ -279,7 +279,7 @@ class StrucMatrix():
         else:
             warnings.warn("Cannot plot anything other than 3d grasps at this time")
         obj.plot_count += 1
-        return returnVal.T
+        return returnVal
 
     # def plotFriction(self, showBool=False, colorOverride=None, transOverride=None, obj=None):
     #     if obj is None:

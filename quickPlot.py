@@ -23,24 +23,67 @@ D = np.array([[-1,1,1,1],
               [0,-1,1,1],
               [0,0,-1,1],])
 
-test = StrucMatrix(S=D)
+R = np.ones_like(D) # *np.random.random(D.shape)
+# print(R)
+test = StrucMatrix(R=R, D=D)
+# print(test())
+# print(test.biasCondition())
+# print((test.biasForceSpace))
 tests = [test()]
 
-p = generate_centered_qutsm(tests)[0]
+# minFactor = 1/test.biasCondition()
+minFactor = 0.3
 
-print(p)
-print(null_space(p))
 
-for m in np.linspace(0,1,2):
-    test2 =StrucMatrix(S=p, minFactor=m)
-    result = test2.plotCapability(enforcePosTension=True)
-    print(result)
-    print(null_space(result))
+print()
+print(minFactor, 1/minFactor)
+print()
+
+test.minFactor = minFactor
+
+domain, bgs = test.torqueDomainVolume(enforcePosTension=False)
+# print((bgs))
+print(len(bgs[domain.vertices]))
+domain, bgs = test.torqueDomainVolume(enforcePosTension=True)
+# print((bgs))
+print(len(bgs[domain.vertices]))
+
+_ = test.plotCapability(showBool=False, enforcePosTension=False)
+g = test.plotCapability(showBool=False, enforcePosTension=True)
+# print(g)
+
+E = np.eye(4) + ((np.ones([4,4])-np.eye(4))*minFactor)
+# print(E)
+
+
+
+test2 = StrucMatrix(S=g)
+# print(test2.biasCondition())
+# print(test2.biasForceSpace)
+domain, bgs = test2.torqueDomainVolume()
+# print((bgs))
+# print(bgs[domain.vertices])
+# test2.plotCapability()
+
+print(g)
+print(test2.singleForceVectors)
+print(test() @ E)
+
 plt.show()
 
+# p = generate_centered_qutsm(tests)[0]
+
+# print(p)
+# print(null_space(p))
 
 
 
+# for m in np.linspace(0,1,2):
+#     test2 =StrucMatrix(S=p, minFactor=m)
+#     result = test2.plotCapability(enforcePosTension=True)
+#     print(result)
+#     print(null_space(result))
+# plt.show()
 
 # ext = .16929
 # flx = .2825

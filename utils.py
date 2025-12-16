@@ -646,8 +646,8 @@ def special_minkowski(points):
       partialSum = [a+b for a, b, in zip(partialSum, [coeffs[j] * component for component in points[j]])]
     if i:
       boundaryPoints.append(partialSum)
-  if not [0]*len(points[0]) in boundaryPoints:
-    boundaryPoints.append([0]*len(points[0]))
+#   if not [0]*len(points[0]) in boundaryPoints:
+#     boundaryPoints.append([0]*len(points[0]))
   boundaryPoints = np.array(boundaryPoints)
   try:
     hull = ConvexHull(boundaryPoints)
@@ -678,8 +678,8 @@ def special_minkowski_with_mins(points, minCoeffs):
     # add the final vector to the boundary points
     boundaryPoints.append(partialSum)
   # honestly not sure why I insist on having the zero vector in here
-  if not [0]*len(points[0]) in boundaryPoints:
-    boundaryPoints.append([0]*len(points[0]))
+#   if not [0]*len(points[0]) in boundaryPoints:
+#     boundaryPoints.append([0]*len(points[0]))
   # stick it in a numpy array
   boundaryPoints = np.array(boundaryPoints)
 #   print(boundaryPoints)
