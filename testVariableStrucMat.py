@@ -12,33 +12,55 @@ R = np.array([[np.nan,np.nan,np.nan,np.nan],
               [0,     np.nan,np.nan,np.nan],
               [0,     0     ,np.nan,np.nan]])
 
-D = np.array([[-1,1,1,1],
-              [0,-1,1,1],
-              [0,0,-1,1]])
+# D = np.array([[-1,1,1,1],
+#               [0,-1,1,1],
+#               [0,0,-1,1]])
 
 # D = np.array([[-1,1,1,1],
 #               [0,-1,1,1],
 #               [0,0,-1,1]])
-# D = np.array([[1,1,1,-1],
-#               [0,1,1,-1],
-#               [0,0,1,-1]])
+D = np.array([[1,1,1,-1],
+              [0,1,1,-1],
+              [0,0,1,-1]])
 
 cflex = 1 # inches
 rflex = .7
-minim = .125
+minim = 1/16+1/32+2.25/25.4/2
 
 cext = .25
-rext = .7
+rext = .4125
 
-wishfulThinking = VariableStrucMatrix(R, D, ranges = [(cext, rext+(cext-rext)*np.sqrt(2)/2)]+[(cflex*np.sqrt(2)/2-rflex, cflex-rflex, minim)]*3
-                                                        +[(cext, rext+(cext-rext)*np.sqrt(2)/2)]+[(cflex*np.sqrt(2)/2-rflex, cflex-rflex, minim)]*2
-                                                        +[(cext, rext+(cext-rext)*np.sqrt(2)/2)]+[(cflex*np.sqrt(2)/2-rflex, cflex-rflex, minim)],
-                                                types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
-                                                       +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
-                                                       +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+maxs = [0.35,0.3,0.25]
+mins = [minim*1.2,minim*1.1,minim]
+
+maxs.reverse()
+mins.reverse()
+
+print(maxs, mins)
+
+wishfulThinking = VariableStrucMatrix(R, D, ranges =  [(mins[0], maxs[0], minim)]*3+[(0.35, rext+(0.35-rext)*np.sqrt(2)/2)]
+                                                     +[(mins[1], maxs[1], minim)]*2+[(cext, rext+(cext-rext)*np.sqrt(2)/2)]
+                                                     +[(mins[2], maxs[2], minim)]+[(0.2, rext+(0.2-rext)*np.sqrt(2)/2)],
+                                                types = [VariableStrucMatrix.convergent_circles_joint_with_limit]*3+[VariableStrucMatrix.convergent_circles_extension_joint]
+                                                       +[VariableStrucMatrix.convergent_circles_joint_with_limit]*2+[VariableStrucMatrix.convergent_circles_extension_joint]
+                                                       +[VariableStrucMatrix.convergent_circles_joint_with_limit]+[VariableStrucMatrix.convergent_circles_extension_joint],
                                                 F = np.array([50]*4),
                                                 minFactor=minFactor,
                                                 name="dev")
+
+# cflexs = [1.125, 1.125, 1]
+# rflexs = [.7,.7,.7]
+
+
+# wishfulThinking = VariableStrucMatrix(R, D, ranges =     [(cext, rext+(cext-rext)*np.sqrt(2)/2)]+[(cflexs[0]*np.sqrt(2)/2-rflexs[0], cflexs[0]-rflexs[0], minim)]*3
+#                                                         +[(cext, rext+(cext-rext)*np.sqrt(2)/2)]+[(cflexs[1]*np.sqrt(2)/2-rflexs[1], cflexs[1]-rflexs[1], minim)]*2
+#                                                         +[(cext, rext+(cext-rext)*np.sqrt(2)/2)]+[(cflexs[2]*np.sqrt(2)/2-rflexs[2], cflexs[2]-rflexs[2], minim)],
+#                                                 types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+#                                                        +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
+#                                                        +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+#                                                 F = np.array([50]*4),
+#                                                 minFactor=minFactor,
+#                                                 name="dev")
 
 # wishfulThinking = VariableStrucMatrix(R, D, ranges = [(cflex*np.sqrt(2)/2-rflex, cflex-rflex, minim)]*3+[(cext, rext+(cext-rext)*np.sqrt(2)/2)]
 #                                                         +[(cflex*np.sqrt(2)/2-rflex, cflex-rflex, minim)]*2+[(cext, rext+(cext-rext)*np.sqrt(2)/2)]
@@ -567,7 +589,7 @@ def plot_conditions_depth_transparent(
 #     title="DI Conditions", s=6, mode="sigmoid", gamma=0.25)
 plot_conditions_depth_transparent(WTObjectives, WTValids, jointAngles,
     title="WT Conditions", s=6, mode="sigmoid", gamma=0.25)
-
+plt.plot(np.linspace(0,np.pi/2,2),np.linspace(0,np.pi/2,2),np.linspace(0,np.pi/2,2))
 # # # resls = np.logspace(0,3,5)
 # # # resls = np.round(resls).astype(int)
 # # # print(resls)
@@ -583,5 +605,5 @@ plot_conditions_depth_transparent(WTObjectives, WTValids, jointAngles,
 # # # plt.close('all')
 # # # plt.plot(resls, pSkinnys)
 # # # plt.plot(resls, pAmbroses)
-
+print()
 plt.show()
