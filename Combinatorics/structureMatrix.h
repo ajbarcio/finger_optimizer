@@ -2,6 +2,8 @@
 #define STRUCTURE_MATRIX_H
 
 #include <stdlib.h>
+#include <stddef.h>
+#include <stdbool.h>
 
 // --- configuration constants ---
 #define NROWS     (4)
@@ -16,22 +18,58 @@
 #define setValue(col,row,nRows,v)    (((col) & ~(0b11 << (2*(nRows-(row+1))))) \
                                      | (((v+1) & 0b11) << (2*(nRows-(row+1)))) )
 
-// --- typedef for your fixed-size bit-packed matrix ---
+#define permute_columns(in, out, perm) \
+{ \
+    for (int c = 0; c< NCOLS; c++) { \
+        out[c] = in[perm[c]]; \
+    } \
+}
+
+#define compare_matrices_lexicographical(a, b)  ({     \               \
+int rv = 0; \
+  for (int c = 0; c < NCOLS; c++) \
+  { \
+    if (a[c] < b[c]) rv = -1; \
+    if (a[c] > b[c]) rv = 1; \
+  } \
+  rv = 0; \
+rv; \
+                                                })
+
+#define count_signs(m, neg, pos)                      \
+{                                                     \
+  *neg = *pos = 0;                                    \
+  int v = 0;                                          \
+  unsigned char col = m[0];                           \
+  for (int c = 0; c < 5; c++)                         \
+  {                                                   \
+    col = m[c];                                       \
+    for (int r = 0; r < 4; r++)                       \
+    {                                                 \
+      v = getValue(col, r, NROWS);                    \
+      if (v < 0) (*neg)++;                            \
+      else if (v > 0) (*pos)++;                       \
+    }                                                 \
+  }                                                   \
+}                                                                   
+
 typedef unsigned char structureMatrix[numBytes];
 
-// We're breaking tons of rules here
-// trying to define a legit 2-bit data type but mayyyybe its ok? because I will
-// never address it individually?
-typedef struct __attribute__((packed)) {
-    unsigned char entry : 2;
-} twoBitEntry;
-
-// wE'RE doIN IT
-typedef twoBitEntry Col[NCOLS];
-
-typedef Col twoBitSquareArray[NCOLS];
-
-// structureMatrix zeroMatrix = {0,0,0,0,0};
 #define zeroMatrix (structureMatrix){0,0,0,0,0}
+
+//variable declarations to expose between main and structureMatrix.c
+
+int perms[120][5];
+int cur[5];
+int count = 0;
+
+// function declarations to expose to main
+void print_ascii (structureMatrix out);;
+unsigned char* generate_row_signs(int nRows);
+void generate_perms_rec(int depth, int usedMask, int* cur, int (*out)[5], int* count);
+unsigned char apply_row_signs_to_column(unsigned char row_sign, unsigned char col);
+void apply_row_signs_to_matrix(const structureMatrix in, structureMatrix out, const unsigned char row_sign);
+void canonical_form (const structureMatrix in, const unsigned char row_signs[NROWS*NROWS], structureMatrix out);
+bool isUnique(structureMatrix candidate, unsigned long numUnique, unsigned char* allUnique);
 
 #endif

@@ -17,18 +17,66 @@ typedef struct TwoBit
 
 // unsigned int test : 2;
 
+void print_ascii (structureMatrix out) {
+# ifdef TRACE
+printf("print_ascii()\n");
+# endif // TRACE
+    int cell;
+    for (int j = 0; j < NROWS; j++)
+    {
+        for (int i = 0; i < NCOLS; i++) {
+            cell = getValue(out[i], j, NROWS);
+            printf("%2d ", cell);
+        }
+        printf("\n");
+    }
+}
+
 void main() {
     // int result = cantor(19, 27);
     // printf("%2d, \n", result);
-    printf("%ld: size of the stupid square array you're trying to make\n", sizeof(twoBitSquareArray));
+    // printf("%ld: size of the stupid square array you're trying to make\n", sizeof(twoBitSquareArray));
+
+
     // check_entry_size();
 
     // structureMatrix testMatrix =  {0,0,0,0,0};
     // structureMatrix testMatrix2 = {0,0,0,0,1};
-    // structureMatrix testMatrix3 = {0,0,0,1,1};
+    // structureMatrix testMatrix = {0,0,0,1,1};
     // structureMatrix testMatrix4 = {0,0,1,0,1};
     // structureMatrix testMatrix5 = {0,1,0,0,1};
-    // structureMatrix testMatrix6 = {0,1,0,1,1};
+    structureMatrix testMatrix = {0,1,0,1,1};
+    print_ascii(testMatrix);
+    char expandedTestMatrix[4][5];
+    char value;
+
+    for (int i = 0; i<NCOLS; i++) {
+        for (int j = 0; i < NROWS; i++) {
+            value = (unsigned char)getValue(testMatrix[i], j, NROWS);
+            expandedTestMatrix[j][i] = value;
+        }
+    }
+
+    printf("%ld\n", sizeof(testMatrix));
+    printf("%ld\n", sizeof(expandedTestMatrix));
+
+    for (int i = 0; i<NCOLS; i++) {
+        for (int j = 0; j < NROWS; j++) {
+            value = (char)getValue(testMatrix[i], j, NROWS);
+            expandedTestMatrix[j][i] = value;
+        }
+    }
+
+    for (int j = 0; j<NROWS; j++) {
+        for (int i = 0; i < NCOLS; i++) {
+            printf("%2d ", expandedTestMatrix[j][i]);
+        }
+        printf("\n");
+    }
+
+    // PRINT_ARRAY(expandedTestMatrix, NROWS, NCOLS);
+
+    // printf("")
 
     // if (testMatrix == NULL) {
     //     printf("waow\n");
