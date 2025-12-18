@@ -1,0 +1,13 @@
+./comb > file.out& <- background
+tail -f file.out
+jobs
+ls -lart
+df -m    <- file system disk usage megabites
+du -sm . <- disk usage in megabites
+fg %1 <- bring job 1 to foreground
+bg %1 <- ''             background
+^Z    <- stop program and put in background
+
+
+
+

@@ -1,3 +1,15 @@
 worker_*
 *.npy
-Combinatorics
+# Combinatorics
+*.out
+*.o
+./Combinatorics/combP
+./Combinatorics/test
+./Combinatorics/linkTest
+./Combinatorics/testHash
+./Combinatorics/testPacking
+./Combinatorics/testRemerge
+./Combinatorics/testOMP
+./Combinatorics/testNewDataType
+./Combinatorics/comb2
+./Combinatorics/comb
