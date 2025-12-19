@@ -4,6 +4,7 @@ worker_*
 *.out
 *.o
 ./Combinatorics/combP
+./Combinatorics/testRefactor
 ./Combinatorics/test
 ./Combinatorics/linkTest
 ./Combinatorics/testHash
@@ -11,5 +12,7 @@ worker_*
 ./Combinatorics/testRemerge
 ./Combinatorics/testOMP
 ./Combinatorics/testNewDataType
+./Combinatorics/testExpanded
 ./Combinatorics/comb2
 ./Combinatorics/comb
+./Combinatorics/testLoad
