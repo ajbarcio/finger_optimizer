@@ -8,6 +8,7 @@
 
 #include "hash.h"
 #include "structureMatrix.h"
+#include "expandedMatrix.h"
 
 // define trace to reveal function calls
 #undef TRACE
@@ -16,6 +17,8 @@
 // define test to run for shorter nuber of matrices
 // #undef TEST
 #define TEST
+
+int perms[120][5];
 
 void generate_matrix_from_index(unsigned long index, structureMatrix twoBitArray) {
 # ifdef TRACE
@@ -60,7 +63,8 @@ void main() {
     // Define amount of matrices to generate (current implementation is for
     // all possible combinations)
     # ifdef TEST
-        unsigned long numMatrices = 1000000000/2;
+        // unsigned long numMatrices = 1000000000/2;
+        unsigned long numMatrices = 1000000;
         // unsigned long expectedUniques = numMatrices/2;
         // unsigned long expected
         // unsigned long numUnique = (unsigned long)pow(2,(int)log2(expectedUniques));
@@ -71,7 +75,6 @@ void main() {
         // unsigned long numUnique   = (unsigned long)(pow(2,log2(expectedUniques)));
     # endif
 
-    
     int numThreads = omp_get_max_threads(); // this is set by an environment variable
     // Create pointers to a bunch of different Sets, lists of Combinations, and Counts, one for each thread
     Set **threadSets = malloc(numThreads * sizeof(Set *));
@@ -114,7 +117,7 @@ void main() {
 
     //prepare permutations and row signs for the isomorphisms
     unsigned char* rowSigns = generate_row_signs(4);
-    generate_perms_rec(0,0,cur, perms, &count);
+    generate_perms(perms);
     //print for each thread every 1% they're done
     unsigned long printInterval = numMatrices / numThreads / 1000;
     // unsigned long total_across_all_threads, localCount;
@@ -138,7 +141,7 @@ void main() {
             structureMatrix canonicalForm;
             
             generate_matrix_from_index(encodedIndex, rawMatrix);
-            canonical_form(rawMatrix, rowSigns, canonicalForm);
+            canonical_form(rawMatrix, rowSigns, perms, canonicalForm);
 
             set_insert(localSet, canonicalForm);
 

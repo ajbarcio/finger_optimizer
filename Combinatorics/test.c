@@ -7,6 +7,7 @@
 
 #include "hash.h"
 #include "structureMatrix.h"
+#include "expandedMatrix.h"
 
 typedef struct TwoBit
 {
@@ -17,20 +18,22 @@ typedef struct TwoBit
 
 // unsigned int test : 2;
 
-void print_ascii (structureMatrix out) {
-# ifdef TRACE
-printf("print_ascii()\n");
-# endif // TRACE
-    int cell;
-    for (int j = 0; j < NROWS; j++)
-    {
-        for (int i = 0; i < NCOLS; i++) {
-            cell = getValue(out[i], j, NROWS);
-            printf("%2d ", cell);
-        }
-        printf("\n");
-    }
-}
+// void print_ascii (structureMatrix out) {
+// # ifdef TRACE
+// printf("print_ascii()\n");
+// # endif // TRACE
+//     int cell;
+//     for (int j = 0; j < NROWS; j++)
+//     {
+//         for (int i = 0; i < NCOLS; i++) {
+//             cell = getValue(out[i], j, NROWS);
+//             printf("%2d ", cell);
+//         }
+//         printf("\n");
+//     }
+// }
+
+
 
 void main() {
     // int result = cantor(19, 27);
@@ -45,35 +48,24 @@ void main() {
     // structureMatrix testMatrix = {0,0,0,1,1};
     // structureMatrix testMatrix4 = {0,0,1,0,1};
     // structureMatrix testMatrix5 = {0,1,0,0,1};
-    structureMatrix testMatrix = {0,1,0,1,1};
-    print_ascii(testMatrix);
-    char expandedTestMatrix[4][5];
-    char value;
+    
+    FILE*fptr;
+    fptr = fopen("unique4x5.out", "rb");
+    fseek(fptr, 0, SEEK_END);
+    size_t length = ftell(fptr);
+    rewind(fptr);
 
-    for (int i = 0; i<NCOLS; i++) {
-        for (int j = 0; i < NROWS; i++) {
-            value = (unsigned char)getValue(testMatrix[i], j, NROWS);
-            expandedTestMatrix[j][i] = value;
-        }
-    }
+    size_t numMatrices = length/sizeof(structureMatrix);
+    printf("%ld \n", numMatrices);
 
-    printf("%ld\n", sizeof(testMatrix));
-    printf("%ld\n", sizeof(expandedTestMatrix));
-
-    for (int i = 0; i<NCOLS; i++) {
-        for (int j = 0; j < NROWS; j++) {
-            value = (char)getValue(testMatrix[i], j, NROWS);
-            expandedTestMatrix[j][i] = value;
-        }
-    }
-
-    for (int j = 0; j<NROWS; j++) {
-        for (int i = 0; i < NCOLS; i++) {
-            printf("%2d ", expandedTestMatrix[j][i]);
-        }
-        printf("\n");
-    }
-
+    // *buffer = (unsigned char*)malloc(length + 1);
+    structureMatrix *uniqueList = malloc(numMatrices * numBytes);
+    size_t read_bytes = fread(uniqueList, numBytes, numMatrices, fptr);
+    // printf("%d, \n", uniqueList[0][0]);
+    print_ascii(uniqueList[0]);
+    char expanded[4][5];
+    expand_structMatrix(uniqueList[0], expanded);
+    print_expanded(expanded);
     // PRINT_ARRAY(expandedTestMatrix, NROWS, NCOLS);
 
     // printf("")

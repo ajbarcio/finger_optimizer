@@ -184,7 +184,7 @@ void write_out_set_values(const Set *s, const char *filename) {
 
     size_t numWritten = 0;
     for (size_t i = 0; i < s->capacity; i++) {
-        Entry *e = &s->entries[i];  // ok, Entry is visible here
+        Entry *e = &s->entries[i];
         if (e->hashValue != 0) {
             fwrite(e->key, numBytes, 1, f);
             numWritten++;

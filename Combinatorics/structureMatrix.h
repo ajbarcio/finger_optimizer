@@ -10,6 +10,8 @@
 #define NCOLS     (NROWS + 1)
 #define numBytes  (((NROWS * NCOLS) * 2 + 7) / 8)
 
+// #define perms[120][5]
+
 // macro def to extract a value from array, for efficiency:
 #define getValue(col, row, nRows)    (((col & (0b11 << 2*(nRows-(row+1))))     \
                                                         >> 2*(nRows-(row+1)))-1)
@@ -57,19 +59,14 @@ typedef unsigned char structureMatrix[numBytes];
 
 #define zeroMatrix (structureMatrix){0,0,0,0,0}
 
-//variable declarations to expose between main and structureMatrix.c
-
-int perms[120][5];
-int cur[5];
-int count = 0;
-
 // function declarations to expose to main
 void print_ascii (structureMatrix out);;
 unsigned char* generate_row_signs(int nRows);
 void generate_perms_rec(int depth, int usedMask, int* cur, int (*out)[5], int* count);
+void generate_perms(int out[120][5]);
 unsigned char apply_row_signs_to_column(unsigned char row_sign, unsigned char col);
 void apply_row_signs_to_matrix(const structureMatrix in, structureMatrix out, const unsigned char row_sign);
-void canonical_form (const structureMatrix in, const unsigned char row_signs[NROWS*NROWS], structureMatrix out);
+void canonical_form (const structureMatrix in, const unsigned char row_signs[NROWS*NROWS], const int perms[120][5], structureMatrix out);
 bool isUnique(structureMatrix candidate, unsigned long numUnique, unsigned char* allUnique);
 
 #endif

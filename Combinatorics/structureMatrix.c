@@ -53,6 +53,13 @@ void generate_perms_rec(int depth, int usedMask, int* cur, int (*out)[5], int* c
     }
 }
 
+void generate_perms(int out[120][5]) {
+    int cur[5];
+    int count = 0;
+
+    generate_perms_rec(0, 0, cur, out, &count);
+}
+
 unsigned char apply_row_signs_to_column(unsigned char row_sign, unsigned char col) {
 # ifdef TRACE
     printf("apply_row_signs_to_column()\n");
@@ -117,7 +124,7 @@ void apply_row_signs_to_matrix(const structureMatrix in, structureMatrix out, co
 //     }
 // }
 
-void canonical_form (const structureMatrix in, const unsigned char row_signs[NROWS*NROWS], structureMatrix out) {
+void canonical_form (const structureMatrix in, const unsigned char row_signs[NROWS*NROWS], const int perms[120][5], structureMatrix out) {
 # ifdef TRACE
     printf("canonical_form()\n");
 # endif // TRACE
