@@ -1561,5 +1561,5 @@ secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
                                               F = np.array([50]*5),
-                                      minFactor = minFactor,
+                                      minFactor = 0.01,
                                            name = "Sdev")

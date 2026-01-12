@@ -10,7 +10,7 @@ np.set_printoptions(precision=4, suppress=True)
 testFinger = Finger(secondaryDev, [1.4,1.4,1.2])
 
 q = 0
-testF = [0,6.15,0]
+testF = [0,3,0]
 
 S = testFinger.structure([q]*3)
 testFinger.structure.controllability([q]*3)
@@ -48,8 +48,8 @@ print(hArray(grip, f"resulting torques for uniform normal grasp:"))
 testGrasp.frame = "EE"
 grip = testFinger.grasp_to_grip(testGrasp)
 print(hArray(grip, f"resulting torques for uniform normal grasp (EE Frame):"))
-
-
+tens = testFinger.grip_to_tensions([q]*testFinger.numJoints, grip)
+print(hArray(tens, f"best case tensions for uniform normal grasp (EE Frame):"))
 
 
 # print(VariableStrucMatrix.plot_count)

@@ -1,8 +1,8 @@
 import numpy as np
 import warnings
 from strucMatrices import VariableStrucMatrix, StrucMatrix
-from utils import trans, jac, clean_array
-from scipy.optimize import nnls, lsq_linear
+from utils import trans, jac, clean_array, hArray
+from scipy.optimize import nnls, lsq_linear, linprog
 
 class StructureKineMismatch(Warning):
     def __init__(self, message='WARNING: number of link lengths does not match \
@@ -27,7 +27,6 @@ class Finger():
             self.q = q
             self.frame=frame
             
-
     def __init__(self, structure: VariableStrucMatrix | StrucMatrix, lengths, tensionLimit=50):
         self.structure = structure
         self.lengths = lengths
@@ -36,7 +35,7 @@ class Finger():
 
         self.numJoints = self.structure.numJoints
         self.numTendons = self.structure.numTendons
-
+        # print(self.numJoints, self.numTendons)
         self.tensionLimit = tensionLimit
     
     def get_jacobian_at_pose(self, THETA, lengths=None):
@@ -88,49 +87,65 @@ class Finger():
         wrench = clean_array(wrench)
         return wrench
     
-    def grasp_to_tensions(self, THETA, Taus, biasForce = 2):
-        self.structure.controllability(THETA)
-        controllability = self.structure.controllability
-        S = self.structure(THETA)
-        res = lsq_linear(S, Taus, bounds=(0,self.tensionLimit))
-        T = res.x
-        rnorm = np.linalg.norm(S @ res.x - Taus)
-        print(rnorm)
-        print("solution:", T)
-        if 0 in clean_array(T):
-            max_biases = []
-            min_biases = []
-            for i in range(len(T)):
-                if controllability.biasForceSpace[i] > 0:
-                    min_bias = (biasForce-T[i])/controllability.biasForceSpace[i]
-                    max_bias = (self.tensionLimit - T[i])/controllability.biasForceSpace[i]
-                elif controllability.biasForceSpace[i] < 0:
-                    min_bias = (self.tensionLimit - T[i])/controllability.biasForceSpace[i]
-                    max_bias = (biasForce-T[i])/controllability.biasForceSpace[i]
-                else:
-                    min_bias = biasForce
-                    max_bias = self.tensionLimit
-                max_biases.append(max_bias)
-                min_biases.append(min_bias)
-            if np.max(min_biases) < np.min(max_biases):
-                biasScale = np.min(max_biases)
-            else:
-                biasScale = 0
-            # biasScale = np.min(max_biases)
-            print(f"used calculated scale {biasScale}")
-            T = T + (controllability.biasForceSpace*biasScale).flatten()
-        else:
-            print("blind scale")
-            T = T + (controllability.biasForceSpace/np.max(controllability.biasForceSpace)*biasForce).flatten()
-        # print("normalized bias:", controllability.biasForceSpace.flatten())
-        # print("scaled bias", (controllability.biasForceSpace/np.max(controllability.biasForceSpace)*biasForce).flatten())
-        print("solution with bias:", T)
-        confirm = S @ T
-        # print(confirm)
-        # print(Taus)
-        confirm = clean_array(confirm)
-        Taus = clean_array(Taus)
-        if  np.allclose(confirm, Taus):
-            return T, "exact", confirm
-        else:
-            return T, "best-case", confirm
+    def grip_to_tensions(self, THETA, Taus):
+        
+        A = self.structure(THETA) #negative sign for >=
+        # print(hArray(A, "A"))
+        b = Taus
+        best = np.inf
+        bestRes = None
+        for i in range(self.numTendons):
+            # c = M[i,:] #negative sign to maximize
+            c = np.zeros(self.numTendons)
+            c[i] = 1
+            # print("c", c)
+            opt = linprog(c, A_eq=A, b_eq=b, bounds=(self.tensionLimit*self.structure.minFactor, self.tensionLimit))
+            if (opt.fun < best):
+                best = opt.fun
+                bestRes = opt.x
+        return bestRes
+        # self.structure.controllability(THETA)
+        # controllability = self.structure.controllability
+        # S = self.structure(THETA)
+        # res = lsq_linear(S, Taus, bounds=(0,self.tensionLimit))
+        # T = res.x
+        # rnorm = np.linalg.norm(S @ res.x - Taus)
+        # print(rnorm)
+        # print("solution:", T)
+        # if 0 in clean_array(T):
+        #     max_biases = []
+        #     min_biases = []
+        #     for i in range(len(T)):
+        #         if controllability.biasForceSpace[i] > 0:
+        #             min_bias = (biasForce-T[i])/controllability.biasForceSpace[i]
+        #             max_bias = (self.tensionLimit - T[i])/controllability.biasForceSpace[i]
+        #         elif controllability.biasForceSpace[i] < 0:
+        #             min_bias = (self.tensionLimit - T[i])/controllability.biasForceSpace[i]
+        #             max_bias = (biasForce-T[i])/controllability.biasForceSpace[i]
+        #         else:
+        #             min_bias = biasForce
+        #             max_bias = self.tensionLimit
+        #         max_biases.append(max_bias)
+        #         min_biases.append(min_bias)
+        #     if np.max(min_biases) < np.min(max_biases):
+        #         biasScale = np.min(max_biases)
+        #     else:
+        #         biasScale = 0
+        #     # biasScale = np.min(max_biases)
+        #     print(f"used calculated scale {biasScale}")
+        #     T = T + (controllability.biasForceSpace*biasScale).flatten()
+        # else:
+        #     print("blind scale")
+        #     T = T + (controllability.biasForceSpace/np.max(controllability.biasForceSpace)*biasForce).flatten()
+        # # print("normalized bias:", controllability.biasForceSpace.flatten())
+        # # print("scaled bias", (controllability.biasForceSpace/np.max(controllability.biasForceSpace)*biasForce).flatten())
+        # print("solution with bias:", T)
+        # confirm = S @ T
+        # # print(confirm)
+        # # print(Taus)
+        # confirm = clean_array(confirm)
+        # Taus = clean_array(Taus)
+        # if  np.allclose(confirm, Taus):
+        #     return T, "exact", confirm
+        # else:
+        #     return T, "best-case", confirm
