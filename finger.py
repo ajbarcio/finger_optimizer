@@ -10,6 +10,23 @@ class StructureKineMismatch(Warning):
         super().__init__(message)
 
 class Finger():
+
+    # // a grip is a vector of numJoints torques
+
+    def grasp(self, F, q, l=None):
+        return Finger.Grasp(self, F, q, l)
+
+    class Grasp:
+        """
+        A grasp is a defined by reaction forces at each joint and joint angles (pose)
+        """
+        def __init__(self, finger, F, q, l=None):
+            self.finger = finger
+            self.l = l if l is not None else [0.5] * finger.numJoints
+            self.F = F
+            self.q = q
+            
+
     def __init__(self, structure: VariableStrucMatrix | StrucMatrix, lengths, tensionLimit=50):
         self.structure = structure
         self.lengths = lengths
@@ -34,6 +51,22 @@ class Finger():
         Taus = (jac(THETA, self.lengths).T @ F).flatten()
         Taus = clean_array(Taus)
         return Taus
+
+    def grasp_to_grip(self, grasp: Grasp):
+
+        for i, f in reversed(list(enumerate(grasp.F))):
+            lengths = self.lengths[:i+1]
+            print(lengths)
+            lengths[-1] = lengths[-1]*grasp.l[i]
+            print(lengths)
+            THETA = grasp.q[:i+1]
+            print(THETA)
+            print(lengths)
+            tempJ = (jac(THETA, lengths))
+            taus = clean_array(tempJ.T @ np.array([0,grasp.F[i],0]).flatten())
+            # taus = self.tip_wrench_at_pose_to_grip(THETA, [0,grasp.F[i],0])
+            print(f"torques contributed from force at index {i}: {taus}")
+
 
     def tensions_to_tip_wrench(self, THETA, T):
         if self.numTendons != len(T):

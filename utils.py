@@ -25,6 +25,8 @@ colors = [
 ]
 import itertools
 
+def hArray(M: ndarray, strn):
+   return strn+" "+str(M).replace('\n', '\n'+' '*(len(strn)+1))
 
 def identify_strict_sign_central(S: ndarray):
     success = True
@@ -180,6 +182,15 @@ def clean_array(arr, tol=1e-8):
     else:
         return arr_np
 
+def rot(q,l):
+    return np.array([[np.cos(q), -np.sin(q), l],
+                     [np.sin(q),  np.cos(q), 0],
+                     [0,                 0,  1]])
+
+# def f_for_jac(Q, L):
+#     # Q = np.asarray(Q).reshape(-1)
+#     return trans(Q, L) @ np.array([0, 0, 1])
+
 def f_for_jac(x, l):
     x = np.asarray(x)
     # If jacobian passes shape (m, k) with k==1, reduce to (m,)
@@ -201,11 +212,6 @@ def f_for_jac(x, l):
         # already 1-D
         return trans(x, l) @ np.array([0, 0, 1])
 
-def rot(q,l):
-    return np.array([[np.cos(q), -np.sin(q), l],
-                     [np.sin(q),  np.cos(q), 0],
-                     [0,                 0,  1]])
-
 def trans(Q, L):
     # print('trans call')
     if Q.ndim == 2:
@@ -222,9 +228,9 @@ def trans(Q, L):
 def jac(Q, L):
     # print(Q,L)
     # x = trans(Q, L) @ np.array([0,0,1])
-    def wrappedFunction(Q):
+    def w_f_for_jac(Q):
        return f_for_jac(Q,L)
-    J = jacobian(wrappedFunction, Q)
+    J = jacobian(w_f_for_jac, Q)
     return J.df
 
 def volume_centroid(points):

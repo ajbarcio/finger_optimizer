@@ -3,40 +3,51 @@ from finger import *
 from strucMatrices import *
 from numpy import pi
 from matplotlib import pyplot as plt
+from utils import hArray
 
-testFinger = Finger(skinnyLegend, [1.375,1.4375,1.23])
+testFinger = Finger(secondaryDev, [1.4,1.4,1.2])
 
 q = 0
+testF = [0,6.15,0]
 
 S = testFinger.structure([q]*3)
 testFinger.structure.controllability([q]*3)
 controllability = testFinger.structure.controllability
 # plt.show()
 
-print("structure", S)
+# print('\t' + str(a).replace('\n', '\n\t'))
+print(hArray(S, "Structure:"))
+# print("structure", S)
 print("Validity:",controllability.nullSpaceCriterion, controllability.rankCriterion)
-print("Bias Force Direction:", controllability.biasForceSpace)
+print(hArray(controllability.biasForceSpace, "Bias Force Direction:"))
 
-grip = testFinger.tip_wrench_at_pose_to_grip([q]*3, [0,6.15,0])
+grip = testFinger.tip_wrench_at_pose_to_grip([q]*testFinger.numJoints, testF)
 
-print(VariableStrucMatrix.plot_count)
-print(VariableStrucMatrix.figures)
-print(VariableStrucMatrix.figures_with_axes)
-testFinger.structure.plotCapability([q]*3, colorOverride='xkcd:blue')
-print(VariableStrucMatrix.plot_count)
-print(VariableStrucMatrix.figures)
-print(VariableStrucMatrix.figures_with_axes)
-testFinger.structure.plotGrasp([q]*3, grip)
-print(VariableStrucMatrix.plot_count)
-print(VariableStrucMatrix.figures)
-print(VariableStrucMatrix.figures_with_axes)
+print(hArray(testFinger.get_jacobian_at_pose([q]*testFinger.numJoints), "J:"))
+print(hArray(grip, f"resulting torques for F={testF}:"))
 
-print("Joint torques:", grip)
+testGrasp = testFinger.grasp(testF, [q]*testFinger.numJoints)
 
-tensions, msg, closest = testFinger.grasp_to_tensions([q]*3, grip)
+testFinger.grasp_to_grip(testGrasp)
 
-print("Tendon Tensions:", tensions, msg, closest)
+# print(VariableStrucMatrix.plot_count)
+# print(VariableStrucMatrix.figures)
+# print(VariableStrucMatrix.figures_with_axes)
+# testFinger.structure.plotCapability([q]*3, colorOverride='xkcd:blue')
+# print(VariableStrucMatrix.plot_count)
+# print(VariableStrucMatrix.figures)
+# print(VariableStrucMatrix.figures_with_axes)
+# testFinger.structure.plotGrasp([q]*3, grip)
+# print(VariableStrucMatrix.plot_count)
+# print(VariableStrucMatrix.figures)
+# print(VariableStrucMatrix.figures_with_axes)
 
-testFinger.structure.plotGrasp([q]*3, closest)
+# print("Joint torques:", grip)
 
-plt.show()
+# tensions, msg, closest = testFinger.grasp_to_tensions([q]*3, grip)
+
+# print("Tendon Tensions:", tensions, msg, closest)
+
+# testFinger.structure.plotGrasp([q]*3, closest)
+
+# plt.show()

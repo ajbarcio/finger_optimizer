@@ -1521,3 +1521,45 @@ dimensionalAmbrose = VariableStrucMatrix(R, D, ranges=[(c1*np.sqrt(2)/2-r,c1-r)]
 optimusMaximus = StrucMatrix(S=np.array([[ 0.4,  0.4, -0.4,  0.193],
                                          [ 0.   ,  0.4, -0.3,  0.4],
                                          [ 0.   ,  0.   , -0.125,  0.4]]))
+
+minFactor = 0.1
+
+D = np.array([[-1,1,1,1,1],
+              [0,-1,1,1,1],
+              [0,0,-1,1,1],
+              [0,0,0,-1,1]])
+
+R = np.array([[np.nan,np.nan,np.nan,np.nan,np.nan],
+              [0,     np.nan,np.nan,np.nan,np.nan],
+              [0,     0     ,np.nan,np.nan,np.nan],
+              [0,     0     ,0     ,np.nan,np.nan]])    
+
+fs = [(0, .35,.235),(0, .35,.235),(0, .35,.235)]
+es = [(.25, .365),(.25, .365),(.25, .365)]
+ps = [(.625/2*0.65,.625/2,0.4),(.625/2*0.65,.4,0.4)]
+
+primaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*4
+                                               +[es[1]]+[fs[1]]*3
+                                               +[ps[0]]+[ps[1]]*2
+                                               +[es[2]]+[fs[2]],
+                                       types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*4
+                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+                                              +[VariableStrucMatrix.triangle_joint]*3
+                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                           F = np.array([50]*5),
+                                   minFactor = minFactor,
+                                   npJoints  = [2],
+                                        name = "Pdev")
+
+D = D[:-1,:-1]
+R = R[:-1,:-1]
+
+secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
+                                                 +[es[1]]+[fs[1]]*2
+                                                 +[es[2]]+[fs[2]],
+                                          types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+                                                 +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
+                                                 +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                              F = np.array([50]*5),
+                                      minFactor = minFactor,
+                                           name = "Sdev")
