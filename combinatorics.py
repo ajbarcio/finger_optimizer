@@ -12,7 +12,7 @@ import os
 import glob
 obj=StrucMatrix # why on earth is this here, what did I do, what weird merge conflict created this
 
-from numpy import ndarray
+
 
 from collections import deque
 # from numba import njit, prange
@@ -49,60 +49,6 @@ def test_functional_decoupling_matrix():
     # print(decoupled)
     for i in decoupled:
         print(i)
-
-def identify_strict_sign_central(S: ndarray):
-    success = True
-    m = S.shape[0]
-    n = S.shape[1]
-    Ds = signings_of_order(m)
-    for i in range(len(Ds)):
-        check = Ds[i] @ S
-        valid = False
-        for j in range(n):
-            if np.all(check[:,j] >=0) & np.any(check[:,j] != 0):
-                valid = True
-        success &= valid
-    return success
-
-def identify_sign_central(S: ndarray):
-    success = True
-    m = S.shape[0]
-    n = S.shape[1]
-    Ds = strict_signings_of_order(m)
-    for i in range(len(Ds)):
-        check = Ds[i] @ S
-        # print(check)
-        # print(np.any(np.all(check >= 0, axis=0)))
-        success &= (np.any(np.all(check >= 0, axis=0)))
-    return success
-
-def identify_strict_central(S: ndarray, boundsOverride=False):
-
-    """
-    Dual problem of the minimization for Theorem 2.1 presented by
-    Brunaldi and Dahl in Strict Sign-Central Matrices
-    """
-    # A = S()
-    n = S.shape[1]
-    e = np.ones(n)
-
-    c = np.zeros(n)                 # objective: minimize 0
-    # c = np.ones(n)                  # objective: minimize 1-norm of w
-    # c = -np.ones(n)                 # objective: maximize 1-norm of w
-    A_eq = S                        # equality: A w = -A e
-    b_eq = -S @ e
-    if boundsOverride:
-        bounds = [(None, None)] * n        # allow for the return of any value
-    else:
-        bounds = [(0, None)] * n        # w >= 0
-
-    res = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
-    if res.x is not None:
-        if any(res.x[res.x<0]):
-            res.success = False
-    # if res.success:
-    # print(res.x)
-    return res.success, res.x
 
 def generate_all_unique(shape):
     # D = np.array([[1,1,1,1],
@@ -1216,9 +1162,13 @@ if __name__ == "__main__":
     # total_combinatoric_analysis(3)
     # end = time.perf_counter()
     # print(f"without streaming it took {end-begin}")
-    begin = time.perf_counter()
-    total_combinatoric_analysis(4)
-    end = time.perf_counter()
-    print(f"with streaming it took {end-begin}")
+    
+    # begin = time.perf_counter()
+    # total_combinatoric_analysis(4)
+    # end = time.perf_counter()
+    # print(f"with streaming it took {end-begin}")
+
+    pass
+
     # qutsm_focus()
     # test_functional_decoupling_matrix()

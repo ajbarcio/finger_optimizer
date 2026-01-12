@@ -9,6 +9,8 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.differentiate import jacobian
 from itertools import combinations
 from math import comb
+from numpy import ndarray
+
 colors = [
     'xkcd:electric blue',  # #0652ff – deep glowing blue
     'xkcd:neon green',     # #0cff0c – retina-searing green
@@ -23,69 +25,61 @@ colors = [
 ]
 import itertools
 
-# def worker_chunk_queue(D, signs, positions, start, end,
-#                        counter, counter_lock, out_queue, worker_id,
-#                        send_batch=256):
-#     """Worker: iterate indices [start, end), keep local seen to avoid re-sending duplicates,
-#     send canonical tuples to parent through out_queue in small batches to reduce IPC overhead."""
-#     base = len(signs)
-#     num_vars = len(positions)
-#     local_seen = set()
-#     send_buffer = []
-#     processed_local = 0
 
-#     for idx in range(start, end):
-#         # decode idx into base-len(signs) digits => values
-#         x = idx
-#         vals = []
-#         for _ in range(num_vars):
-#             x, r = divmod(x, base)
-#             vals.append(signs[r])
-#         vals.reverse()
+def identify_strict_sign_central(S: ndarray):
+    success = True
+    m = S.shape[0]
+    n = S.shape[1]
+    Ds = signings_of_order(m)
+    for i in range(len(Ds)):
+        check = Ds[i] @ S
+        valid = False
+        for j in range(n):
+            if np.all(check[:,j] >=0) & np.any(check[:,j] != 0):
+                valid = True
+        success &= valid
+    return success
 
-#         # build matrix
-#         result = D.copy().astype(int)
-#         for (i, j), v in zip(positions, vals):
-#             result[i, j] = v
+def identify_sign_central(S: ndarray):
+    success = True
+    m = S.shape[0]
+    n = S.shape[1]
+    Ds = strict_signings_of_order(m)
+    for i in range(len(Ds)):
+        check = Ds[i] @ S
+        # print(check)
+        # print(np.any(np.all(check >= 0, axis=0)))
+        success &= (np.any(np.all(check >= 0, axis=0)))
+    return success
 
-#         canon = canonical_form_general(result)
+def identify_strict_central(S: ndarray, boundsOverride=False):
 
-#         if canon not in local_seen:
-#             local_seen.add(canon)
-#             send_buffer.append(canon)
+    """
+    Dual problem of the minimization for Theorem 2.1 presented by
+    Brunaldi and Dahl in Strict Sign-Central Matrices
+    """
+    # A = S()
+    n = S.shape[1]
+    e = np.ones(n)
 
-#         processed_local += 1
-#         # update shared counter in chunks to reduce lock contention
-#         if processed_local % 1024 == 0:
-#             with counter_lock:
-#                 counter.value += 1024
+    c = np.zeros(n)                 # objective: minimize 0
+    # c = np.ones(n)                  # objective: minimize 1-norm of w
+    # c = -np.ones(n)                 # objective: maximize 1-norm of w
+    A_eq = S                        # equality: A w = -A e
+    b_eq = -S @ e
+    if boundsOverride:
+        bounds = [(None, None)] * n        # allow for the return of any value
+    else:
+        bounds = [(0, None)] * n        # w >= 0
 
-#         # flush send buffer periodically
-#         if len(send_buffer) >= send_batch:
-#             try:
-#                 for c in send_buffer:
-#                     out_queue.put(c)
-#             except Exception:
-#                 # if queue broken, just exit
-#                 break
-#             send_buffer.clear()
+    res = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
+    if res.x is not None:
+        if any(res.x[res.x<0]):
+            res.success = False
+    # if res.success:
+    # print(res.x)
+    return res.success, res.x
 
-#     # final flush
-#     if send_buffer:
-#         try:
-#             for c in send_buffer:
-#                 out_queue.put(c)
-#         except Exception:
-#             pass
-
-#     # push any remaining processed count
-#     remainder = processed_local % 1024
-#     if remainder:
-#         with counter_lock:
-#             counter.value += remainder
-
-#     # signal done
-#     out_queue.put(("__DONE__", worker_id))
 
 def worker_chunk(D, signs, positions, chunk_start, chunk_end,
                  counter, counter_lock, return_dict, worker_id):

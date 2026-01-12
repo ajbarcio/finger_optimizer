@@ -8,7 +8,7 @@ from scipy.optimize import linprog
 from scipy.linalg import null_space
 
 from utils import intersects_positive_orthant, special_minkowski, special_minkowski_with_mins, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant, intersection_with_orthant
-from combinatorics import identify_strict_sign_central, identify_strict_central
+from utils import identify_strict_sign_central, identify_strict_central
 from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_annealing, differential_evolution
 from types import SimpleNamespace
 
