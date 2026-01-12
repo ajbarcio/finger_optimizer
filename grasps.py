@@ -4,7 +4,7 @@ from mpl_toolkits.mplot3d import Axes3D  # registers the 3D projection
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.spatial import ConvexHull, QhullError, HalfspaceIntersection
 
-from utils import find_axis_extent_lp, f_for_jac, rot, trans, jac
+from utils import find_axis_extent_lp, ee_func, rot, trans, jac
 
 F_global = 6.12
 

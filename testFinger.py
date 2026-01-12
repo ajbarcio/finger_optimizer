@@ -3,7 +3,9 @@ from finger import *
 from strucMatrices import *
 from numpy import pi
 from matplotlib import pyplot as plt
-from utils import hArray
+from utils import hArray, ee_func
+
+np.set_printoptions(precision=4, suppress=True)
 
 testFinger = Finger(secondaryDev, [1.4,1.4,1.2])
 
@@ -26,9 +28,29 @@ grip = testFinger.tip_wrench_at_pose_to_grip([q]*testFinger.numJoints, testF)
 print(hArray(testFinger.get_jacobian_at_pose([q]*testFinger.numJoints), "J:"))
 print(hArray(grip, f"resulting torques for F={testF}:"))
 
-testGrasp = testFinger.grasp(testF, [q]*testFinger.numJoints)
+testFinger = Finger(secondaryDev, [1.4,1.4,0.6])
+grip = testFinger.tip_wrench_at_pose_to_grip([q]*testFinger.numJoints, testF)
 
-testFinger.grasp_to_grip(testGrasp)
+print(hArray(testFinger.get_jacobian_at_pose([q]*testFinger.numJoints), "J:"))
+print(hArray(grip, f"resulting torques for F={testF}:"))
+
+testFinger = Finger(secondaryDev, [1.4,1.4,1.2])
+testGrasp = testFinger.grasp([testF]*testFinger.numJoints, [q]*testFinger.numJoints)
+
+print("starting grip test")
+if hasattr(ee_func, "_called3"):
+    del ee_func._called3
+if hasattr(ee_func, "_called2"):
+    del ee_func._called2
+
+grip = testFinger.grasp_to_grip(testGrasp)
+print(hArray(grip, f"resulting torques for uniform normal grasp:"))
+testGrasp.frame = "EE"
+grip = testFinger.grasp_to_grip(testGrasp)
+print(hArray(grip, f"resulting torques for uniform normal grasp (EE Frame):"))
+
+
+
 
 # print(VariableStrucMatrix.plot_count)
 # print(VariableStrucMatrix.figures)

@@ -20,11 +20,12 @@ class Finger():
         """
         A grasp is a defined by reaction forces at each joint and joint angles (pose)
         """
-        def __init__(self, finger, F, q, l=None):
+        def __init__(self, finger, F, q, l=None, frame="World"):
             self.finger = finger
             self.l = l if l is not None else [0.5] * finger.numJoints
             self.F = F
             self.q = q
+            self.frame=frame
             
 
     def __init__(self, structure: VariableStrucMatrix | StrucMatrix, lengths, tensionLimit=50):
@@ -38,35 +39,42 @@ class Finger():
 
         self.tensionLimit = tensionLimit
     
-    def get_jacobian_at_pose(self, THETA):
+    def get_jacobian_at_pose(self, THETA, lengths=None):
         # F = trans(THETA, self.lengths)
-        J = jac(THETA,self.lengths)
+        if lengths==None:
+            lengths=self.lengths
+        J = jac(THETA, lengths)
         return J
 
-    def tip_wrench_at_pose_to_grip(self, THETA, F):
+    def tip_wrench_at_pose_to_grip(self, THETA, F, lengths=None, frame="world"):
         '''
         takes a tip wrench in the EE frame given a pose and generates a set of 
         joint torques to satisfy 
         '''
-        Taus = (jac(THETA, self.lengths).T @ F).flatten()
+        if lengths==None:
+            lengths=self.lengths
+        if frame=="EE":
+            q = np.asarray(THETA)
+            T = trans(q, lengths)
+            R = T[:3,:3]
+            F = R @ F
+        Taus = (self.get_jacobian_at_pose(THETA, lengths).T @ F).flatten()
         Taus = clean_array(Taus)
         return Taus
 
     def grasp_to_grip(self, grasp: Grasp):
-
+        Taus = np.zeros(3)
         for i, f in reversed(list(enumerate(grasp.F))):
             lengths = self.lengths[:i+1]
-            print(lengths)
             lengths[-1] = lengths[-1]*grasp.l[i]
-            print(lengths)
             THETA = grasp.q[:i+1]
-            print(THETA)
-            print(lengths)
-            tempJ = (jac(THETA, lengths))
-            taus = clean_array(tempJ.T @ np.array([0,grasp.F[i],0]).flatten())
-            # taus = self.tip_wrench_at_pose_to_grip(THETA, [0,grasp.F[i],0])
-            print(f"torques contributed from force at index {i}: {taus}")
-
+            taus = self.tip_wrench_at_pose_to_grip(THETA, grasp.F[i], lengths, frame=grasp.frame)
+            # print(f"torques contributed from force at index {i}: {taus}")
+            while len(taus) < self.numJoints:
+                taus = np.append(taus, 0)
+            Taus+=taus
+        # print(f"resultant torques: {Taus}")
+        return Taus
 
     def tensions_to_tip_wrench(self, THETA, T):
         if self.numTendons != len(T):

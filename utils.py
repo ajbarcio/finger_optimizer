@@ -191,7 +191,7 @@ def rot(q,l):
 #     # Q = np.asarray(Q).reshape(-1)
 #     return trans(Q, L) @ np.array([0, 0, 1])
 
-def f_for_jac(x, l):
+def ee_func(x, l):
     x = np.asarray(x)
     # If jacobian passes shape (m, k) with k==1, reduce to (m,)
     if x.ndim > 1:
@@ -200,17 +200,42 @@ def f_for_jac(x, l):
         if x.shape[1] == 1:
             # single point: use 1D vector
             qvec = x[:, 0]
-            return (trans(qvec, l) @ np.array([0, 0, 1]))
+            out = (trans(qvec, l) @ np.array([0, 0, 1]))
         else:
             # batch of k points: compute each column
             k = x.shape[1]
             out = np.empty((3, k))
             for col in range(k):
                 out[:, col] = trans(x[:, col], l) @ np.array([0, 0, 1])
-            return out
     else:
+        print("wrong way")
         # already 1-D
-        return trans(x, l) @ np.array([0, 0, 1])
+        out = trans(x, l) @ np.array([0, 0, 1])
+    if out.ndim==1:
+       out = np.atleast_2d(out).T
+    return out
+
+def ee_func(x, l):
+    x = np.asarray(x)
+    # If jacobian passes shape (m, k) with k==1, reduce to (m,)
+    if x.ndim > 1:
+        # collapse trailing axes -> shape (m, k)
+        x = x.reshape(x.shape[0], -1)
+        if x.shape[1] == 1:
+            # single point: use 1D vector
+            qvec = x[:, 0]
+            out = (trans(qvec, l) @ np.array([0, 0, 1]))
+        else:
+            # batch of k points: compute each column
+            k = x.shape[1]
+            out = np.empty((3, k))
+            for col in range(k):
+                out[:, col] = trans(x[:, col], l) @ np.array([0, 0, 1])
+    else:
+        out = trans(x, l) @ np.array([0, 0, 1])
+    if out.ndim==1:
+       out = np.atleast_2d(out).T
+    return out
 
 def trans(Q, L):
     # print('trans call')
@@ -223,14 +248,18 @@ def trans(Q, L):
         # print(Q[i] if 0<=i<len(Q) else 0)
         # print(L[i-1] if 0<=i-1<len(Q) else 0)
         trans = trans @ rot(Q[i] if 0<=i<len(Q) else 0, L[i-1] if 0<=i-1<len(Q) else 0)
+    # print(trans)
     return(trans)
 
 def jac(Q, L):
+    if len(Q) == 1:
+        if not len(L) == 1:
+           print("EXPECT ISSUES, SIZE MISMATCH")
     # print(Q,L)
     # x = trans(Q, L) @ np.array([0,0,1])
-    def w_f_for_jac(Q):
-       return f_for_jac(Q,L)
-    J = jacobian(w_f_for_jac, Q)
+    def w_ee_func(Q):
+       return ee_func(Q,L)
+    J = jacobian(w_ee_func, Q)
     return J.df
 
 def volume_centroid(points):
