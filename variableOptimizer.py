@@ -53,11 +53,13 @@ def objective(v):
 
 if __name__=="__main__":
     
+# EDITING TO VERSION WHERE V IS (max, (DISTANCE TO MIN))
+
     #v0 = [0.3]*numElements
     v0 = [.425,.25]*3+[.25]*6
     objectivewheee = objective([.425,.25]*3+[.25]*6)
     print(objectivewheee)
-    result = optimize.minimize(objective,v0, bounds=[(.125,.5)]*numElements,options={"maxiter": int(1000/12)})
+    result = optimize.minimize(objective,v0, bounds=[(.125,.5)]*numElements, options={"maxiter": int(1000/12)})
     print(result.fun)
     
     resultFinger = createFingerFromVector(result.x)
