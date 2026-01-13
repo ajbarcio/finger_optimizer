@@ -1036,6 +1036,9 @@ class VariableStrucMatrix():
 
         self.extS = self.S([0]*self.numJoints)
 
+    def __str__(self):
+        return self.name
+
     def __call__(self, THETA, *args, **kwds):
         # return the structure matrix at a certain pose
         return self.S(THETA)
@@ -1552,7 +1555,16 @@ primaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*4
                                         name = "Pdev")
 
 D = D[:-1,:-1]
+
+# D = np.array([[1,1,1,-1,],
+#               [0,1,1,-1,],
+#               [0,0,1,-1,]])
+
 R = R[:-1,:-1]
+
+fs = [(0, .425,.25),(0, .375,.25),(0, .4,.225)]
+es = [(0.25, .25),(0.25, .25),(.25, .25)]
+ps = [(.625/2*0.65,.625/2,0.4),(.625/2*0.65,.4,0.4)]
 
 secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
                                                  +[es[1]]+[fs[1]]*2
@@ -1561,5 +1573,25 @@ secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
                                               F = np.array([50]*5),
-                                      minFactor = 0.01,
+                                      minFactor = 0.1,
                                            name = "Sdev")
+
+# secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
+#                                                  +[es[1]]+[fs[1]]*2
+#                                                  +[es[2]]+[fs[2]],
+#                                           types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+#                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
+#                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+#                                               F = np.array([50]*5),
+#                                       minFactor = 0.1,
+#                                            name = "Sdev")
+
+# secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
+#                                                  +[es[1]]+[fs[1]]*2
+#                                                  +[es[2]]+[fs[2]],
+#                                           types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+#                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
+#                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+#                                               F = np.array([50]*5),
+#                                       minFactor = 0.01,
+#                                            name = "Sdev")

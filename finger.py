@@ -13,8 +13,8 @@ class Finger():
 
     # // a grip is a vector of numJoints torques
 
-    def grasp(self, F, q, l=None):
-        return Finger.Grasp(self, F, q, l)
+    def grasp(self, F, q, l=None, frame="World"):
+        return Finger.Grasp(self, F, q, l, frame)
 
     class Grasp:
         """
@@ -89,8 +89,7 @@ class Finger():
     
     def grip_to_tensions(self, THETA, Taus):
         
-        A = self.structure(THETA) #negative sign for >=
-        # print(hArray(A, "A"))
+        A = self.structure(THETA)
         b = Taus
         best = np.inf
         bestRes = None
@@ -99,7 +98,10 @@ class Finger():
             c = np.zeros(self.numTendons)
             c[i] = 1
             # print("c", c)
-            opt = linprog(c, A_eq=A, b_eq=b, bounds=(self.tensionLimit*self.structure.minFactor, self.tensionLimit))
+            self.structure.controllability(THETA)
+            minFactor = 1/self.structure.controllability.biasForceCondition*0.85
+            opt = linprog(c, A_eq=A, b_eq=b, bounds=(self.tensionLimit*minFactor, None), method='interior-point')
+            # print(opt.fun, opt.x, c)
             if (opt.fun < best):
                 best = opt.fun
                 bestRes = opt.x
