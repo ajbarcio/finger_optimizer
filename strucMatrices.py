@@ -1276,7 +1276,7 @@ class VariableStrucMatrix():
                     warnings.warn(f"WARNING: structure matrix {self.parent.name} failed null space condition (rank condition passed)")
                 returnFlag = 0
 
-            return returnFlag
+            return self.biasForceCondition
 
         def planar(self, THETA):
             S = self.parent.S(THETA)
