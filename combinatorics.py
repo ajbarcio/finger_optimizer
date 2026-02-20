@@ -12,12 +12,9 @@ import os
 import glob
 obj=StrucMatrix # why on earth is this here, what did I do, what weird merge conflict created this
 
-
-
 from collections import deque
 # from numba import njit, prange
 # from joblib import Parallel, delayed
-
 from concurrent.futures import ProcessPoolExecutor
 
 def create_decoupling_matrix(S):

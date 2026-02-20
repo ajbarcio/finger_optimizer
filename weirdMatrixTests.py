@@ -61,6 +61,11 @@ for i in [2,3]:
     # print(S)
     # S = StrucMatrix(S=S)
     S = inherent
+    R = np.array([[.25,.35,.35,.35],
+                    [0,  .25,.35,.35],
+                    [0,   0, .25,.35]])
+    S.reinit(R=R, D=S.D)
+    print(S())
     # S = LED
     # S = diagonal
     # S = quasiHollow
@@ -68,8 +73,8 @@ for i in [2,3]:
     # S = S[0]
     # # print(S)
     # print(identify_sign_central(S))
-    print("Validly controllable?", identify_strict_central(S))
-    print("Inherently controllable?", identify_strict_sign_central(S))
+    print("Validly controllable?", identify_strict_central(S()))
+    print("Inherently controllable?", identify_strict_sign_central(S()))
 
     # print(identify_SC()))
     # print(identify_SC(S()))

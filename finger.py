@@ -63,8 +63,11 @@ class Finger():
 
     def grasp_to_grip(self, grasp: Grasp):
         Taus = np.zeros(3)
+        # print(grasp.F)
         for i, f in reversed(list(enumerate(grasp.F))):
             lengths = self.lengths[:i+1]
+            # print(lengths)
+            # print(grasp.l)
             lengths[-1] = lengths[-1]*grasp.l[i]
             THETA = grasp.q[:i+1]
             taus = self.tip_wrench_at_pose_to_grip(THETA, grasp.F[i], lengths, frame=grasp.frame)
@@ -151,3 +154,6 @@ class Finger():
         #     return T, "exact", confirm
         # else:
         #     return T, "best-case", confirm
+
+    def actuator_to_task_ellipsoid(self, THETA, link):
+        J = self.get_jacobian_at_pose(THETA)

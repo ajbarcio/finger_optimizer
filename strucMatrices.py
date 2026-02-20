@@ -149,6 +149,8 @@ class StrucMatrix():
             numJoints = self.numJoints
             numTendons = self.numTendons
             usableS = self.S
+            # print(usableS)
+            # print(np.diag(self.F))
             self.singleForceVectors = list(np.transpose(usableS @ np.diag(self.F)))
             sFV = self.singleForceVectors
         else:
@@ -160,6 +162,8 @@ class StrucMatrix():
         # S is a structure matrix
         
         if enforcePosTension:
+            if self.minFactor == None:
+                self.minFactor = 1/self.biasCondition()
             domain, boundaryGrasps = special_minkowski_with_mins(sFV, minCoeffs=np.array([self.minFactor]*len(sFV)))
         else:
             domain, boundaryGrasps = special_minkowski(sFV)
@@ -859,7 +863,6 @@ class VariableStrucMatrix():
     figures = {}  # Dict to track figures by name
     figures_with_axes = set()
 
-
     class triangle_joint():
         def __init__(self, min, max, theta_max, idx):
             self.min = min
@@ -1022,7 +1025,7 @@ class VariableStrucMatrix():
 
         # Force-based scaling vector
         if F is None:
-            self.F = np.ones(self.D.shape[1])
+            self.F = np.ones(self.numTendons)
         else:
             self.F = F
         self.minFactor = minFactor

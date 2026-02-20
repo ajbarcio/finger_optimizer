@@ -1,6 +1,7 @@
 from strucMatrices import *
 from utils import *
 from combinatorics import *
+from variableOptimizer import createFingerFromVector
 import itertools
 
 # S = Optimus
@@ -19,68 +20,106 @@ import itertools
 # S = inherent
 # S.plotCapability(showBool=True, colorOverride='blue')
 
-D = np.array([[-1,1,1,1],
-              [0,-1,1,1],
-              [0,0,-1,1],])
+def decouplability_eval(theta, Fing):
+    M = create_decoupling_matrix(Fing.structure([theta]*3))
+    success = identify_strict_central(M)
+    if success:
+        return 0.0
+    else:
+        stiffness_dir = null_space(M)
+        # scale to unit minimum: this just generally results in rounder numbers
+        scale = 1.0/np.min(stiffness_dir) if np.min(stiffness_dir) != 0 else 1.0
+        # scale = 1.0
+        stiffnesses = stiffness_dir * scale
+        K_A = np.diag(stiffnesses)
+        K_J = Fing.structure().dot(K_A).dot(Fing.structure().T)
+        decoupledness = np.linalg.norm(K_J-np.diag(np.diag(K_J)))
+        return decoupledness
 
-R = np.ones_like(D) # *np.random.random(D.shape)
-# print(R)
-test = StrucMatrix(R=R, D=D)
-# print(test())
-# print(test.biasCondition())
-# print((test.biasForceSpace))
-tests = [test()]
+v = [0.40526359,
+     0.32743508,
+     0.46607661,
+     0.41733753,
+     0.49212554,
+     0.4864513,
+     0.4991715,
+     0.48895549,
+     0.49701881,
+     0.42181808,
+     0.42260185,
+     0.3690979]
+Finger = createFingerFromVector(v)
+# evaluator = FingerEvaluator()
+for theta in np.linspace(0,np.pi/2,50):
+    M = create_decoupling_matrix(Finger.structure([theta]*3))
+    print(identify_strict_sign_central(M))
+    print(identify_sign_central(M))
+    print(decouplability_eval(theta, Finger))
 
-# minFactor = 1/test.biasCondition()
-minFactor = 0.3
 
 
-print()
-print(minFactor, 1/minFactor)
-print()
+# D = np.array([[-1,1,1,1],
+#               [0,-1,1,1],
+#               [0,0,-1,1],])
 
-test.minFactor = minFactor
+# R = np.ones_like(D) # *np.random.random(D.shape)
+# # print(R)
+# test = StrucMatrix(R=R, D=D)
+# # print(test())
+# # print(test.biasCondition())
+# # print((test.biasForceSpace))
+# tests = [test()]
 
-domain, bgs = test.torqueDomainVolume(enforcePosTension=False)
-# print((bgs))
-print(len(bgs[domain.vertices]))
-domain, bgs = test.torqueDomainVolume(enforcePosTension=True)
-# print((bgs))
-print(len(bgs[domain.vertices]))
+# # minFactor = 1/test.biasCondition()
+# minFactor = 0.3
 
-_ = test.plotCapability(showBool=False, enforcePosTension=False)
-g = test.plotCapability(showBool=False, enforcePosTension=True)
+
+# print()
+# print(minFactor, 1/minFactor)
+# print()
+
+# test.minFactor = minFactor
+
+# domain, bgs = test.torqueDomainVolume(enforcePosTension=False)
+# # print((bgs))
+# print(len(bgs[domain.vertices]))
+# domain, bgs = test.torqueDomainVolume(enforcePosTension=True)
+# # print((bgs))
+# print(len(bgs[domain.vertices]))
+
+# _ = test.plotCapability(showBool=False, enforcePosTension=False)
+# g = test.plotCapability(showBool=False, enforcePosTension=True)
+# # print(g)
+
+# E = np.eye(4) + ((np.ones([4,4])-np.eye(4))*minFactor)
+# # print(E)
+
+
+
+# test2 = StrucMatrix(S=g)
+# # print(test2.biasCondition())
+# # print(test2.biasForceSpace)
+# domain, bgs = test2.torqueDomainVolume()
+# # print((bgs))
+# # print(bgs[domain.vertices])
+# # test2.plotCapability()
+
 # print(g)
+# print(test2.singleForceVectors)
+# print(test() @ E)
 
-E = np.eye(4) + ((np.ones([4,4])-np.eye(4))*minFactor)
-# print(E)
+# plt.show()
 
+# # p = generate_centered_qutsm(tests)[0]
 
-
-test2 = StrucMatrix(S=g)
-# print(test2.biasCondition())
-# print(test2.biasForceSpace)
-domain, bgs = test2.torqueDomainVolume()
-# print((bgs))
-# print(bgs[domain.vertices])
-# test2.plotCapability()
-
-print(g)
-print(test2.singleForceVectors)
-print(test() @ E)
-
-plt.show()
-
-# p = generate_centered_qutsm(tests)[0]
-
-# print(p)
-# print(null_space(p))
+# # print(p)
+# # print(null_space(p))
 
 
 
-# for m in np.linspace(0,1,2):
-#     test2 =StrucMatrix(S=p, minFactor=m)
-#     result = test2.plotCapability(enforcePosTension=True)
+# # for m in np.linspace(0,1,2):
+# #     test2 =StrucMatrix(S=p, minFactor=m)
+# #     result = test2.plotCapability(enforcePosTension=True)
 #     print(result)
 #     print(null_space(result))
 # plt.show()
