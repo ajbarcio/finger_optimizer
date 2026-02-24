@@ -16,7 +16,7 @@ D = np.array([[-1,1,1,1,1],
 R = np.array([[np.nan,np.nan,np.nan,np.nan,np.nan],
               [0,     np.nan,np.nan,np.nan,np.nan],
               [0,     0     ,np.nan,np.nan,np.nan],
-              [0,     0     ,0     ,np.nan,np.nan]])    
+              [0,     0     ,0     ,np.nan,np.nan]])
 
 fs = [(0, .35,.235),(0, .35,.235),(0, .35,.235)]
 es = [(.25, .365),(.25, .365),(.25, .365)]
