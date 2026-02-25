@@ -1,9 +1,9 @@
 import sympy as sp
 import numpy as np
 from scipy.linalg import null_space
-from strucMatrices import *
-from combinatorics import generate_centered_qutsm
-from combinatorics import identify_strict_central, identify_strict_sign_central
+from .strucMatrices import *
+from .combinatorics import generate_centered_qutsm
+from .combinatorics import identify_strict_central, identify_strict_sign_central
 np.set_printoptions(formatter={'float': '{:.5f}'.format})
 
 def find_positive_in_nullspace(N, normalize_bound=1.0, tol=1e-9):

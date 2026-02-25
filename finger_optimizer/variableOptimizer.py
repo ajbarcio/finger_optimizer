@@ -1,9 +1,9 @@
-from strucMatrices import VariableStrucMatrix, secondaryDev
-from utils import *
-from finger import Finger, StructureKineMismatch
+from .strucMatrices import VariableStrucMatrix, secondaryDev
+from .utils import *
+from .finger import Finger, StructureKineMismatch
 from scipy import optimize
 from scipy.optimize import NonlinearConstraint, LinearConstraint, OptimizeResult
-from combinatorics import create_decoupling_matrix
+from .combinatorics import create_decoupling_matrix
 
 numJoints = 3
 numTendons = numJoints+1
@@ -150,7 +150,7 @@ class FingerEvaluator:
                                                             bracket=(0,np.pi/2),bounds=(0,np.pi/2))
             return np.abs(worst_case_decoupled.fun)
 
-    def 
+    # def 
 
     # def actuator_to_cartesian_ellipse(self, v):
 

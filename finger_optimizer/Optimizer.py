@@ -8,10 +8,10 @@ from matplotlib import pyplot as plt
 from numpy.linalg import matrix_rank as rank
 from scipy.optimize import minimize, NonlinearConstraint
 
-from combinatorics import generate_canonical_well_posed_qutsm, generate_centered_qutsm, generate_rankValid_well_posed_qutsm, generate_valid_dimensional_qutsm
-from strucMatrices import GraspConstraintWrapper, Constraint, StrucMatrix, r_from_vector, centeredType1, centeredType2, centeredType3, naiiveAmbrose, quasiHollow, diagonal, Optimus, balancedType1, individualType1, resultant, resultant2, canonA, canonB
-from utils import nullity, hsv_to_rgb, intersection_with_orthant
-from grasps import generateAllVertices, generateNecessaryVertices
+from .combinatorics import generate_canonical_well_posed_qutsm, generate_centered_qutsm, generate_rankValid_well_posed_qutsm, generate_valid_dimensional_qutsm
+from .strucMatrices import GraspConstraintWrapper, Constraint, StrucMatrix, r_from_vector, centeredType1, centeredType2, centeredType3, naiiveAmbrose, quasiHollow, diagonal, Optimus, balancedType1, individualType1, resultant, resultant2, canonA, canonB
+from .utils import nullity, hsv_to_rgb, intersection_with_orthant
+from .grasps import generateAllVertices, generateNecessaryVertices
 
 def finger3Space():
     R = np.array([[1,1,1,1],

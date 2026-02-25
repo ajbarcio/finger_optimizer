@@ -1,7 +1,7 @@
-from strucMatrices import *
-from utils import *
-from combinatorics import *
-from variableOptimizer import createFingerFromVector
+from .strucMatrices import *
+from .utils import *
+from .combinatorics import *
+from .variableOptimizer import createFingerFromVector
 import itertools
 
 # S = Optimus

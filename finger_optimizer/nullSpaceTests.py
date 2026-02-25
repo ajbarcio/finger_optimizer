@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import linprog
-from combinatorics import *
-from strucMatrices import *
+from .combinatorics import *
+from .strucMatrices import *
 import warnings
 
 warnings.filterwarnings("ignore")

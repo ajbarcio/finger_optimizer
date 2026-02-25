@@ -1,9 +1,9 @@
 import numpy as np
-from finger import *
-from strucMatrices import *
+from .finger import *
+from .strucMatrices import *
 from numpy import pi
 from matplotlib import pyplot as plt
-from utils import hArray, ee_func
+from .utils import hArray, ee_func
 
 np.set_printoptions(precision=4, suppress=True)
 

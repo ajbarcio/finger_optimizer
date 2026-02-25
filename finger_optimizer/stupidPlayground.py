@@ -1,7 +1,7 @@
 import numpy as np
 import itertools
 import time
-from utils import generate_matrices_from_pattern, canonical_form_general
+from .utils import generate_matrices_from_pattern, canonical_form_general
 
 
 # Build group elements (unchanged)

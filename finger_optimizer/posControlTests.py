@@ -1,5 +1,5 @@
-from strucMatrices import *
-from utils import *
+from .strucMatrices import *
+from .utils import *
 from scipy.optimize import nnls
 
 

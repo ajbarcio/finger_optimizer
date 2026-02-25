@@ -1,7 +1,7 @@
 import numpy as np
 import warnings
-from strucMatrices import VariableStrucMatrix, StrucMatrix
-from utils import trans, jac, clean_array, hArray
+from .strucMatrices import VariableStrucMatrix, StrucMatrix
+from .utils import trans, jac, clean_array, hArray
 from scipy.optimize import nnls, lsq_linear, linprog
 
 class StructureKineMismatch(Warning):

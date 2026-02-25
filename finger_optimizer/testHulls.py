@@ -2,8 +2,8 @@ import numpy as np
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
 
-from utils import *
-from strucMatrices import *
+from .utils import *
+from .strucMatrices import *
 
 
 D = np.array([[-1, -1, -1,  1],

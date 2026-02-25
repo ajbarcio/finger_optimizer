@@ -6,7 +6,7 @@ import warnings
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.optimize import linprog
 
-from utils import intersects_positive_orthant, special_minkowski, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant
+from .utils import intersects_positive_orthant, special_minkowski, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant
 from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult
 
 

@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from strucMatrices import VariableStrucMatrix
-from grasps import generateGrasps
+from .strucMatrices import VariableStrucMatrix
+from .grasps import generateGrasps
 
 from matplotlib.colors import LogNorm
 from mpl_toolkits.mplot3d import proj3d

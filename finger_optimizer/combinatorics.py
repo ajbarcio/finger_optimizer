@@ -1,5 +1,5 @@
-from utils import *
-from strucMatrices import *
+from .utils import *
+from .strucMatrices import *
 import itertools
 from scipy.optimize import least_squares
 from scipy.linalg import null_space
