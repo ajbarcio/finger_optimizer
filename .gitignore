@@ -16,3 +16,30 @@ worker_*
 ./Combinatorics/comb2
 ./Combinatorics/comb
 ./Combinatorics/testLoad
+
+
+# ROS 2
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# C++
+*.o
+*.so
+*.a
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
