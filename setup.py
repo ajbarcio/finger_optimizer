@@ -9,6 +9,9 @@ setup(
             ['resource/finger_optimizer']),
         ('share/finger_optimizer', ['package.xml']),
     ],
-    install_requires=['setuptools'],
+    install_requires=[
+                'setuptools',
+                'scipy~=1.15.0',
+                'numpy~=1.26.4'],
     zip_safe=True,
 )

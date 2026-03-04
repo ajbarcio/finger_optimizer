@@ -1,5 +1,5 @@
 cvxpy
 matplotlib
-numpy
-scipy
+numpy==1.26.4
+scipy==1.15
 sympy
