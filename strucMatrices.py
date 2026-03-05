@@ -158,7 +158,7 @@ class StrucMatrix():
             singleForceVectors = list(np.transpose(usableS @ np.diag(self.F)))
             sFV = singleForceVectors
         # S is a structure matrix
-        
+
         if enforcePosTension:
             domain, boundaryGrasps = special_minkowski_with_mins(sFV, minCoeffs=np.array([self.minFactor]*len(sFV)))
         else:
@@ -242,7 +242,7 @@ class StrucMatrix():
 
         mask = np.ones(self.numJoints, dtype=bool)
         if skipJoints is not None:
-            mask[skipJoints] = False        
+            mask[skipJoints] = False
         usableS = self.S[mask,:]
         if usableS.shape[0] != 3:
             warnings.warn(f"You must specify at least {self.numJoints-3} rows (joints) to skip if attempting to plot capability for a finger with >3 dof")
@@ -1283,13 +1283,13 @@ class VariableStrucMatrix():
 
             mask = np.ones(self.parent.numJoints, dtype=bool)
             if self.parent.npJoints is not None:
-                mask[self.parent.npJoints] = False        
+                mask[self.parent.npJoints] = False
             S = S[mask,:]
 
             nullSpace = sp.linalg.null_space(S)
             # Condition the nullSpace output well for future checking
             nullSpace[np.isclose(nullSpace, 0)] = 0
-            
+
             biasForceSpace = nullSpace
             # Record condition of the null space
             if np.min(abs(biasForceSpace)) == 0:
@@ -1535,7 +1535,7 @@ D = np.array([[-1,1,1,1,1],
 R = np.array([[np.nan,np.nan,np.nan,np.nan,np.nan],
               [0,     np.nan,np.nan,np.nan,np.nan],
               [0,     0     ,np.nan,np.nan,np.nan],
-              [0,     0     ,0     ,np.nan,np.nan]])    
+              [0,     0     ,0     ,np.nan,np.nan]])
 
 fs = [(0, .35,.235),(0, .35,.235),(0, .35,.235)]
 es = [(.25, .365),(.25, .365),(.25, .365)]

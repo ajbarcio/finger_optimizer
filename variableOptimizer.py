@@ -5,6 +5,7 @@ from scipy import optimize
 from scipy.optimize import NonlinearConstraint, LinearConstraint, OptimizeResult
 
 numJoints = 3
+numTendons = numJoints+1
 numFlexs = 3
 numExts = 3
 numElements = numFlexs*2+numExts*2
@@ -28,13 +29,17 @@ def createFingerFromVector(v) -> Finger:
             fs.append((0, v[2*i], v[2*i+1]))
         else:
             es.append((v[2*i+1], v[2*i]))
-    VSM = VariableStrucMatrix(R, D, F=[50]*numJoints, ranges = [es[0]]+[fs[0]]*3
+    VSM = VariableStrucMatrix(R, D, F=[50]*numTendons, ranges = [es[0]]+[fs[0]]*3
                                                               +[es[1]]+[fs[1]]*2
                                                               +[es[2]]+[fs[2]],
                                                        types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
                                                               +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
                                                               +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
                                                         name = f"VSM{createFingerFromVector.called}")
+    # worstCondition = optimize.minimize_scalar(lambda theta: -VSM.controllability([theta]*Fing.numJoints),
+    #                                 bracket=(0,np.pi/2),bounds=(0,np.pi/2))
+    # minFactor = 1/worstCondition
+    # VSM.minFactor = minFactor
     Fing = Finger(VSM, lengths, tensionLimit=np.max(VSM.F))
     # print(createFingerFromVector.called, v)
     return Fing
@@ -90,10 +95,10 @@ class FingerEvaluator:
     def worst_case_tension(self, v):
         Fing = self._get_finger(v)
         # Locate maximum on 1D function (cheap) for a) flex grip at rated (5) lb grip and b) 1lb extension tip force
-        res1 = optimize.minimize_scalar(lambda theta: 
+        res1 = optimize.minimize_scalar(lambda theta:
                                     -np.max(Fing.grip_to_tensions([theta]*Fing.numJoints,   Fing.grasp_to_grip(Fing.grasp([F]*Fing.numJoints, [theta]*Fing.numJoints, frame="EE"))))
                                     ,bracket=(0,np.pi/2),bounds=(0,np.pi/2))
-        res2 = optimize.minimize_scalar(lambda theta: 
+        res2 = optimize.minimize_scalar(lambda theta:
                                     -np.max(Fing.grip_to_tensions([theta]*Fing.numJoints,  Fing.tip_wrench_at_pose_to_grip([theta]*Fing.numJoints, -F*0.1, frame="EE")))
                                     ,bracket=(0,np.pi/2),bounds=(0,np.pi/2))
         objectiveRet = np.max([-res1.fun, -res2.fun])
@@ -136,10 +141,10 @@ if __name__=="__main__":
                 # finite_diff_rel_step=1e-4
             )
             ]
-        
+
         # v0 = [(.5+.125)/2]*numElements
         v0 = [.5,.4]*numFlexs+[.3,.25]*numExts
-        
+
         # v0 = [.425,.25]*3+[.25]*6
         # objectivewheee = evaluator.worst_case_tension([.425,.25]*3+[.25]*6)
         # print(objectivewheee)
@@ -147,7 +152,7 @@ if __name__=="__main__":
         result = optimize.minimize(evaluator.condition,
                                 v0,
                                 bounds=[(.125,.5)]*numElements,
-                                constraints=constraints_objects, 
+                                constraints=constraints_objects,
                                 options={"maxiter": int(100),
                                             # "finite_diff_rel_step": 1e-4,
                                          "verbose": 1,
@@ -170,18 +175,22 @@ if __name__=="__main__":
     #     resultFinger = createFingerFromVector(v_replace)
     # else:
     resultFinger = createFingerFromVector(v_result)
-    
+
+    resultFinger.structure.minFactor = 1/optimize.minimize_scalar(
+                                                  lambda theta: -resultFinger.structure.controllability([theta]*resultFinger.numJoints),
+                                                                 bracket=(0,np.pi/2),bounds=(0,np.pi/2)).fun
+
     q = 0
     print(resultFinger.structure([q]*resultFinger.numJoints))
     q = np.pi/2
     print(resultFinger.structure([q]*resultFinger.numJoints))
-    
+
     qs = np.linspace(0,np.pi/2,75)
     tvecs = []
     tvecs2 = []
     conditions = []
     for q in qs:
-        tensions  = resultFinger.grip_to_tensions([q]*resultFinger.numJoints,  
+        tensions  = resultFinger.grip_to_tensions([q]*resultFinger.numJoints,
                                                   resultFinger.grasp_to_grip(resultFinger.grasp(
                                                                                                 [F]*resultFinger.numJoints,
                                                                                                 [q]*resultFinger.numJoints,
@@ -190,7 +199,7 @@ if __name__=="__main__":
                                                   resultFinger.tip_wrench_at_pose_to_grip([q]*resultFinger.numJoints,
                                                                                           -F*0.1,
                                                                                           frame="EE"))
-        
+
         condition = resultFinger.structure.controllability([q]*resultFinger.numJoints)
 
         tvecs.append(tensions)
@@ -201,6 +210,11 @@ if __name__=="__main__":
     plt.plot(qs, tvecs2)
     plt.figure()
     plt.plot(qs, conditions)
+    # print(resultFinger.structure.npJoints)
+    resultFinger.structure.plotCapability([0]*resultFinger.numJoints)
+    resultFinger.structure.plotCapability([0]*resultFinger.numJoints, enforcePosTension=True)
+    # resultFinger.structure.plotCapability([np.pi/2]*resultFinger.numJoints)
+    # resultFinger.structure.plotCapability([np.pi/2]*resultFinger.numJoints, enforcePosTension=True)
     plt.show()
 
     # np.savetxt("prev.smx", result.x)
