@@ -149,6 +149,8 @@ class StrucMatrix():
             numJoints = self.numJoints
             numTendons = self.numTendons
             usableS = self.S
+            # print(usableS)
+            # print(np.diag(self.F))
             self.singleForceVectors = list(np.transpose(usableS @ np.diag(self.F)))
             sFV = self.singleForceVectors
         else:
@@ -1335,9 +1337,12 @@ centeredType1 = StrucMatrix(R,D,name='centered1')
 D = np.array([[-1,1,1,1],
               [0,-1,1,1],
               [0,0,-1,1]])
-r=1
-R = r*np.absolute(D)
-inherent = StrucMatrix(R,D,name='inherent')
+# r=0.25
+# R = r*np.absolute(D)
+R = np.array([[0.25,0.4,0.4,0.4],
+              [0,0.25,0.4,0.4],
+              [0,0,0.25,0.4]])
+inherentFixed = StrucMatrix(R,D,name='inherent fixed')
 
 # Balanced type 1
 D = np.array([[1,1,1,-1],

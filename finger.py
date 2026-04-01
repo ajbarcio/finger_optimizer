@@ -26,7 +26,7 @@ class Finger():
             self.F = F
             self.q = q
             self.frame=frame
-            
+
     def __init__(self, structure: VariableStrucMatrix | StrucMatrix, lengths, tensionLimit=50):
         self.structure = structure
         self.lengths = lengths
@@ -37,7 +37,7 @@ class Finger():
         self.numTendons = self.structure.numTendons
         # print(self.numJoints, self.numTendons)
         self.tensionLimit = tensionLimit
-    
+
     def get_jacobian_at_pose(self, THETA, lengths=None):
         # F = trans(THETA, self.lengths)
         if lengths==None:
@@ -47,8 +47,8 @@ class Finger():
 
     def tip_wrench_at_pose_to_grip(self, THETA, F, lengths=None, frame="world"):
         '''
-        takes a tip wrench in the EE frame given a pose and generates a set of 
-        joint torques to satisfy 
+        takes a tip wrench in the EE frame given a pose and generates a set of
+        joint torques to satisfy
         '''
         if lengths==None:
             lengths=self.lengths
@@ -80,16 +80,21 @@ class Finger():
             warnings.warn(StructureKineMismatch(
                 message=f'passed tension vector of length {len(T)}, \
                           expected {self.numTendons}'))
-        # if 
-        Taus = self.structure.grip_from_tensions(THETA, T)
+        if isinstance(self.structure, VariableStrucMatrix):
+            Taus = self.structure.grip_from_tensions(THETA, T)
+        elif isinstance(self.structure, StrucMatrix):
+            Taus = self.structure().dot(T)
         print(Taus)
         wrench = jac(THETA, self.lengths) @ Taus
         wrench = clean_array(wrench)
         return wrench
-    
+
     def grip_to_tensions(self, THETA, Taus):
-        
-        A = self.structure(THETA)
+
+        if isinstance(self.structure, VariableStrucMatrix):
+            A = self.structure(THETA)
+        elif isinstance(self.structure, StrucMatrix):
+            A = self.structure()
         b = Taus
         best = np.inf
         bestRes = None
@@ -98,8 +103,11 @@ class Finger():
             c = np.zeros(self.numTendons)
             c[i] = 1
             # print("c", c)
-            self.structure.controllability(THETA)
-            minFactor = 1/self.structure.controllability.biasForceCondition*0.85
+            if isinstance(self.structure, VariableStrucMatrix):
+                self.structure.controllability(THETA)
+                minFactor = 1/self.structure.controllability.biasForceCondition*0.85
+            elif isinstance(self.structure, StrucMatrix):
+                minFactor = 1/self.structure.biasCondition()*0.85
             opt = linprog(c, A_eq=A, b_eq=b, bounds=(self.tensionLimit*minFactor, None), method='interior-point')
             # print(opt.fun, opt.x, c)
             if (opt.fun < best):

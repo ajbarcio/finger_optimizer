@@ -4,6 +4,29 @@ from scipy.linalg import null_space
 from strucMatrices import *
 from combinatorics import generate_centered_qutsm
 from combinatorics import identify_strict_central, identify_strict_sign_central
+
+D = np.array([[-1,1,1,1],
+              [0,-1,1,1],
+              [0,0,-1,1]])
+
+R = np.array([[np.nan,np.nan,np.nan,np.nan],
+              [0,     np.nan,np.nan,np.nan],
+              [0,     0     ,np.nan,np.nan]])
+
+# [(min, max, minim), (), etc...]
+flexure_extents = [(0.0,0.35,0.2),(0.0,0.35,0.2),(0.0,0.35,0.2)]
+# [(min, max), (), etc...]
+extensure_extents = [(.25, .367),(.25, .367),(.25, .367)]
+
+VaraibleArbitrary = VariableStrucMatrix(R, D, ranges = [extensure_extents[0]]+[flexure_extents[0]]*3
+                                              +[extensure_extents[1]]+[flexure_extents[1]]*2
+                                              +[extensure_extents[2]]+[flexure_extents[2]],
+                                       types = [VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+                                              +[VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit]*2
+                                              +[VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                           F = np.array([50]*4),
+                                      name="Arbitrary Variable")
+
 np.set_printoptions(formatter={'float': '{:.5f}'.format})
 
 def find_positive_in_nullspace(N, normalize_bound=1.0, tol=1e-9):
@@ -46,9 +69,9 @@ def find_positive_in_nullspace(N, normalize_bound=1.0, tol=1e-9):
         # No strictly positive vector found under normalization; return the best found
         return None, None, t_opt
 
-for i in [2,3]:
+for i in [0,.5,1]:
     print("-----------------------------------------------------------------------------")
-    print(i)
+    # print(i)
     # Choose structure matrix
     # S = centeredType1
     # S = Optimus
@@ -60,7 +83,8 @@ for i in [2,3]:
     # S = np.array()
     # print(S)
     # S = StrucMatrix(S=S)
-    S = inherent
+    THETA = [i*np.pi/2]*3
+    S = VaraibleArbitrary.S(THETA)
     # S = LED
     # S = diagonal
     # S = quasiHollow
@@ -75,9 +99,11 @@ for i in [2,3]:
     # print(identify_SC(S()))
     # # S = S()[:-1,:-1]
     # S = StrucMatrix(S=S)
-    m = S.numJoints
-    n = S.numTendons
-    Sm = S() # Extract structure as matrix
+    # m = S.numJoints
+    # n = S.numTendons
+    m = S.shape[0]
+    n = S.shape[1]
+    Sm = S # Extract structure as matrix
 
 
     # Construct M s.t. M * diag(K_A) = (S * K_A * S^T)_p,q s.t. p != q (all non-diagonal elements)
@@ -100,8 +126,8 @@ for i in [2,3]:
     print("Off-Diagonals:", M)
     # Compute null space of M
     ns = null_space(M)
-    print("validity of structure:", S.biasForceSpace)
-    print(S.rankCondition)
+    print("validity of structure:", VaraibleArbitrary.controllability(THETA))
+    # print(S.rankCondition)
     print("validity of off-diagonal condition:", ns)
     print("off-diagonal producing matrix", M)
     print(np.linalg.matrix_rank(M))

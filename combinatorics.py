@@ -34,7 +34,7 @@ def create_decoupling_matrix(S):
     return M
 
 def test_functional_decoupling_matrix():
-    S1 = inherent
+    S1 = inherentFixed
     print(S1())
     M = create_decoupling_matrix(S1())
     print(M)

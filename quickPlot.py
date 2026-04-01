@@ -1,4 +1,5 @@
 from strucMatrices import *
+from finger import *
 from utils import *
 from combinatorics import *
 import itertools
@@ -19,76 +20,137 @@ import itertools
 # S = inherent
 # S.plotCapability(showBool=True, colorOverride='blue')
 
+
 D = np.array([[-1,1,1,1],
               [0,-1,1,1],
-              [0,0,-1,1],])
+              [0,0,-1,1]])
 
-R = np.ones_like(D) # *np.random.random(D.shape)
-# print(R)
-test = StrucMatrix(R=R, D=D)
-# print(test())
-# print(test.biasCondition())
-# print((test.biasForceSpace))
-tests = [test()]
+R = np.array([[np.nan,np.nan,np.nan,np.nan],
+              [0,     np.nan,np.nan,np.nan],
+              [0,     0     ,np.nan,np.nan]])
 
-# minFactor = 1/test.biasCondition()
-minFactor = 0.3
+# [(min, max, minim), (), etc...]
+flexure_extents = [(0.0,0.35,0.2),(0.0,0.35,0.2),(0.0,0.35,0.2)]
+# [(min, max), (), etc...]
+extensure_extents = [(.25, .367),(.25, .367),(.25, .367)]
 
+VaraibleArbitrary = VariableStrucMatrix(R, D, ranges = [extensure_extents[0]]+[flexure_extents[0]]*3
+                                              +[extensure_extents[1]]+[flexure_extents[1]]*2
+                                              +[extensure_extents[2]]+[flexure_extents[2]],
+                                       types = [VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+                                              +[VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit]*2
+                                              +[VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                           F = np.array([50]*4),
+                                      name="Arbitrary Variable")
 
-print()
-print(minFactor, 1/minFactor)
-print()
+print(VaraibleArbitrary.S([0]*3))
+print(VaraibleArbitrary.S([np.pi/2]*3))
 
-test.minFactor = minFactor
+VaraibleArbitrary.plotCapability([0]*3)
+VaraibleArbitrary.plotCapability([np.pi/2]*3)
 
-domain, bgs = test.torqueDomainVolume(enforcePosTension=False)
-# print((bgs))
-print(len(bgs[domain.vertices]))
-domain, bgs = test.torqueDomainVolume(enforcePosTension=True)
-# print((bgs))
-print(len(bgs[domain.vertices]))
+qs = np.linspace(0,np.pi/2,75)
+tvecs = []
+tvecs2 = []
+conditions = []
 
-_ = test.plotCapability(showBool=False, enforcePosTension=False)
-g = test.plotCapability(showBool=False, enforcePosTension=True)
-# print(g)
+resultFinger = Finger(VaraibleArbitrary, lengths = [1.4,1.4,1.2])
+F = np.array([0,5,0])
+for q in qs:
+    tensions  = resultFinger.grip_to_tensions([q]*resultFinger.numJoints,
+                                                resultFinger.grasp_to_grip(resultFinger.grasp(
+                                                                                            [F]*resultFinger.numJoints,
+                                                                                            [q]*resultFinger.numJoints,
+                                                                                            frame="EE")))
+    tensions2 = resultFinger.grip_to_tensions([q]*resultFinger.numJoints,
+                                                resultFinger.tip_wrench_at_pose_to_grip([q]*resultFinger.numJoints,
+                                                                                        -F*0.1,
+                                                                                        frame="EE"))
 
-E = np.eye(4) + ((np.ones([4,4])-np.eye(4))*minFactor)
-# print(E)
+    condition = resultFinger.structure.controllability([q]*resultFinger.numJoints)
 
-
-
-test2 = StrucMatrix(S=g)
-# print(test2.biasCondition())
-# print(test2.biasForceSpace)
-domain, bgs = test2.torqueDomainVolume()
-# print((bgs))
-# print(bgs[domain.vertices])
-# test2.plotCapability()
-
-print(g)
-print(test2.singleForceVectors)
-print(test() @ E)
+    tvecs.append(tensions)
+    tvecs2.append(tensions2)
+    conditions.append(condition)
+plt.figure()
+plt.plot(qs, tvecs)
+plt.figure()
+plt.plot(qs, tvecs2)
+plt.figure()
+plt.plot(qs, conditions)
 
 plt.show()
 
-# p = generate_centered_qutsm(tests)[0]
+# D = np.array([[-1,1,1,1],
+#               [0,-1,1,1],
+#               [0,0,-1,1],])
 
-# print(p)
-# print(null_space(p))
+# R = np.ones_like(D) # *np.random.random(D.shape)
+# # print(R)
+# test = StrucMatrix(R=R, D=D)
+# # print(test())
+# # print(test.biasCondition())
+# # print((test.biasForceSpace))
+# tests = [test()]
+
+# # minFactor = 1/test.biasCondition()
+# minFactor = 0.3
+
+
+# print()
+# print(minFactor, 1/minFactor)
+# print()
+
+# test.minFactor = minFactor
+
+# domain, bgs = test.torqueDomainVolume(enforcePosTension=False)
+# # print((bgs))
+# print(len(bgs[domain.vertices]))
+# domain, bgs = test.torqueDomainVolume(enforcePosTension=True)
+# # print((bgs))
+# print(len(bgs[domain.vertices]))
+
+# _ = test.plotCapability(showBool=False, enforcePosTension=False)
+# g = test.plotCapability(showBool=False, enforcePosTension=True)
+# # print(g)
+
+# E = np.eye(4) + ((np.ones([4,4])-np.eye(4))*minFactor)
+# # print(E)
 
 
 
-# for m in np.linspace(0,1,2):
-#     test2 =StrucMatrix(S=p, minFactor=m)
-#     result = test2.plotCapability(enforcePosTension=True)
-#     print(result)
-#     print(null_space(result))
+# test2 = StrucMatrix(S=g)
+# # print(test2.biasCondition())
+# # print(test2.biasForceSpace)
+# domain, bgs = test2.torqueDomainVolume()
+# # print((bgs))
+# # print(bgs[domain.vertices])
+# # test2.plotCapability()
+
+# print(g)
+# print(test2.singleForceVectors)
+# print(test() @ E)
+
 # plt.show()
 
-# ext = .16929
-# flx = .2825
+# # p = generate_centered_qutsm(tests)[0]
 
-# R = np.array([[ext,flx,flx,flx],
+# # print(p)
+# # print(null_space(p))
+
+
+
+# # for m in np.linspace(0,1,2):
+# #     test2 =StrucMatrix(S=p, minFactor=m)
+# #     result = test2.plotCapability(enforcePosTension=True)
+# #     print(result)
+# #     print(null_space(result))
+# # plt.show()
+
+# # ext = .16929
+# # flx = .2825
+
+# # R = np.array([[ext,flx,flx,flx],
 #               [0,ext,flx,flx],
 #               [0,0,ext,flx],])
 
