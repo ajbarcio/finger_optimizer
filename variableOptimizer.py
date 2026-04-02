@@ -134,6 +134,7 @@ if __name__=="__main__":
                 ub=np.inf,
                 keep_feasible=True,
                 ),
+            # Constrain worst case tension less than 50 lb
             NonlinearConstraint(
                 fun=evaluator.worst_case_tension,
                 lb=0,

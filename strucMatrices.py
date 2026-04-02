@@ -80,6 +80,9 @@ class StrucMatrix():
                 self.halfValidity = True
             else:
                 self.halfValidity = False
+
+        self.magnitude = self.get_magnitude()
+
         self.name = name
 
     def __call__(self):
@@ -99,6 +102,7 @@ class StrucMatrix():
         self.constraints = self.constraints
         self.domain,  self.boundaryGrasps = self.torqueDomainVolume()
         self.validity                     = self.isValid()
+        self.magnitude = self.get_magnitude()
 
     def flatten_r_matrix(self):
         r = self.R*(self.D != 0).astype(int)
@@ -166,6 +170,10 @@ class StrucMatrix():
         else:
             domain, boundaryGrasps = special_minkowski(sFV)
         return domain, boundaryGrasps
+
+    def get_magnitude(self):
+        # print(self.S.T @ self.S)
+        return np.sqrt(np.linalg.det(self.S.T @ self.S))
 
     def pulleyVariation(self):
         # print(self.flatten_r_matrix())
@@ -1076,6 +1084,9 @@ class VariableStrucMatrix():
         domain, boundaryGrasps = special_minkowski(singleForceVectors)
         return domain, boundaryGrasps
 
+    def get_magnitude(self, THETA):
+        return np.sqrt(np.linalg.det(self.S(THETA).T @ self.S(THETA)))
+
     def plotGrasp(self, THETA, grasp, showBool=False):
         Smat = self.S(THETA)
         S = StrucMatrix(S=Smat, F=self.F, name=self.name)
@@ -1339,9 +1350,9 @@ D = np.array([[-1,1,1,1],
               [0,0,-1,1]])
 # r=0.25
 # R = r*np.absolute(D)
-R = np.array([[0.25,0.4,0.4,0.4],
-              [0,0.25,0.4,0.4],
-              [0,0,0.25,0.4]])
+R = np.array([[0.15,0.2,0.2,0.2],
+              [0,0.15,0.2,0.2],
+              [0,0,0.15,0.2]])
 inherentFixed = StrucMatrix(R,D,name='inherent fixed')
 
 # Balanced type 1
@@ -1567,8 +1578,8 @@ D = D[:-1,:-1]
 
 R = R[:-1,:-1]
 
-fs = [(0, .425,.25),(0, .375,.25),(0, .4,.225)]
-es = [(0.25, .25),(0.25, .25),(.25, .25)]
+fs = [(0, .35,.2),(0, .35,.2),(0, .35,.2)]
+es = [(0.25, .367),(0.25, .367),(.25, .367)]
 ps = [(.625/2*0.65,.625/2,0.4),(.625/2*0.65,.4,0.4)]
 
 secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3

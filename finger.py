@@ -105,9 +105,9 @@ class Finger():
             # print("c", c)
             if isinstance(self.structure, VariableStrucMatrix):
                 self.structure.controllability(THETA)
-                minFactor = 1/self.structure.controllability.biasForceCondition*0.85
+                minFactor = 1/self.structure.controllability.biasForceCondition*0.1
             elif isinstance(self.structure, StrucMatrix):
-                minFactor = 1/self.structure.biasCondition()*0.85
+                minFactor = 1/self.structure.biasCondition()*0.1
             opt = linprog(c, A_eq=A, b_eq=b, bounds=(self.tensionLimit*minFactor, None), method='interior-point')
             # print(opt.fun, opt.x, c)
             if (opt.fun < best):
