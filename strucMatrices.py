@@ -1355,6 +1355,19 @@ R = np.array([[0.15,0.2,0.2,0.2],
               [0,0,0.15,0.2]])
 inherentFixed = StrucMatrix(R,D,name='inherent fixed')
 
+# Inherently contollable
+D = np.array([[-1,1,1,1],
+              [0,-1,1,1],
+              [0,0,-1,1]])
+# r=0.25
+# R = r*np.absolute(D)
+R = np.array([[10,7.5,7.5,7.5],
+              [0,7.5,5,5],
+              [0,0,5,5]])
+inherentFixedLuke = StrucMatrix(R,D,name='inherent fixed luke')
+
+
+
 # Balanced type 1
 D = np.array([[1,1,1,-1],
               [0,1,1,-1],
