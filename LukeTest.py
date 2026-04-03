@@ -36,6 +36,14 @@ print(f"Enforcing minimum tension of {minFactor} based on Null Space Condition o
 tens = testFinger.grip_to_tensions([q]*testFinger.numJoints, grip)
 print(hArray(tens, f"best case tensions for F={testF} at tip of finger:"))
 
+print(inherentFixedLuke.S)
+print(f"magnitude: {testFinger.structure.get_magnitude()}")
+# inherentFixedLuke.R *= 2
+inherentFixedLuke.reinit()
+print(inherentFixedLuke.S)
+print(f"magnitude: {testFinger.structure.get_magnitude()}")
+
+
 # print("------------------------------")
 # F = [0,5,0]
 # q = 0

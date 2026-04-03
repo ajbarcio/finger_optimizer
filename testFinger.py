@@ -10,7 +10,6 @@ np.set_printoptions(precision=4, suppress=True)
 testFinger = Finger(secondaryDev, [1.4,1.4,1.2])
 print("THIS SECTION OF PRINT STATEMENTS WORKS ON THE VARIABLE FINGER")
 
-
 q = 0
 testF = [0,5,0]
 
@@ -74,6 +73,10 @@ print(testFinger.structure([q]*testFinger.numJoints))
 print("grip", testFinger.grasp_to_grip(testFinger.grasp([F]*testFinger.numJoints, [q]*testFinger.numJoints, frame="EE")))
 print(hArray(testFinger.grip_to_tensions([q]*testFinger.numJoints, testFinger.grasp_to_grip(testFinger.grasp([F]*testFinger.numJoints, [q]*testFinger.numJoints, frame="EE"))), "Best Case Tensions"))
 print("------------------------------")
+
+print("MAGNITUDE INCREASES -------------------------")
+print(testFinger.structure.get_magnitude([0]*testFinger.numJoints))
+print(testFinger.structure.get_magnitude([np.pi/2]*testFinger.numJoints))
 
 qs = np.linspace(0,np.pi/2,75)
 tvecs = []

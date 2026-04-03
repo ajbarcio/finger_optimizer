@@ -92,6 +92,23 @@ class FingerEvaluator:
                                     bracket=(0,np.pi/2),bounds=(0,np.pi/2))
         return abs(res.fun)
 
+    def magnitude_scale(self, v):
+        Fing = self._get_finger(v)
+        return Fing.structure.get_magnitude([0]*Fing.numJoints)/Fing.structure.get_magnitude([np.pi/2]*Fing.numJoints)
+
+    def ultimate_magnitude(self, v):
+        Fing = self._get_finger(v)
+        return -Fing.structure.get_magnitude([np.pi/2]*Fing.numJoints)
+
+    def strength_increase(self, v):
+        Fing = self._get_finger(v)
+        return (np.linalg.norm(
+                    Fing.grip_to_tensions([np.pi/2]*Fing.numJoints, Fing.grasp_to_grip(Fing.grasp([F]*Fing.numJoints, [np.pi/2]*Fing.numJoints, frame="EE"))))
+                    /
+                np.linalg.norm(
+                    Fing.grip_to_tensions([0]*Fing.numJoints, Fing.grasp_to_grip(Fing.grasp([F]*Fing.numJoints, [0]*Fing.numJoints, frame="EE"))))
+                )
+    
     def worst_case_tension(self, v):
         Fing = self._get_finger(v)
         # Locate maximum on 1D function (cheap) for a) flex grip at rated (5) lb grip and b) 1lb extension tip force
@@ -106,7 +123,7 @@ class FingerEvaluator:
         return objectiveRet
 
 if __name__=="__main__":
-    replace = True
+    replace = False
 # EDITING TO VERSION WHERE V IS (max, (DISTANCE TO MIN))
     # initialize evaluator
     if not replace:
@@ -126,6 +143,10 @@ if __name__=="__main__":
             zip(-np.eye(numElements//2, numElements, k=1)+
                 np.eye(numElements//2, numElements, k=0),np.arange(numElements))])
         # print(max_min_jacobian)
+        overall_thickness_jacobian = np.zeros([numFlexs, numElements])
+        for i in range(numFlexs):
+            overall_thickness_jacobian[i, 2*i] = 1
+            overall_thickness_jacobian[i, 2*numFlexs+2*i+1] = 1
         constraints_objects = [
             # Constrain each max greater than its associated min
             LinearConstraint(
@@ -134,6 +155,12 @@ if __name__=="__main__":
                 ub=np.inf,
                 keep_feasible=True,
                 ),
+            LinearConstraint(
+                A=overall_thickness_jacobian,
+                lb=0,
+                ub=0.65,
+                keep_feasible=True,
+            ),
             # Constrain worst case tension less than 50 lb
             NonlinearConstraint(
                 fun=evaluator.worst_case_tension,
@@ -144,19 +171,20 @@ if __name__=="__main__":
             ]
 
         # v0 = [(.5+.125)/2]*numElements
-        v0 = [.5,.4]*numFlexs+[.3,.25]*numExts
-
+        # v0 = [.5,.4]*numFlexs+[.3,.25]*numExts
+        v0 = [.35,.2]*numFlexs+[0.37,0.25]*numExts
         # v0 = [.425,.25]*3+[.25]*6
         # objectivewheee = evaluator.worst_case_tension([.425,.25]*3+[.25]*6)
         # print(objectivewheee)
 
-        result = optimize.minimize(evaluator.condition,
+        result = optimize.minimize(evaluator.ultimate_magnitude,
                                 v0,
-                                bounds=[(.125,.5)]*numElements,
+                                # bounds=[(.125,.5)]*numElements,
                                 constraints=constraints_objects,
-                                options={"maxiter": int(100),
+                                options={"maxiter": int(50),
                                             # "finite_diff_rel_step": 1e-4,
                                          "verbose": 1,
+                                         "xtol": 1e-3,
                                         #  "keep_feasible": True,
                                             # "finite_diff_rel_step": None,
                                             # "finite_diff_abs_step": 1e-4
@@ -168,7 +196,6 @@ if __name__=="__main__":
         v_result = result.x
         np.savetxt("prev.smx", v_result)
         plt.plot(evaluator.optimalities)
-        plt.figure()
     else:
         v_result = np.loadtxt("prev.smx")
     # print(evaluator.optimalities)
@@ -190,6 +217,7 @@ if __name__=="__main__":
     tvecs = []
     tvecs2 = []
     conditions = []
+    magnitudes = []
     for q in qs:
         tensions  = resultFinger.grip_to_tensions([q]*resultFinger.numJoints,
                                                   resultFinger.grasp_to_grip(resultFinger.grasp(
@@ -202,20 +230,25 @@ if __name__=="__main__":
                                                                                           frame="EE"))
 
         condition = resultFinger.structure.controllability([q]*resultFinger.numJoints)
+        magnitude = resultFinger.structure.get_magnitude([q]*resultFinger.numJoints)
 
         tvecs.append(tensions)
         tvecs2.append(tensions2)
         conditions.append(condition)
+        magnitudes.append(magnitude)
+    plt.figure("flex grasps")
     plt.plot(qs, tvecs)
-    plt.figure()
+    plt.figure("extn grasps")
     plt.plot(qs, tvecs2)
-    plt.figure()
+    plt.figure("conditions")
     plt.plot(qs, conditions)
+    plt.figure("magnitudes")
+    plt.plot(qs, np.array(magnitudes)/np.min(magnitudes))
     # print(resultFinger.structure.npJoints)
-    resultFinger.structure.plotCapability([0]*resultFinger.numJoints)
+    # resultFinger.structure.plotCapability([0]*resultFinger.numJoints)
     resultFinger.structure.plotCapability([0]*resultFinger.numJoints, enforcePosTension=True)
     # resultFinger.structure.plotCapability([np.pi/2]*resultFinger.numJoints)
-    # resultFinger.structure.plotCapability([np.pi/2]*resultFinger.numJoints, enforcePosTension=True)
+    resultFinger.structure.plotCapability([np.pi/2]*resultFinger.numJoints, enforcePosTension=True)
     plt.show()
 
     # np.savetxt("prev.smx", result.x)
@@ -230,3 +263,17 @@ if __name__=="__main__":
     # result of optimizer with condition objective and medial initial guess [0.21350445 0.21209735 0.27698973 0.2526812  0.27707309 0.27206885 0.35411562 0.32669469 0.3279375  0.30864402 0.24131075 0.25118998]
     # result of optimizer with condition objective, remain feasible,
     #   and informed extreme initial guess: [0.43566228 0.38578858 0.36561368 0.29610095 0.3297116  0.2339563 0.36849157 0.34032965 0.38316362 0.35185861 0.4167588  0.3840339 ]
+
+    # result of optimizer with strength increase objective and best-current-design initial guess:
+    # 4.645934180950757608e-01
+    # 2.772725194709753649e-01
+    # 3.999286357141569326e-01
+    # 2.143762366118264484e-01
+    # 4.423210755608414368e-01
+    # 2.622491727704909237e-01
+    # 2.408983539795451767e-01
+    # 1.510581096737557139e-01
+    # 2.922009753471491167e-01
+    # 1.996003209312147142e-01
+    # 2.298057080774267569e-01
+    # 1.634217687383705542e-01

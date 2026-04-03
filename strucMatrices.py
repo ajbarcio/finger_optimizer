@@ -97,6 +97,8 @@ class StrucMatrix():
             self.S = S
             self.D = np.sign(S)
             self.R = np.absolute(S)
+        if R is None and D is None and S is None:
+            self.S = self.R*self.D
         self.F = self.F
         # self.minForce = self.F*0.05
         self.constraints = self.constraints
@@ -173,7 +175,7 @@ class StrucMatrix():
 
     def get_magnitude(self):
         # print(self.S.T @ self.S)
-        return np.sqrt(np.linalg.det(self.S.T @ self.S))
+        return np.sqrt(np.linalg.det(self.S @ self.S.T))
 
     def pulleyVariation(self):
         # print(self.flatten_r_matrix())
@@ -1085,7 +1087,7 @@ class VariableStrucMatrix():
         return domain, boundaryGrasps
 
     def get_magnitude(self, THETA):
-        return np.sqrt(np.linalg.det(self.S(THETA).T @ self.S(THETA)))
+        return np.sqrt(np.linalg.det(self.S(THETA) @ self.S(THETA).T))
 
     def plotGrasp(self, THETA, grasp, showBool=False):
         Smat = self.S(THETA)
