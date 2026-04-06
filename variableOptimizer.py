@@ -4,20 +4,17 @@ from finger import Finger, StructureKineMismatch
 from scipy import optimize
 from scipy.optimize import NonlinearConstraint, LinearConstraint, OptimizeResult
 
-numJoints = 3
-numTendons = numJoints+1
-numFlexs = 3
-numExts = 3
-numElements = numFlexs*2+numExts*2
+from multiprocessing import Pool
+# from concurrent.futures import ProcessPoolExecutor
 
-F = np.array([0,5,0])
-lengths = [1.4,1.4,1.2]
-R = secondaryDev.R
-# print(R)
-D = secondaryDev.D
-# print(D)
 
 def createFingerFromVector(v) -> Finger:
+    v = np.asarray(v)
+    # Only accept valid vectors
+    if np.any(np.isnan(v)) or np.any(np.isinf(v)) or np.any(v < 0.0625) or np.any(v > 0.5):
+        # Option 1: Error-out (recommended for debugging)
+        raise ValueError(f"Received invalid design vector: {v}")
+    
     if not hasattr(createFingerFromVector, "called"):
         createFingerFromVector.called = 1
     else:
@@ -29,6 +26,9 @@ def createFingerFromVector(v) -> Finger:
             fs.append((0, v[2*i], v[2*i+1]))
         else:
             es.append((v[2*i+1], v[2*i]))
+    ranges = [es[0]]+[fs[0]]*3+[es[1]]+[fs[1]]*2+[es[2]]+[fs[2]]
+    # print(ranges)
+    
     VSM = VariableStrucMatrix(R, D, F=[50]*numTendons, ranges = [es[0]]+[fs[0]]*3
                                                               +[es[1]]+[fs[1]]*2
                                                               +[es[2]]+[fs[2]],
@@ -64,6 +64,12 @@ class FingerEvaluator:
     #     print("CALLED~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
     #     self.optimalities.append(intermediate_result.optimality)
 
+    def global_callback(self, xk, convergence=None):
+        print("Current best:", xk)
+        if convergence is not None:
+            print("Convergence:", convergence)
+
+
     def callback(self, intermediate_result: OptimizeResult):
         # Clear previous output
         print("\r" + "\033[F" * self._cb_last_lines, end="")
@@ -72,7 +78,7 @@ class FingerEvaluator:
 
         lines = [
             f"iter: {intermediate_result.niter}",
-            f"optimality: {intermediate_result.optimality:.3e}",
+            # f"optimality: {intermediate_result.optimality:.3e}",
             f"worst case tension: {intermediate_result.constr_violation+50.0}",
             "x: " + np.array2string(
                 intermediate_result.x,
@@ -123,6 +129,18 @@ class FingerEvaluator:
         return objectiveRet
 
 if __name__=="__main__":
+    numJoints = 3
+    numTendons = numJoints+1
+    numFlexs = 3
+    numExts = 3
+    numElements = numFlexs*2+numExts*2
+
+    F = np.array([0,5,0])
+    lengths = [1.4,1.4,1.2]
+    R = secondaryDev.R
+    # print(R)
+    D = secondaryDev.D
+    # print(D)
     replace = False
 # EDITING TO VERSION WHERE V IS (max, (DISTANCE TO MIN))
     # initialize evaluator
@@ -147,6 +165,7 @@ if __name__=="__main__":
         for i in range(numFlexs):
             overall_thickness_jacobian[i, 2*i] = 1
             overall_thickness_jacobian[i, 2*numFlexs+2*i+1] = 1
+        second_thickness_jacobian = np.hstack([np.zeros([numFlexs*2, numFlexs*2]), np.eye(numExts*2)])
         constraints_objects = [
             # Constrain each max greater than its associated min
             LinearConstraint(
@@ -155,11 +174,19 @@ if __name__=="__main__":
                 ub=np.inf,
                 keep_feasible=True,
                 ),
+            # Constrain each pair of max flexion and min extension to be less than the established thickness
             LinearConstraint(
                 A=overall_thickness_jacobian,
                 lb=0,
                 ub=0.65,
                 keep_feasible=True,
+            ),
+            # Constrain the max extension to be such that the overall thickness of the finger remains good
+            LinearConstraint(
+                A=second_thickness_jacobian,
+                lb=0,
+                ub=0.65-2.25/25.4-.125,
+                keep_feasible=True
             ),
             # Constrain worst case tension less than 50 lb
             NonlinearConstraint(
@@ -177,21 +204,41 @@ if __name__=="__main__":
         # objectivewheee = evaluator.worst_case_tension([.425,.25]*3+[.25]*6)
         # print(objectivewheee)
 
-        result = optimize.minimize(evaluator.ultimate_magnitude,
-                                v0,
-                                # bounds=[(.125,.5)]*numElements,
-                                constraints=constraints_objects,
-                                options={"maxiter": int(50),
-                                            # "finite_diff_rel_step": 1e-4,
-                                         "verbose": 1,
-                                         "xtol": 1e-3,
-                                        #  "keep_feasible": True,
-                                            # "finite_diff_rel_step": None,
-                                            # "finite_diff_abs_step": 1e-4
-                                            },
-                                callback=evaluator.callback,
-                                method="trust-constr",
-                                )
+        # result = optimize.minimize(evaluator.ultimate_magnitude,
+        #                         v0,
+        #                         # bounds=[(.125,.5)]*numElements,
+        #                         constraints=constraints_objects,
+        #                         options={"maxiter": int(50),
+        #                                     # "finite_diff_rel_step": 1e-4,
+        #                                  "verbose": 1,
+        #                                  "xtol": 1e-3,
+        #                                 #  "keep_feasible": True,
+        #                                     # "finite_diff_rel_step": None,
+        #                                     # "finite_diff_abs_step": 1e-4
+        #                                     },
+        #                         callback=evaluator.callback,
+        #                         method="trust-constr",
+        #                         )
+        print("about to start optimization")
+        # with ProcessPoolExecutor(max_workers=10) as executor:
+        # with Pool(10) as pool:
+        result = optimize.differential_evolution(evaluator.ultimate_magnitude,
+                            bounds=[(.0625,.5)]*numElements,
+                            constraints=constraints_objects,
+                            callback=evaluator.global_callback,
+                            workers=-1,
+                            #    minimizer_kwargs= {
+                            #         "method": "trust-constr",
+                            #         "constraints": constraints_objects,
+                            #         "options": {
+                            #             "maxiter": 50,
+                            #             "verbose": 1,
+                            #             "xtol": 1e-3
+                            #         },
+                            #         "callback": evaluator.callback
+                                # }
+        )
+
         print(result.fun)
         v_result = result.x
         np.savetxt("prev.smx", v_result)
