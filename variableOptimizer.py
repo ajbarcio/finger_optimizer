@@ -7,13 +7,15 @@ from scipy.optimize import NonlinearConstraint, LinearConstraint, OptimizeResult
 from multiprocessing import Pool
 # from concurrent.futures import ProcessPoolExecutor
 
+class stallException(Exception):
+    pass
 
 def createFingerFromVector(v) -> Finger:
     v = np.asarray(v)
     # Only accept valid vectors
-    if np.any(np.isnan(v)) or np.any(np.isinf(v)) or np.any(v < 0.0625) or np.any(v > 0.5):
-        # Option 1: Error-out (recommended for debugging)
-        raise ValueError(f"Received invalid design vector: {v}")
+    # if np.any(np.isnan(v)) or np.any(np.isinf(v)) or np.any(v < 0.0625) or np.any(v > 0.5):
+    #     # Option 1: Error-out (recommended for debugging)
+    #     raise ValueError(f"Received invalid design vector: {v}")
     
     if not hasattr(createFingerFromVector, "called"):
         createFingerFromVector.called = 1
@@ -46,16 +48,19 @@ def createFingerFromVector(v) -> Finger:
 
 class FingerEvaluator:
     def __init__(self):
+        self._v_save = None
         self._v_prev = None
+        self.curr_res = None
         self._finger = None
         self._cb_last_lines = 0
-
+        self._threshold_times = 0
         self.optimalities = []
+        self._curr_wct = None
 
     def _get_finger(self, v):
         v = np.asarray(v)
-        if self._v_prev is None or not np.array_equal(v, self._v_prev):
-            self._v_prev = v.copy()
+        if self._v_save is None or not np.array_equal(v, self._v_save):
+            self._v_save = v.copy()
             self._finger = createFingerFromVector(v)
             # print(createFingerFromVector.called, v)
         return self._finger
@@ -69,27 +74,41 @@ class FingerEvaluator:
         if convergence is not None:
             print("Convergence:", convergence)
 
-
     def callback(self, intermediate_result: OptimizeResult):
+        self.curr_res = intermediate_result
         # Clear previous output
         print("\r" + "\033[F" * self._cb_last_lines, end="")
 
         self.optimalities.append(intermediate_result.optimality)
-
         lines = [
             f"iter: {intermediate_result.niter}",
-            # f"optimality: {intermediate_result.optimality:.3e}",
-            f"worst case tension: {intermediate_result.constr_violation+50.0}",
+            f"optimality: {intermediate_result.optimality:.3e}",
+            # f"worst case tension: {intermediate_result.constr_violation+50.0}",
+            f"worst case tension: {self._curr_wct}",
             "x: " + np.array2string(
                 intermediate_result.x,
                 precision=4,
                 suppress_small=True
-            )+"                                                                  "
+            )+"                                                                  ",
+            # f"worst constraint violation (note, not all constraints have same units): {intermediate_result.}"
         ]
-
+        if self._v_prev is not None:
+            step = np.linalg.norm(intermediate_result.x-self._v_prev, ord=np.inf)
+            if step < 1e-3:
+                # print("\n")
+                self._threshold_times+=1
+                lines.append(f"step lower than 1 thou {self._threshold_times} times in a row")
+            else:
+                self._threshold_times=0
+        ## THIS IS THE IMPORTANT PART ##
+        if self._threshold_times > 10:
+            raise stallException(f"Optimizer stalled out at low step value ater {self._threshold_times} in a row with a change less than 1 thou")
+        ## OVER ##
         # Print fresh block
         print("\r\033[2K" + "\n".join(lines), end="", flush=True)
         self._cb_last_lines = len(lines)
+
+        self._v_prev = intermediate_result.x
 
     def condition(self, v):
         Fing = self._get_finger(v)
@@ -126,6 +145,8 @@ class FingerEvaluator:
                                     ,bracket=(0,np.pi/2),bounds=(0,np.pi/2))
         objectiveRet = np.max([-res1.fun, -res2.fun])
         # print(objectiveRet)
+        # WHOA NOT SURE THIS IS WISE
+        self._curr_wct = objectiveRet
         return objectiveRet
 
 if __name__=="__main__":
@@ -203,30 +224,38 @@ if __name__=="__main__":
         # v0 = [.425,.25]*3+[.25]*6
         # objectivewheee = evaluator.worst_case_tension([.425,.25]*3+[.25]*6)
         # print(objectivewheee)
-
-        # result = optimize.minimize(evaluator.ultimate_magnitude,
-        #                         v0,
-        #                         # bounds=[(.125,.5)]*numElements,
-        #                         constraints=constraints_objects,
-        #                         options={"maxiter": int(50),
-        #                                     # "finite_diff_rel_step": 1e-4,
-        #                                  "verbose": 1,
-        #                                  "xtol": 1e-3,
-        #                                 #  "keep_feasible": True,
-        #                                     # "finite_diff_rel_step": None,
-        #                                     # "finite_diff_abs_step": 1e-4
-        #                                     },
-        #                         callback=evaluator.callback,
-        #                         method="trust-constr",
-        #                         )
+        try:
+            result = optimize.minimize(evaluator.ultimate_magnitude,
+                                    v0,
+                                    # bounds=[(.125,.5)]*numElements,
+                                    constraints=constraints_objects,
+                                    options={
+                                            # "maxiter": int(50),
+                                                # "finite_diff_rel_step": 1e-4,
+                                            "verbose": 1,
+                                            "gtol": 1e-3,
+                                            #  "keep_feasible": True,
+                                                # "finite_diff_rel_step": None,
+                                                # "finite_diff_abs_step": 1e-4
+                                            #  "workers": -1
+                                                },
+                                    callback=evaluator.callback,
+                                    method="trust-constr",
+                                    )
+        except KeyboardInterrupt:
+            print("Optimization terminated by user, returning intermediate result")
+            result = evaluator.curr_res
+        except stallException:
+            print("Optimization terminated by step too small")
+            result = evaluator.curr_res
         print("about to start optimization")
         # with ProcessPoolExecutor(max_workers=10) as executor:
         # with Pool(10) as pool:
-        result = optimize.differential_evolution(evaluator.ultimate_magnitude,
-                            bounds=[(.0625,.5)]*numElements,
-                            constraints=constraints_objects,
-                            callback=evaluator.global_callback,
-                            workers=-1,
+        # result = optimize.differential_evolution(evaluator.ultimate_magnitude,
+        #                     bounds=[(.0625,.5)]*numElements,
+        #                     constraints=constraints_objects,
+        #                     callback=evaluator.global_callback,
+        #                     workers=-1,
                             #    minimizer_kwargs= {
                             #         "method": "trust-constr",
                             #         "constraints": constraints_objects,
@@ -237,7 +266,7 @@ if __name__=="__main__":
                             #         },
                             #         "callback": evaluator.callback
                                 # }
-        )
+        # )
 
         print(result.fun)
         v_result = result.x
@@ -249,6 +278,8 @@ if __name__=="__main__":
     # if replace:
     #     resultFinger = createFingerFromVector(v_replace)
     # else:
+    for i in range(5):
+        print("")
     resultFinger = createFingerFromVector(v_result)
 
     resultFinger.structure.minFactor = 1/optimize.minimize_scalar(
