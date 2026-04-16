@@ -12,6 +12,6 @@ setup(
     install_requires=[
                 'setuptools',
                 'scipy~=1.15.0',
-                'numpy~=1.26.4'],
+                'numpy>=1.24.0'],
     zip_safe=True,
 )

@@ -1048,6 +1048,11 @@ class VariableStrucMatrix():
 
     def S(self, THETA):
         R = self.R.copy()
+        # assert function is not None, "function is None!"
+        # assert getattr(function, "idx", None) is not None, "function.idx is None!"
+        # assert THETA is not None, "THETA is None!"
+        # assert R is not None, "R is None!"
+
         # For each variable range tendon
         for function in (self.effortFunctions):
             # Update the corresponding effort radius

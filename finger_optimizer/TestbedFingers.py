@@ -1,14 +1,14 @@
 from .strucMatrices import StrucMatrix, VariableStrucMatrix
 import numpy as np
 
-R = np.array([[0.400,0.400,0.19375,0.400],
-              [0.0  ,0.400,0.400  ,0.300],
-              [0.0  ,0.0  ,0.400  ,0.1472]])
-D = np.array([[1,1,1,-1],
-              [0,1,1,-1],
-              [0,0,1,-1]])
+# R = np.array([[0.400,0.400,0.19375,0.400],
+#               [0.0  ,0.400,0.400  ,0.300],
+#               [0.0  ,0.0  ,0.400  ,0.1472]])
+# D = np.array([[1,1,1,-1],
+#               [0,1,1,-1],
+#               [0,0,1,-1]])
 
-FixedControllable = StrucMatrix(R, D, name="Fixed Controllable")
+# FixedControllable = StrucMatrix(R, D, name="Fixed Controllable")
 
 D = np.array([[-1,1,1,1],
               [0,-1,1,1],
@@ -32,3 +32,6 @@ VaraibleArbitrary = VariableStrucMatrix(R, D, ranges = [extensure_extents[0]]+[f
                                            F = np.array([50]*5),
                                       name="Arbitrary Variable")
 
+# if __name__ == "__main__":
+#     S = VaraibleArbitrary([0,0,0])
+#     print(S)
