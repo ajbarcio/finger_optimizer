@@ -243,6 +243,8 @@ if __name__=="__main__":
         relief_min_jacobian = np.array([[0]*3*i+[0,1,-1]+[0]*(numElements-3*(i+1)) for i in range(numFlexs)])
         # print(max_min_jacobian)
 
+        adaptive_bounds_jacobian = np.vstack([max_relief_jacobian, relief_min_jacobian])
+
         # Constraints such that the finger maintains an overall acceptable form factor
         overall_thickness_jacobian = np.zeros([numFlexs, numElements])
 
@@ -256,41 +258,49 @@ if __name__=="__main__":
             second_thickness_jacobian[i, 3*i] = np.sqrt(2)/2
             second_thickness_jacobian[i, 3*numFlexs+2*i] = 1
 
+        thickness_jacobian = np.vstack([overall_thickness_jacobian, second_thickness_jacobian])
+
         constraints_objects = [
-            # Constrain each max greater than its associated relief
+            # Constrain each relevant dimensional max greater than its associated min
             LinearConstraint(
-                A=max_relief_jacobian,
+                A=adaptive_bounds_jacobian,
                 lb=0,
                 ub=np.inf,
                 keep_feasible=True,
                 ),
             # Constrain each relief greater than its associated min
-            LinearConstraint(
-                A=relief_min_jacobian,
-                lb=0,
-                ub=np.inf,
-                keep_feasible=True,
-                ),
+            # LinearConstraint(
+            #     A=relief_min_jacobian,
+            #     lb=0,
+            #     ub=np.inf,
+            #     keep_feasible=True,
+            #     ),
             # Constrain each pair of max flexion and min extension to be less than the established thickness
+            # Constrain each pair of max flexion (perpendicular to joint) and max extension to be less than the established thickness
             LinearConstraint(
-                A=overall_thickness_jacobian,
+                A=thickness_jacobian,
                 lb=0,
                 ub=0.65,
                 keep_feasible=True,
             ),
             # Constrain the max extension to be such that the overall thickness of the finger remains good
-            LinearConstraint(
-                A=second_thickness_jacobian,
-                lb=0,
-                ub=0.65,
-                keep_feasible=True
-            ),
+            # LinearConstraint(
+            #     A=second_thickness_jacobian,
+            #     lb=0,
+            #     ub=0.65,
+            #     keep_feasible=True
+            # ),
             # Constrain worst case tension less than 50 lb
             NonlinearConstraint(
                 fun=evaluator.worst_case_tension,
                 lb=0,
                 ub=50.0,
                 # finite_diff_rel_step=1e-4
+            ),
+            NonlinearConstraint(
+                fun=evaluator.worst_case_bend_radius,
+                lb=0.45,
+                ub=np.inf
             )
             ]
 
@@ -300,10 +310,12 @@ if __name__=="__main__":
         # Initialize with the best solution of previous version's results:
         # v0 = [0.428,.3153, .1711, .435, .263, .1196, .438, .272, .1217]+[.315, .1796, .333, .160, .3263, .158]
         # Initialize with some middle ground
-        v0 = [.35, .25, .2, .35, .25, .2, .35, .25, .2,]+[.325, .275, .325, .275, .325, .275]
+        v0 = [.375, .25, .2125, .375, .25, .2125, .375, .25, .2125]+[.325, .25, .325, .25, .325, .25]
         # v0 = [.425,.25]*3+[.25]*6
         # objectivewheee = evaluator.worst_case_tension([.425,.25]*3+[.25]*6)
         # print(objectivewheee)
+
+        initialFinger = createFingerFromVector(v0)
 
         for constraint in constraints_objects:
             if isinstance(constraint, LinearConstraint):
@@ -313,7 +325,7 @@ if __name__=="__main__":
 
 
         try:
-            result = optimize.minimize(evaluator.worst_case_bend_radius,
+            result = optimize.minimize(evaluator.ultimate_magnitude,
                                     v0,
                                     bounds=[(.0625+2.25/2/25.4,.5)]*numElements,
                                     constraints=constraints_objects,
@@ -422,7 +434,7 @@ if __name__=="__main__":
     plt.figure("conditions")
     plt.plot(qs, conditions)
     plt.figure("magnitudes")
-    plt.plot(qs, np.array(magnitudes)/np.min(magnitudes))
+    plt.plot(qs, np.array(magnitudes))
     # print(resultFinger.structure.npJoints)
     # resultFinger.structure.plotCapability([0]*resultFinger.numJoints)
     resultFinger.structure.plotCapability([0]*resultFinger.numJoints, enforcePosTension=True)
@@ -456,3 +468,7 @@ if __name__=="__main__":
     # 1.996003209312147142e-01
     # 2.298057080774267569e-01
     # 1.634217687383705542e-01
+
+    # result of optimizer with bend radius objective:
+    # [0.3996 0.3808 0.1712 0.3793 0.3007 0.1576 0.4144 0.3427 0.183  0.2994
+    #  0.2088 0.3162 0.1911 0.2608 0.165 ]
