@@ -3,8 +3,13 @@ from utils import *
 from finger import Finger, StructureKineMismatch
 from scipy import optimize
 from scipy.optimize import NonlinearConstraint, LinearConstraint, OptimizeResult
+import inspect
 
-from multiprocessing import Pool
+
+import warnings
+warnings.filterwarnings('error', category=RuntimeWarning)
+
+# from multiprocessing import Pool
 # from concurrent.futures import ProcessPoolExecutor
 
 class stallException(Exception):
@@ -21,13 +26,19 @@ def createFingerFromVector(v) -> Finger:
         createFingerFromVector.called = 1
     else:
         createFingerFromVector.called+=1
+
     fs = []
     es = []
     for i in range(numFlexs+numExts):
         if i < numFlexs:
-            fs.append((0, v[2*i], v[2*i+1]))
+            minv, maxv, reliefv = v[3*i+2], v[3*i], v[3*i+1]
+            fs.append((v[3*i+2], v[3*i], v[3*i+1]))
+            if not (maxv >= reliefv >= minv):
+                raise ValueError(f"Invalid variable order at flex segment {i}: max={maxv}, relief={reliefv}, min={minv}")
         else:
-            es.append((v[2*i+1], v[2*i]))
+            j = i - numFlexs
+            k = numFlexs * 3
+            es.append((v[k+2*j+1], v[k+2*j]))
     ranges = [es[0]]+[fs[0]]*3+[es[1]]+[fs[1]]*2+[es[2]]+[fs[2]]
     # print(ranges)
 
@@ -74,7 +85,7 @@ class FingerEvaluator:
         if convergence is not None:
             print("Convergence:", convergence)
 
-    def callback(self, intermediate_result: OptimizeResult):
+    # def callback(self, intermediate_result: OptimizeResult):
         self.curr_res = intermediate_result
         # Clear previous output
         print("\r" + "\033[F" * self._cb_last_lines, end="")
@@ -110,6 +121,34 @@ class FingerEvaluator:
 
         self._v_prev = intermediate_result.x
 
+    def callback(self, intermediate_result: OptimizeResult):
+        self.curr_res = intermediate_result
+        self.optimalities.append(intermediate_result.optimality)
+
+        lines = [
+            f"iter: {intermediate_result.niter}",
+            f"optimality: {intermediate_result.optimality:.3e}",
+            f"worst case tension: {self._curr_wct}",
+            "x: " + np.array2string(
+                intermediate_result.x,
+                precision=4,
+                suppress_small=True
+            ),
+        ]
+        if self._v_prev is not None:
+            step = np.linalg.norm(intermediate_result.x - self._v_prev, ord=np.inf)
+            if step < 1e-3:
+                self._threshold_times += 1
+                lines.append(f"step lower than 1 thou {self._threshold_times} times in a row")
+            else:
+                self._threshold_times = 0
+        if self._threshold_times > 20:
+            print("Optimizer stalled out at low step value after", self._threshold_times, "in a row with a change less than 1 thou")
+            raise stallException()
+        for line in lines:
+            print(line)
+        self._v_prev = intermediate_result.x
+
     def condition(self, v):
         Fing = self._get_finger(v)
         # Fing.structure.controllability()
@@ -123,74 +162,111 @@ class FingerEvaluator:
 
     def ultimate_magnitude(self, v):
         Fing = self._get_finger(v)
-        return -Fing.structure.get_magnitude([np.pi/2]*Fing.numJoints)
+        res = optimize.minimize_scalar(lambda theta: -Fing.structure.get_magnitude([theta]*Fing.numJoints),bracket=(0,np.pi/2),bounds=(0,np.pi/2))
+        magnitude = res.fun
+        # magnitude = -Fing.structure.get_magnitude([np.pi/2]*Fing.numJoints)
+        # print(f"successfully evaluated magnitude as {magnitude}")
+        return magnitude
 
     def strength_increase(self, v):
         Fing = self._get_finger(v)
-        return (np.linalg.norm(
-                    Fing.grip_to_tensions([np.pi/2]*Fing.numJoints, Fing.grasp_to_grip(Fing.grasp([F]*Fing.numJoints, [np.pi/2]*Fing.numJoints, frame="EE"))))
-                    /
-                np.linalg.norm(
-                    Fing.grip_to_tensions([0]*Fing.numJoints, Fing.grasp_to_grip(Fing.grasp([F]*Fing.numJoints, [0]*Fing.numJoints, frame="EE"))))
-                )
+        strength_ratio = (np.linalg.norm(
+                              Fing.grip_to_tensions([np.pi/2]*Fing.numJoints, Fing.grasp_to_grip(Fing.grasp([F]*Fing.numJoints, [np.pi/2]*Fing.numJoints, frame="EE"))))
+                              /
+                          np.linalg.norm(
+                              Fing.grip_to_tensions([0]*Fing.numJoints, Fing.grasp_to_grip(Fing.grasp([F]*Fing.numJoints, [0]*Fing.numJoints, frame="EE"))))
+                         )
+        check_valid(strength_ratio)
+        return strength_ratio
 
     def worst_case_tension(self, v):
         Fing = self._get_finger(v)
         # Locate maximum on 1D function (cheap) for a) flex grip at rated (5) lb grip and b) 1lb extension tip force
-        res1 = optimize.minimize_scalar(lambda theta:
-                                    -np.max(Fing.grip_to_tensions([theta]*Fing.numJoints,   Fing.grasp_to_grip(Fing.grasp([F]*Fing.numJoints, [theta]*Fing.numJoints, frame="EE"))))
-                                    ,bracket=(0,np.pi/2),bounds=(0,np.pi/2))
-        res2 = optimize.minimize_scalar(lambda theta:
-                                    -np.max(Fing.grip_to_tensions([theta]*Fing.numJoints,  Fing.tip_wrench_at_pose_to_grip([theta]*Fing.numJoints, -F*0.1, frame="EE")))
-                                    ,bracket=(0,np.pi/2),bounds=(0,np.pi/2))
-        objectiveRet = np.max([-res1.fun, -res2.fun])
+        # Locate maximum on 1D function (cheap) for a) flex tip wrench at rated (12) lb grip and b) 1.2 lb extension tip force
+        try:
+            res1 = optimize.minimize_scalar(lambda theta:
+                                        # -np.max(Fing.grip_to_tensions([theta]*Fing.numJoints,   Fing.grasp_to_grip(Fing.grasp([F]*Fing.numJoints, [theta]*Fing.numJoints, frame="EE"))))
+                                        -np.max(Fing.grip_to_tensions([theta]*Fing.numJoints,   Fing.tip_wrench_at_pose_to_grip([theta]*Fing.numJoints, F, frame="EE")))
+                                        ,bracket=(0,np.pi/2),bounds=(0,np.pi/2))
+            res2 = optimize.minimize_scalar(lambda theta:
+                                        -np.max(Fing.grip_to_tensions([theta]*Fing.numJoints,  Fing.tip_wrench_at_pose_to_grip([theta]*Fing.numJoints, -F*0.1, frame="EE")))
+                                        ,bracket=(0,np.pi/2),bounds=(0,np.pi/2))
+            objectiveRet = np.max([-res1.fun, -res2.fun])
+        except Exception as e:
+            print(f'error in tension calcs {e}')
+        # print(f"'successfully' evaluated worst case tension as: {objectiveRet}")
         # print(objectiveRet)
         # WHOA NOT SURE THIS IS WISE
         self._curr_wct = objectiveRet
+        check_valid(objectiveRet)
+
         return objectiveRet
+
+    def worst_case_bend_radius(self, v):
+        Fing = self._get_finger(v)
+        try:
+            rs = []
+            for function in Fing.structure.effortFunctions:
+                rs.append(function.r)
+        except Exception as e:
+            print(f"error in bend radius calcs: {e}")
+        # we are trying to maximize (-) worst case (minimum) bend radius
+        return -np.min(rs)
+
+def check_valid(x):
+    if np.isnan(x) or np.isinf(x):
+        caller = inspect.stack()[1][3]
+        print(f"BAD VALUE in {caller}")
 
 if __name__=="__main__":
     numJoints = 3
     numTendons = numJoints+1
     numFlexs = 3
     numExts = 3
-    numElements = numFlexs*2+numExts*2
+    numElements = numFlexs*3+numExts*2
 
-    F = np.array([0,5,0])
+    F = np.array([0,8,0])
     lengths = [1.4,1.4,1.2]
     R = secondaryDev.R
     # print(R)
     D = secondaryDev.D
     # print(D)
-    replace = True
+    replace = False
 # EDITING TO VERSION WHERE V IS (max, (DISTANCE TO MIN))
     # initialize evaluator
     if not replace:
         evaluator = FingerEvaluator()
-        constraints_dicts = [
-            {
-            # Constrian worst case tension less than 50 lbs
-            "type": "ineq",
-            "fun":  lambda v: 50.0 - evaluator.worst_case_tension(v)
-            },
-            {
-            # Constrain each max greater than its associated min
-            "type": "ineq",
-            "fun":  lambda v: v[1::2] - v[0::2]
-            }]
-        max_min_jacobian = np.array([np.roll(row, shift) for row, shift in
-            zip(-np.eye(numElements//2, numElements, k=1)+
-                np.eye(numElements//2, numElements, k=0),np.arange(numElements))])
+
+        # Constrain each slider so that the finger remains dimensionally feasible (keep maxs maxs, mins mins, etc)
+        max_relief_jacobian = np.array([[0]*3*i+[1,-1,0]+[0]*(numElements-3*(i+1)) for i in range(numFlexs)]+
+                                       [[0]*numFlexs*3+[0]*2*i+[1,-1]+[0]*2*(numExts-i-1) for i in range(numExts)])
+        relief_min_jacobian = np.array([[0]*3*i+[0,1,-1]+[0]*(numElements-3*(i+1)) for i in range(numFlexs)])
         # print(max_min_jacobian)
+
+        # Constraints such that the finger maintains an overall acceptable form factor
         overall_thickness_jacobian = np.zeros([numFlexs, numElements])
+
         for i in range(numFlexs):
-            overall_thickness_jacobian[i, 2*i] = 1
-            overall_thickness_jacobian[i, 2*numFlexs+2*i+1] = 1
-        second_thickness_jacobian = np.hstack([np.zeros([numFlexs*2, numFlexs*2]), np.eye(numExts*2)])
+            overall_thickness_jacobian[i, 3*i] = 1
+            overall_thickness_jacobian[i, 3*numFlexs+2*i+1] = 1
+
+        second_thickness_jacobian = np.zeros([numFlexs, numElements])
+
+        for i in range(numFlexs):
+            second_thickness_jacobian[i, 3*i] = np.sqrt(2)/2
+            second_thickness_jacobian[i, 3*numFlexs+2*i] = 1
+
         constraints_objects = [
-            # Constrain each max greater than its associated min
+            # Constrain each max greater than its associated relief
             LinearConstraint(
-                A=max_min_jacobian,
+                A=max_relief_jacobian,
+                lb=0,
+                ub=np.inf,
+                keep_feasible=True,
+                ),
+            # Constrain each relief greater than its associated min
+            LinearConstraint(
+                A=relief_min_jacobian,
                 lb=0,
                 ub=np.inf,
                 keep_feasible=True,
@@ -206,7 +282,7 @@ if __name__=="__main__":
             LinearConstraint(
                 A=second_thickness_jacobian,
                 lb=0,
-                ub=0.65-2.25/25.4-.125,
+                ub=0.65,
                 keep_feasible=True
             ),
             # Constrain worst case tension less than 50 lb
@@ -220,20 +296,32 @@ if __name__=="__main__":
 
         # v0 = [(.5+.125)/2]*numElements
         # v0 = [.5,.4]*numFlexs+[.3,.25]*numExts
-        v0 = [.35,.2]*numFlexs+[0.37,0.25]*numExts
+        # v0 = [.35,.2]*numFlexs+[0.37,0.25]*numExts
+        # Initialize with the best solution of previous version's results:
+        # v0 = [0.428,.3153, .1711, .435, .263, .1196, .438, .272, .1217]+[.315, .1796, .333, .160, .3263, .158]
+        # Initialize with some middle ground
+        v0 = [.35, .25, .2, .35, .25, .2, .35, .25, .2,]+[.325, .275, .325, .275, .325, .275]
         # v0 = [.425,.25]*3+[.25]*6
         # objectivewheee = evaluator.worst_case_tension([.425,.25]*3+[.25]*6)
         # print(objectivewheee)
+
+        for constraint in constraints_objects:
+            if isinstance(constraint, LinearConstraint):
+                print(constraint.A @ (v0))
+            else:
+                print(constraint.fun(v0))
+
+
         try:
-            result = optimize.minimize(evaluator.ultimate_magnitude,
+            result = optimize.minimize(evaluator.worst_case_bend_radius,
                                     v0,
-                                    # bounds=[(.125,.5)]*numElements,
+                                    bounds=[(.0625+2.25/2/25.4,.5)]*numElements,
                                     constraints=constraints_objects,
                                     options={
                                             # "maxiter": int(50),
                                                 # "finite_diff_rel_step": 1e-4,
                                             "verbose": 1,
-                                            "gtol": 1e-3,
+                                            "gtol": 1e-4,
                                             #  "keep_feasible": True,
                                                 # "finite_diff_rel_step": None,
                                                 # "finite_diff_abs_step": 1e-4
@@ -248,7 +336,11 @@ if __name__=="__main__":
         except stallException:
             print("Optimization terminated by step too small")
             result = evaluator.curr_res
-        print("about to start optimization")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            result = evaluator.curr_res
+        # print("about to start optimization")
         # with ProcessPoolExecutor(max_workers=10) as executor:
         # with Pool(10) as pool:
         # result = optimize.differential_evolution(evaluator.ultimate_magnitude,
@@ -267,7 +359,7 @@ if __name__=="__main__":
                             #         "callback": evaluator.callback
                                 # }
         # )
-
+        print(result)
         print(result.fun)
         v_result = result.x
         np.savetxt("prev.smx", v_result)

@@ -1,5 +1,6 @@
 import numpy as np
 import scipy as sp
+import sympy as sy
 
 from matplotlib import pyplot as plt
 import warnings
@@ -8,9 +9,11 @@ from scipy.optimize import linprog
 from scipy.linalg import null_space
 
 from utils import intersects_positive_orthant, special_minkowski, special_minkowski_with_mins, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant, intersection_with_orthant
-from utils import identify_strict_sign_central, identify_strict_central
+from utils import identify_strict_sign_central, identify_strict_central, sym_pinv, unique_piecewise_functions
 from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_annealing, differential_evolution
 from types import SimpleNamespace
+
+import itertools
 
 cmap = plt.cm.cool
 
@@ -927,6 +930,10 @@ class VariableStrucMatrix():
         def __call__(self, theta):
             return self.r+(self.c-self.r)*np.sin(np.pi/4+theta/2)
 
+        def sym(self):
+            theta = sy.symbols(f'theta_{self.idx[0]+1}')
+            return self.r+(self.c-self.r)*sy.sin(np.pi/4+theta/2)
+
     class convergent_circles_joint():
         """
         A class to define a type of tendon routing where each link in the joint
@@ -981,6 +988,11 @@ class VariableStrucMatrix():
                 return self.minOverwrite
             else:
                 return val
+
+        def sym(self):
+            theta = sy.symbols(f'theta_{self.idx[0]+1}')
+            expr = self.c*sy.cos((np.pi/2-theta)/2)-self.r
+            return sy.Piecewise((expr, expr > self.minOverwrite), (self.minOverwrite, True))
 
     def __init__(self, R, D, F=None, ranges=None, types=None, minFactor=None, constraints=None, npJoints=None, name='Placeholder'):
 
@@ -1067,6 +1079,50 @@ class VariableStrucMatrix():
         # Create and return structure matrix
         S = self.D*R
         return S
+
+    def S_sym(self):
+        R = self.R.copy()
+        R = sy.Matrix(R)
+        for func in self.effortFunctions:
+            if hasattr(func, "sym"):
+                if callable(func.sym):
+                    R[func.idx] = func.sym()
+        sy.pprint(R, wrap_line=False)
+        S_sym = sy.Matrix(D).multiply_elementwise(R)
+        sy.pprint(S_sym, wrap_line=False)
+        piecewise_list = unique_piecewise_functions(S_sym)
+        n_piecewise = len(piecewise_list)
+            # You must handle variable number of branches for more complex cases:
+        n_branches = [len(pw.args) for pw in piecewise_list]
+        branch_combos = list(itertools.product(*[range(n) for n in n_branches]))
+        all_matrices = []
+        for branch_choices in branch_combos:
+            pw_sub_dict = {pw: pw.args[c][0] for pw, c in zip(piecewise_list, branch_choices)}
+            resolved = S_sym.xreplace(pw_sub_dict)
+            all_matrices.append(resolved)
+        # print(unique_piecewise_functions(S_sym))
+        return all_matrices
+
+    def F_sym(self):
+        Ss = self.S_sym()
+        R_A = sy.Matrix(np.eye(self.numTendons)*0.273)
+        theta =sy.Matrix(sy.symbols(f'theta_1:{self.numJoints+1}'))
+        phi = sy.Matrix(sy.symbols(f'phi_1:{self.numTendons+1}'))
+        Fs = []
+        for s in Ss:
+            try:
+                print("evaluating a new F")
+                F = theta + (s.T).pinv() * R_A * phi
+                Fs.append(F)
+            except:
+                print("skipping and trying again")
+        return Fs
+
+    def F_J_sym(self):
+        pass
+
+    def H_J_sym(self):
+        pass
 
     def maxGrip(self, THETA):
         maxStrength = 0
@@ -1626,3 +1682,18 @@ secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
 #                                               F = np.array([50]*5),
 #                                       minFactor = 0.01,
 #                                            name = "Sdev")
+
+if __name__ == "__main__":
+    S = secondaryDev
+    # sy.pprint(S.S_sym(), wrap_line=False)
+    # Ss = S.S_sym()
+    # theta1 = sy.symbols('theta_1')
+    anglef = S.effortFunctions[1].sym()
+    print(anglef)
+    var = list(anglef.free_symbols)[0]
+    sy.plot(anglef, (var, 0, np.pi/2), title="Joint Angle Example")
+    plt.show()
+    # Fs = S.F_sym()
+    # for f in Fs:
+    #     sy.pprint(f, wrap_line=False)
+    # print(len(Fs))

@@ -11,6 +11,8 @@ from itertools import combinations
 from math import comb
 from numpy import ndarray
 
+import sympy as sy
+
 colors = [
     'xkcd:electric blue',  # #0652ff – deep glowing blue
     'xkcd:neon green',     # #0cff0c – retina-searing green
@@ -24,6 +26,33 @@ colors = [
     'xkcd:bright turquoise' # #0ffef9 – glowing aqua
 ]
 import itertools
+
+def unique_piecewise_functions(S: sy.Matrix):
+    """
+    Returns a set of unique Piecewise expressions in a sympy Matrix S
+    """
+    unique = set()
+    for i in range(S.rows):
+        for j in range(S.cols):
+            entry = S[i, j]
+            # Check if entry is a Piecewise, add to set (by string to avoid pointer issues)
+            if isinstance(entry, sy.Piecewise):
+                unique.add(entry)
+    return list(unique)
+
+def sym_pinv(S: sy.Matrix):
+    print("")
+    sy.pprint(S.T, wrap_line=False)
+    print("")
+    sy.pprint(S * S.T, wrap_line=False)
+    print("")
+    if S.shape[0]<S.shape[1]:
+        return S.T * (S * S.T) ** -1
+    elif S.shape[1]<S.shape[0]:
+        return (S.T * S) ** -1 * S.T
+    else:
+        print('wtf is wrong with you')
+        return None
 
 def hArray(M: ndarray, strn):
    return strn+" "+str(M).replace('\n', '\n'+' '*(len(strn)+1))
