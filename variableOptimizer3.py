@@ -3,9 +3,8 @@ from utils import *
 from finger import Finger, StructureKineMismatch
 from scipy import optimize
 from scipy.optimize import NonlinearConstraint, LinearConstraint, OptimizeResult
-from feasibility import *
 import inspect
-
+from feasibility import *
 
 import warnings
 # warnings.filterwarnings('error', category=RuntimeWarning)
@@ -40,16 +39,15 @@ def createFingerFromVector(v) -> Finger:
             j = i - numFlexs
             k = numFlexs * 3
             es.append((v[k+2*j+1], v[k+2*j]))
-    ranges = [es[0]]+[fs[0]]*3+[es[1]]+[fs[1]]*2+[es[2]]+[fs[2]]
+    ranges = es[0:1]+fs[0:1]*3+es[1:2]+fs[1:2]*2+es[2:3]+fs[2:3]
     # print(ranges)
 
-    VSM = VariableStrucMatrix(R, D, F=[50]*numTendons, ranges = [es[0]]+[fs[0]]*3
-                                                              +[es[1]]+[fs[1]]*2
-                                                              +[es[2]]+[fs[2]],
-                                                       types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
-                                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
-                                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
-                                                        name = f"VSM{createFingerFromVector.called}")
+    R_use = R.copy()
+    np.fill_diagonal(R_use, v[-numFixed:])
+
+    VSM = VariableStrucMatrix(R_use, D, F=[50]*numTendons, ranges = ranges,
+                                                        types = [VariableStrucMatrix.convergent_circles_joint_with_limit]*6,
+                                                         name = f"VSM{createFingerFromVector.called}")
     # worstCondition = optimize.minimize_scalar(lambda theta: -VSM.controllability([theta]*Fing.numJoints),
     #                                 bracket=(0,np.pi/2),bounds=(0,np.pi/2))
     # minFactor = 1/worstCondition
@@ -223,12 +221,16 @@ if __name__=="__main__":
     numJoints = 3
     numTendons = numJoints+1
     numFlexs = 3
-    numExts = 3
-    numElements = numFlexs*3+numExts*2
+    numExts = 0
+    numFixed = 3
+    numElements = numFlexs*3+numExts*2+numFixed
 
     F = np.array([0,8,0])
     lengths = [1.4,1.4,1.2]
-    R = secondaryDev.R
+    # R = secondaryDev.R
+    R = np.array([[0.25, np.nan, np.nan, np.nan],
+                  [0,    0.25,   np.nan, np.nan],
+                  [0,    0,      0.25,   np.nan]])
     # print(R)
     D = secondaryDev.D
     # print(D)
@@ -240,28 +242,28 @@ if __name__=="__main__":
 
         # Constrain each slider so that the finger remains dimensionally feasible (keep maxs maxs, mins mins, etc)
         max_relief_jacobian = np.array([[0]*3*i+[1,-1,0]+[0]*(numElements-3*(i+1)) for i in range(numFlexs)]+
-                                       [[0]*numFlexs*3+[0]*2*i+[1,-1]+[0]*2*(numExts-i-1) for i in range(numExts)])
+                                       [[0]*numFlexs*3+[0]*2*i+[1,-1]+[0]*2*(numExts-i-1)+[0]*numFixed for i in range(numExts)])
         relief_min_jacobian = np.array([[0]*3*i+[0,1,-1]+[0]*(numElements-3*(i+1)) for i in range(numFlexs)])
         # print(max_min_jacobian)
-        progressive_taper = np.array([[1,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-                                      [0,0,0 ,1,0,0,-1,0,0,0,0,0,0,0,0,0,0,0]])
 
-        adaptive_bounds_jacobian = np.vstack([max_relief_jacobian, relief_min_jacobian, progressive_taper])
-
+        adaptive_bounds_jacobian = np.vstack([max_relief_jacobian, relief_min_jacobian])
+        # print(adaptive_bounds_jacobian)
+        
         # Constraints such that the finger maintains an overall acceptable form factor
         overall_thickness_jacobian = np.zeros([numFlexs, numElements])
 
         for i in range(numFlexs):
             overall_thickness_jacobian[i, 3*i] = 1
-            overall_thickness_jacobian[i, 3*numFlexs+2*i+1] = 1
+            overall_thickness_jacobian[i, 3*numFlexs+i] = 1
 
         second_thickness_jacobian = np.zeros([numFlexs, numElements])
 
         for i in range(numFlexs):
             second_thickness_jacobian[i, 3*i] = np.sqrt(2)/2
-            second_thickness_jacobian[i, 3*numFlexs+2*i] = 1
+            second_thickness_jacobian[i, 3*numFlexs+i] = 1
 
         thickness_jacobian = np.vstack([overall_thickness_jacobian, second_thickness_jacobian])
+        # print(np.array2string(thickness_jacobian, suppress_small=True, max_line_width=150))
 
         constraints_objects = [
             # Constrain each relevant dimensional max greater than its associated min
@@ -313,13 +315,12 @@ if __name__=="__main__":
         # Initialize with the best solution of previous version's results:
         # v0 = [0.428,.3153, .1711, .435, .263, .1196, .438, .272, .1217]+[.315, .1796, .333, .160, .3263, .158]
         # Initialize with some middle ground
-        v0 = [.375, .25, .2125, .375, .25, .2125, .375, .25, .2125]+[.325, .25, .325, .25, .325, .25]
+        v0 = [.375, .25, .2125, .375, .25, .2125, .375, .25, .2125]+[.25]*3
         # v0 = [.425,.25]*3+[.25]*6
         # objectivewheee = evaluator.worst_case_tension([.425,.25]*3+[.25]*6)
         # print(objectivewheee)
 
-        # find feasible initial guess
-        bounds=[(.0625+2.25/2/25.4,.5)]*numElements
+        bounds=[(.0625+2.25/2/25.4,.5)]*(numFlexs*3+numExts*2)+[(0.25,0.5)]*numFixed
         best_x, is_feasible, _ = find_feasible_initial_guess(constraints_objects, 
                                                              bounds, 
                                                              num_attempts = 50,
@@ -331,17 +332,18 @@ if __name__=="__main__":
         print(v0)
         initialFinger = createFingerFromVector(v0)
 
-        for constraint in constraints_objects:
-            if isinstance(constraint, LinearConstraint):
-                print(constraint.A @ (v0))
-            else:
-                print(constraint.fun(v0))
+        # for constraint in constraints_objects:
+        #     if isinstance(constraint, LinearConstraint):
+        #         print(constraint.A @ (v0))
+        #     else:
+        #         print(constraint.fun(v0))
 
-
+        print(initialFinger.structure([0]*3))
+        print(initialFinger.structure([np.pi/2]*3))
         try:
             result = optimize.minimize(evaluator.strength_increase,
                                     v0,
-                                    bounds=bounds,
+                                    bounds=[(.0625+2.25/2/25.4,.5)]*(numFlexs*3+numExts*2)+[(0.25,0.5)]*numFixed,
                                     constraints=constraints_objects,
                                     options={
                                             # "maxiter": int(50),
@@ -388,10 +390,10 @@ if __name__=="__main__":
         print(result)
         print(result.fun)
         v_result = result.x
-        np.savetxt("prev2.smx", v_result)
+        np.savetxt("prev3.smx", v_result)
         plt.plot(evaluator.optimalities)
     else:
-        v_result = np.loadtxt("prev2.smx")
+        v_result = np.loadtxt("prev3.smx")
     # print(evaluator.optimalities)
     # if replace:
     #     resultFinger = createFingerFromVector(v_replace)
@@ -399,7 +401,7 @@ if __name__=="__main__":
     for i in range(5):
         print("")
     resultFinger = createFingerFromVector(v_result)
-    print(v_result)
+
     resultFinger.structure.minFactor = 1/optimize.minimize_scalar(
                                                   lambda theta: -resultFinger.structure.controllability([theta]*resultFinger.numJoints),
                                                                  bracket=(0,np.pi/2),bounds=(0,np.pi/2)).fun
@@ -426,8 +428,7 @@ if __name__=="__main__":
     for q in qs:
         tensions  = resultFinger.grip_to_tensions([q]*resultFinger.numJoints,
                                                   resultFinger.grasp_to_grip(resultFinger.grasp(
-                                                                                                [[0,0,0],[0,0,0],F],
-                                                                                                # *resultFinger.numJoints,
+                                                                                                [F]*resultFinger.numJoints,
                                                                                                 [q]*resultFinger.numJoints,
                                                                                                 frame="EE")))
         tensions2 = resultFinger.grip_to_tensions([q]*resultFinger.numJoints,
@@ -457,7 +458,7 @@ if __name__=="__main__":
     resultFinger.structure.plotCapability([np.pi/2]*resultFinger.numJoints, enforcePosTension=True)
     plt.show()
 
-    # np.savetxt("prev.smx", result.x)
+# np.savetxt("prev.smx", result.x)
 
     # result of optimizer with random middle ground beginning [0.3, 0.24329802, 0.3, 0.24474896, 0.3, 0.28859318, 0.36322518, 0.30384326, 0.36281905, 0.30108046, 0.3624088,  0.30436718], 67ish lbs
     # result of optimizer with est manual option initial guess [0.125      0.5        0.38767142 0.5        0.25888551 0.125 0.5        0.5        0.5        0.5        0.37405896 0.45347323], 51ish lbs
@@ -487,8 +488,3 @@ if __name__=="__main__":
     # result of optimizer with bend radius objective:
     # [0.3996 0.3808 0.1712 0.3793 0.3007 0.1576 0.4144 0.3427 0.183  0.2994
     #  0.2088 0.3162 0.1911 0.2608 0.165 ]
-
-    # result of optimizer with strength objective and better constraints:
-    # [0.32203693 0.23102486 0.00915082 0.48170905 0.37344672 0.13093195
-    #  0.43870772 0.3447579  0.09249945 0.34107644 0.26271653 0.22875864
-    #  0.12385089 0.26003706 0.15499134]
