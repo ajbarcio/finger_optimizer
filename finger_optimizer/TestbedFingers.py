@@ -1,4 +1,4 @@
-from .strucMatrices import StrucMatrix, VariableStrucMatrix
+from .strucMatrices import VariableStrucMatrix
 import numpy as np
 
 # R = np.array([[0.400,0.400,0.19375,0.400],

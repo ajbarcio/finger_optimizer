@@ -1330,276 +1330,277 @@ class GraspConstraintWrapper():
     def __call__(self, rvec):
         return self.function(rvec, *self.args)
 
-# Centered type 1
-D = np.array([[1,1,1,-1],
-              [0,1,1,-1],
-              [0,0,1,-1]])
-R = np.array([[1/3,1/3,1/3,3/3],
-              [0,1/2,1/2,2/2],
-              [0,0,1,1]])
-centeredType1 = StrucMatrix(R,D,name='centered1')
+if __name__ == "__main__":
+    # Centered type 1
+    D = np.array([[1,1,1,-1],
+                [0,1,1,-1],
+                [0,0,1,-1]])
+    R = np.array([[1/3,1/3,1/3,3/3],
+                [0,1/2,1/2,2/2],
+                [0,0,1,1]])
+    centeredType1 = StrucMatrix(R,D,name='centered1')
 
-# Inherently contollable
-D = np.array([[-1,1,1,1],
-              [0,-1,1,1],
-              [0,0,-1,1]])
-r=1
-R = r*np.absolute(D)
-inherent = StrucMatrix(R,D,name='inherent')
+    # Inherently contollable
+    D = np.array([[-1,1,1,1],
+                [0,-1,1,1],
+                [0,0,-1,1]])
+    r=1
+    R = r*np.absolute(D)
+    inherent = StrucMatrix(R,D,name='inherent')
 
-# Balanced type 1
-D = np.array([[1,1,1,-1],
-              [0,1,1,-1],
-              [0,0,1,-1]])
-R = np.array([[1,1,1,0.875],
-              [0,1,1,0.375],
-              [0,0,1,0.125]])
-balancedType1 = StrucMatrix(R,D,name='balanced1')
+    # Balanced type 1
+    D = np.array([[1,1,1,-1],
+                [0,1,1,-1],
+                [0,0,1,-1]])
+    R = np.array([[1,1,1,0.875],
+                [0,1,1,0.375],
+                [0,0,1,0.125]])
+    balancedType1 = StrucMatrix(R,D,name='balanced1')
 
-# Individual type 1
-D = np.array([[1,1,1,-1],
-              [0,1,1,-1],
-              [0,0,1,-1]])
-R = np.array([[ 0.971,  0.033,  0.151, 0.568],
-              [ 0.   ,  0.968,  0.141, 0.531],
-              [ 0.   ,  0.   ,  0.953, 0.42 ]])/0.971
-# print(R)
-individualType1 = StrucMatrix(R,D,name='individual1')
+    # Individual type 1
+    D = np.array([[1,1,1,-1],
+                [0,1,1,-1],
+                [0,0,1,-1]])
+    R = np.array([[ 0.971,  0.033,  0.151, 0.568],
+                [ 0.   ,  0.968,  0.141, 0.531],
+                [ 0.   ,  0.   ,  0.953, 0.42 ]])/0.971
+    # print(R)
+    individualType1 = StrucMatrix(R,D,name='individual1')
 
-# Centered type 2
-D = np.array([[1,-1,1,-1],
-              [0,-1,1,-1],
-              [0,0,1,-1]])
-R = np.array([[0.5,0.5,0.5,0.5],
-              [0,  0.5,1,  0.5],
-              [0,  0,  1,  1]])
-centeredType2 = StrucMatrix(R,D,name='centered2')
+    # Centered type 2
+    D = np.array([[1,-1,1,-1],
+                [0,-1,1,-1],
+                [0,0,1,-1]])
+    R = np.array([[0.5,0.5,0.5,0.5],
+                [0,  0.5,1,  0.5],
+                [0,  0,  1,  1]])
+    centeredType2 = StrucMatrix(R,D,name='centered2')
 
-# Centered type 3
-R = np.array([[1,0.5,1,0.5],
-              [0, 1 ,0.5,0.5],
-              [0, 0 ,1 ,1]])
-D = np.array([[1,1,-1,-1],
-              [0,1,-1,-1],
-              [0,0,-1,1]])
-centeredType3 = StrucMatrix(R,D,name='centered3')
+    # Centered type 3
+    R = np.array([[1,0.5,1,0.5],
+                [0, 1 ,0.5,0.5],
+                [0, 0 ,1 ,1]])
+    D = np.array([[1,1,-1,-1],
+                [0,1,-1,-1],
+                [0,0,-1,1]])
+    centeredType3 = StrucMatrix(R,D,name='centered3')
 
-# AMBROSE MATRIX
-# R = np.array([[.2188,.2188,.2188,.2188],
-#               [0,.1719,.1719,.1719],
-#               [0,0,.1484,.1484]])
-r = 1
-R = np.array([[r,r,r,r],
-              [r,r,r,r],
-              [r,r,r,r]])
-D = np.array([[1,1,1,-1],
-              [0,1,1,-1],
-              [0,0,1,-1]])
-# I'm not saying Dr. Ambrose's design is naiive, this is just a naiive implementation of that design in my system
-naiiveAmbrose = StrucMatrix(R,D,name='Ambrose')
+    # AMBROSE MATRIX
+    # R = np.array([[.2188,.2188,.2188,.2188],
+    #               [0,.1719,.1719,.1719],
+    #               [0,0,.1484,.1484]])
+    r = 1
+    R = np.array([[r,r,r,r],
+                [r,r,r,r],
+                [r,r,r,r]])
+    D = np.array([[1,1,1,-1],
+                [0,1,1,-1],
+                [0,0,1,-1]])
+    # I'm not saying Dr. Ambrose's design is naiive, this is just a naiive implementation of that design in my system
+    naiiveAmbrose = StrucMatrix(R,D,name='Ambrose')
 
-# Hollow Design
-r = 1
-R = np.array([[r,r,r,r],
-              [r,r,r,r],
-              [r,r,r,r]])
-D = np.array([[0,1,1,-1],
-              [1,0,1,-1],
-              [1,1,0,-1]])
-quasiHollow = StrucMatrix(R,D,name='Hollow')
+    # Hollow Design
+    r = 1
+    R = np.array([[r,r,r,r],
+                [r,r,r,r],
+                [r,r,r,r]])
+    D = np.array([[0,1,1,-1],
+                [1,0,1,-1],
+                [1,1,0,-1]])
+    quasiHollow = StrucMatrix(R,D,name='Hollow')
 
-# low-effort diagonal
-r = 1
-R = np.array([[r,r,r,r],
-              [r,r,r,r],
-              [r,r,r,r]])
-D = np.array([[1/3,1,1,-1/3],
-              [1,1/3,1,-1/3],
-              [1,1,1/3,-1/3]])
-LED = StrucMatrix(R,D,name='LED')
+    # low-effort diagonal
+    r = 1
+    R = np.array([[r,r,r,r],
+                [r,r,r,r],
+                [r,r,r,r]])
+    D = np.array([[1/3,1,1,-1/3],
+                [1,1/3,1,-1/3],
+                [1,1,1/3,-1/3]])
+    LED = StrucMatrix(R,D,name='LED')
 
-# Diagonal Design
-r = 1
-R = np.array([[r,r,r,r/3],
-              [r,r,r,r/3],
-              [r,r,r,r/3]])
-D = np.array([[1,0,0,-1],
-              [0,1,0,-1],
-              [0,0,1,-1]])
-diagonal = StrucMatrix(R,D,name='Diagonal')
+    # Diagonal Design
+    r = 1
+    R = np.array([[r,r,r,r/3],
+                [r,r,r,r/3],
+                [r,r,r,r/3]])
+    D = np.array([[1,0,0,-1],
+                [0,1,0,-1],
+                [0,0,1,-1]])
+    diagonal = StrucMatrix(R,D,name='Diagonal')
 
-maxGripOptimal = StrucMatrix(np.array([[0.4,0.4,0.193,0.4],
-                                       [0,0.4,0.4,0.3],
-                                       [0,0,0.4,0.126]]),
-                             np.array([[1,1,1,-1],
-                                       [0,1,1,-1],
-                                       [0,0,1,-1]]), name="maxGrip")
-
-
-# test
-r = 1
-R = np.array([[r,r,r,r],
-              [r,r,r,r],
-              [r,r,r,r]])
-D = np.array([[-1, 1,1,-1],
-              [ 1,-1,1,-1],
-              [ 1, 1,-1,-1]])
-Optimus = StrucMatrix(R,D, name='Optimus')
-
-# test2
-r = 1
-R = np.array([[2*r/3,r,r,r/3],
-              [r,2*r/3,r,r/3],
-              [r,r,2*r/3,r/3]])
-D = np.array([[-1, 1,1,-1],
-              [ 1,-1,1,-1],
-              [ 1, 1,-1,-1]])
-test2 = StrucMatrix(R,D, name='test2')
-
-# free result
-r = 1
-R = np.array([[r,r,r,0],
-              [r,0.1*r,r,r],
-              [r,r,0,r]])
-D = np.array([[-1, 1,1,0],
-              [ 1, 1,1,-1],
-              [ 1, 1,0,-1]])
-resultant = StrucMatrix(R,D, name='Resultant')
-
-r = 1
-R = np.array([[r,r,r,0],
-              [r,0,r,r],
-              [r,r,0,r]])
-D = np.array([[-1, 1,1,0],
-              [ 1, 0,1,-1],
-              [ 1, 1,0,-1]])
-resultant2 = StrucMatrix(R,D, name='Resultant2')
-
-# canon A
-R = np.ones([3,4])
-D = np.array([[-1,1,-1,1],
-              [0,-1,1,1],
-              [0, 0,-1,1]])
-canonA = StrucMatrix(R,D,name='Canon A')
-
-# canon B
-R = np.ones([3,4])
-D = -np.array([[1,-1,-1,1],
-               [0, 1,-1,-1],
-               [0, 0, 1,-1]])
-canonB = StrucMatrix(R,D,name='Canon B')
+    maxGripOptimal = StrucMatrix(np.array([[0.4,0.4,0.193,0.4],
+                                        [0,0.4,0.4,0.3],
+                                        [0,0,0.4,0.126]]),
+                                np.array([[1,1,1,-1],
+                                        [0,1,1,-1],
+                                        [0,0,1,-1]]), name="maxGrip")
 
 
-D = np.array([[1,1,1,-1],
-              [1,1,1,-1],
-              [1,1,1,-1]])
-r = .1625
-R = np.array([[np.nan,r     ,r     ,r],
-              [r     ,np.nan,r     ,r],
-              [r     ,r     ,np.nan,r]])
+    # test
+    r = 1
+    R = np.array([[r,r,r,r],
+                [r,r,r,r],
+                [r,r,r,r]])
+    D = np.array([[-1, 1,1,-1],
+                [ 1,-1,1,-1],
+                [ 1, 1,-1,-1]])
+    Optimus = StrucMatrix(R,D, name='Optimus')
 
-r_1 = .261281
-r_2 = .190271
-r_3 = .307475
+    # test2
+    r = 1
+    R = np.array([[2*r/3,r,r,r/3],
+                [r,2*r/3,r,r/3],
+                [r,r,2*r/3,r/3]])
+    D = np.array([[-1, 1,1,-1],
+                [ 1,-1,1,-1],
+                [ 1, 1,-1,-1]])
+    test2 = StrucMatrix(R,D, name='test2')
 
-c_1 = .42378
-c_2 = .35277
-c_3 = .46997
+    # free result
+    r = 1
+    R = np.array([[r,r,r,0],
+                [r,0.1*r,r,r],
+                [r,r,0,r]])
+    D = np.array([[-1, 1,1,0],
+                [ 1, 1,1,-1],
+                [ 1, 1,0,-1]])
+    resultant = StrucMatrix(R,D, name='Resultant')
 
-skinnyLegend = VariableStrucMatrix(R, D, ranges=[(c_1*np.sqrt(2)/2-r_1,c_1-r_1),
-                                                 (c_2*np.sqrt(2)/2-r_2,c_2-r_2),
-                                                 (c_3*np.sqrt(2)/2-r_3,c_3-r_3),],
-                                         types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
-                                         F = np.array([50]*4),
-                                         name='Skinny Legend')
+    r = 1
+    R = np.array([[r,r,r,0],
+                [r,0,r,r],
+                [r,r,0,r]])
+    D = np.array([[-1, 1,1,0],
+                [ 1, 0,1,-1],
+                [ 1, 1,0,-1]])
+    resultant2 = StrucMatrix(R,D, name='Resultant2')
 
-D = np.array([[1,1,1,-1],
-              [0,1,1,-1],
-              [0,0,1,-1]])
+    # canon A
+    R = np.ones([3,4])
+    D = np.array([[-1,1,-1,1],
+                [0,-1,1,1],
+                [0, 0,-1,1]])
+    canonA = StrucMatrix(R,D,name='Canon A')
 
-R = np.array([[.203125,.203125,.203125,.171875],
-              [0      ,np.nan ,np.nan ,.125   ],
-              [0      ,0      ,np.nan ,.101103]])
-c1 = .9541575
-c2 = .9505297
-r = .5625
-dimensionalAmbrose = VariableStrucMatrix(R, D, ranges=[(c1*np.sqrt(2)/2-r,c1-r)]*2+
-                                                      [(c2*np.sqrt(2)/2-r,c2-r)],
-                                               types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
-                                               F = np.array([50]*4),
-                                               name='The Ambrose')
+    # canon B
+    R = np.ones([3,4])
+    D = -np.array([[1,-1,-1,1],
+                [0, 1,-1,-1],
+                [0, 0, 1,-1]])
+    canonB = StrucMatrix(R,D,name='Canon B')
 
-optimusMaximus = StrucMatrix(S=np.array([[ 0.4,  0.4, -0.4,  0.193],
-                                         [ 0.   ,  0.4, -0.3,  0.4],
-                                         [ 0.   ,  0.   , -0.125,  0.4]]))
 
-minFactor = 0.1
+    D = np.array([[1,1,1,-1],
+                [1,1,1,-1],
+                [1,1,1,-1]])
+    r = .1625
+    R = np.array([[np.nan,r     ,r     ,r],
+                [r     ,np.nan,r     ,r],
+                [r     ,r     ,np.nan,r]])
 
-D = np.array([[-1,1,1,1,1],
-              [0,-1,1,1,1],
-              [0,0,-1,1,1],
-              [0,0,0,-1,1]])
+    r_1 = .261281
+    r_2 = .190271
+    r_3 = .307475
 
-R = np.array([[np.nan,np.nan,np.nan,np.nan,np.nan],
-              [0,     np.nan,np.nan,np.nan,np.nan],
-              [0,     0     ,np.nan,np.nan,np.nan],
-              [0,     0     ,0     ,np.nan,np.nan]])    
+    c_1 = .42378
+    c_2 = .35277
+    c_3 = .46997
 
-fs = [(0, .35,.235),(0, .35,.235),(0, .35,.235)]
-es = [(.25, .365),(.25, .365),(.25, .365)]
-ps = [(.625/2*0.65,.625/2,0.4),(.625/2*0.65,.4,0.4)]
+    skinnyLegend = VariableStrucMatrix(R, D, ranges=[(c_1*np.sqrt(2)/2-r_1,c_1-r_1),
+                                                    (c_2*np.sqrt(2)/2-r_2,c_2-r_2),
+                                                    (c_3*np.sqrt(2)/2-r_3,c_3-r_3),],
+                                            types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
+                                            F = np.array([50]*4),
+                                            name='Skinny Legend')
 
-primaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*4
-                                               +[es[1]]+[fs[1]]*3
-                                               +[ps[0]]+[ps[1]]*2
-                                               +[es[2]]+[fs[2]],
-                                       types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*4
-                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
-                                              +[VariableStrucMatrix.triangle_joint]*3
-                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
-                                           F = np.array([50]*5),
-                                   minFactor = minFactor,
-                                   npJoints  = [2],
-                                        name = "Pdev")
+    D = np.array([[1,1,1,-1],
+                [0,1,1,-1],
+                [0,0,1,-1]])
 
-D = D[:-1,:-1]
+    R = np.array([[.203125,.203125,.203125,.171875],
+                [0      ,np.nan ,np.nan ,.125   ],
+                [0      ,0      ,np.nan ,.101103]])
+    c1 = .9541575
+    c2 = .9505297
+    r = .5625
+    dimensionalAmbrose = VariableStrucMatrix(R, D, ranges=[(c1*np.sqrt(2)/2-r,c1-r)]*2+
+                                                        [(c2*np.sqrt(2)/2-r,c2-r)],
+                                                types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
+                                                F = np.array([50]*4),
+                                                name='The Ambrose')
 
-# D = np.array([[1,1,1,-1,],
-#               [0,1,1,-1,],
-#               [0,0,1,-1,]])
+    optimusMaximus = StrucMatrix(S=np.array([[ 0.4,  0.4, -0.4,  0.193],
+                                            [ 0.   ,  0.4, -0.3,  0.4],
+                                            [ 0.   ,  0.   , -0.125,  0.4]]))
 
-R = R[:-1,:-1]
+    minFactor = 0.1
 
-fs = [(0, .425,.25),(0, .375,.25),(0, .4,.225)]
-es = [(0.25, .25),(0.25, .25),(.25, .25)]
-ps = [(.625/2*0.65,.625/2,0.4),(.625/2*0.65,.4,0.4)]
+    D = np.array([[-1,1,1,1,1],
+                [0,-1,1,1,1],
+                [0,0,-1,1,1],
+                [0,0,0,-1,1]])
 
-secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
-                                                 +[es[1]]+[fs[1]]*2
-                                                 +[es[2]]+[fs[2]],
-                                          types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
-                                                 +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
-                                                 +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
-                                              F = np.array([50]*5),
-                                      minFactor = 0.1,
-                                           name = "Sdev")
+    R = np.array([[np.nan,np.nan,np.nan,np.nan,np.nan],
+                [0,     np.nan,np.nan,np.nan,np.nan],
+                [0,     0     ,np.nan,np.nan,np.nan],
+                [0,     0     ,0     ,np.nan,np.nan]])    
 
-# secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
-#                                                  +[es[1]]+[fs[1]]*2
-#                                                  +[es[2]]+[fs[2]],
-#                                           types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
-#                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
-#                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
-#                                               F = np.array([50]*5),
-#                                       minFactor = 0.1,
-#                                            name = "Sdev")
+    fs = [(0, .35,.235),(0, .35,.235),(0, .35,.235)]
+    es = [(.25, .365),(.25, .365),(.25, .365)]
+    ps = [(.625/2*0.65,.625/2,0.4),(.625/2*0.65,.4,0.4)]
 
-# secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
-#                                                  +[es[1]]+[fs[1]]*2
-#                                                  +[es[2]]+[fs[2]],
-#                                           types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
-#                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
-#                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
-#                                               F = np.array([50]*5),
-#                                       minFactor = 0.01,
-#                                            name = "Sdev")
+    primaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*4
+                                                +[es[1]]+[fs[1]]*3
+                                                +[ps[0]]+[ps[1]]*2
+                                                +[es[2]]+[fs[2]],
+                                        types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*4
+                                                +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+                                                +[VariableStrucMatrix.triangle_joint]*3
+                                                +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                            F = np.array([50]*5),
+                                    minFactor = minFactor,
+                                    npJoints  = [2],
+                                            name = "Pdev")
+
+    D = D[:-1,:-1]
+
+    # D = np.array([[1,1,1,-1,],
+    #               [0,1,1,-1,],
+    #               [0,0,1,-1,]])
+
+    R = R[:-1,:-1]
+
+    fs = [(0, .425,.25),(0, .375,.25),(0, .4,.225)]
+    es = [(0.25, .25),(0.25, .25),(.25, .25)]
+    ps = [(.625/2*0.65,.625/2,0.4),(.625/2*0.65,.4,0.4)]
+
+    secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
+                                                    +[es[1]]+[fs[1]]*2
+                                                    +[es[2]]+[fs[2]],
+                                            types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+                                                    +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
+                                                    +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                                F = np.array([50]*5),
+                                        minFactor = 0.1,
+                                            name = "Sdev")
+
+    # secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
+    #                                                  +[es[1]]+[fs[1]]*2
+    #                                                  +[es[2]]+[fs[2]],
+    #                                           types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+    #                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
+    #                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+    #                                               F = np.array([50]*5),
+    #                                       minFactor = 0.1,
+    #                                            name = "Sdev")
+
+    # secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
+    #                                                  +[es[1]]+[fs[1]]*2
+    #                                                  +[es[2]]+[fs[2]],
+    #                                           types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+    #                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
+    #                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+    #                                               F = np.array([50]*5),
+    #                                       minFactor = 0.01,
+    #                                            name = "Sdev")
