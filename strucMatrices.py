@@ -3,6 +3,7 @@ import scipy as sp
 import sympy as sy
 
 from matplotlib import pyplot as plt
+from matplotlib import ticker
 import warnings
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.optimize import linprog
@@ -230,7 +231,7 @@ class StrucMatrix():
         self.reinit(R=R, D=self.D)
         return -np.max(self.domain.equations @ np.append(point, 1))
 
-    def plotCapability(self, showBool=False, colorOverride=None, transOverride=None, obj=None, enforcePosTension=False, skipJoints=None):
+    def plotCapability(self, showBool=False, colorOverride=None, transOverride=None, obj=None, enforcePosTension=False, skipJoints=None, metric=False):
 
         if obj is None:
             obj = type(self)
@@ -240,6 +241,8 @@ class StrucMatrix():
             pass
 
         color = colorOverride if colorOverride is not None else colors[obj.plot_count % len(colors)]
+
+        cf = 0.1129848 if metric else 1
 
         # Pick transparency
         alpha = transOverride if transOverride is not None else 0.4
@@ -272,12 +275,16 @@ class StrucMatrix():
             singleForceVectors = (np.transpose(usableS @ np.diag(self.F)))
             returnVal=None
         singleForceVectors = list(singleForceVectors)
-        self.ax.scatter(*boundaryGrasps.T, color=color, alpha=alpha)
+        # Units for plotting boundary grasps
+        self.ax.scatter(*(boundaryGrasps.T)*cf, color=color, alpha=alpha)
         for grasp in singleForceVectors:
+            # units for single force vectors
+            grasp *= cf
             self.ax.quiver(0,0,0,grasp[0],grasp[1],grasp[2],color="black")
             # print(grasp)
         for simplex in domain.simplices:
-            triangle = boundaryGrasps[simplex]
+            # units for plotting polytope
+            triangle = boundaryGrasps[simplex]*cf
             self.ax.add_collection3d(Poly3DCollection([triangle], color=color, alpha=alpha))
         # if StrucMatrix.plot_count == 1: plt.tight_layout()
         # Axis limits
@@ -290,9 +297,9 @@ class StrucMatrix():
             self.ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1)
             self.ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
             self.ax.plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
-            ax.set_xlabel('τ₁')
-            ax.set_ylabel('τ₂')
-            ax.set_zlabel('τ₃')
+            ax.set_xlabel('τ₁ (N)')
+            ax.set_ylabel('τ₂ (N)')
+            ax.set_zlabel('τ₃ (N)')
             # ax.set_title('Torque Components τ₁, τ₂, τ₃')
             ax.set_title(f'{self.name} Capability Polytope')
             # ax.view_init(elev=30, azim=45)
@@ -300,6 +307,15 @@ class StrucMatrix():
             plt.tight_layout()
 
             obj.figures_with_axes.add(figID)
+
+        # if metric:
+        #     ticks_x = ticker.FuncFormatter(lambda x, pos: f'{x * metric_conversion_factor:g}')
+        #     ticks_y = ticker.FuncFormatter(lambda y, pos: f'{y * metric_conversion_factor:g}')
+        #     ticks_z = ticker.FuncFormatter(lambda z, pos: f'{z * metric_conversion_factor:g}')
+        #     ax.xaxis.set_major_formatter(ticks_x)
+        #     ax.yaxis.set_major_formatter(ticks_y)
+        #     ax.zaxis.set_major_formatter(ticks_z)
+
         if showBool:
             plt.show()
         obj.plot_count += 1
@@ -1150,12 +1166,12 @@ class VariableStrucMatrix():
         S = StrucMatrix(S=Smat, F=self.F, name=self.name)
         S.plotGrasp(grasp, showBool=showBool, obj=type(self))
 
-    def plotCapability(self, THETA, showBool=False, colorOverride=None, enforcePosTension=False, skipJoints=None):
+    def plotCapability(self, THETA, showBool=False, colorOverride=None, enforcePosTension=False, skipJoints=None, metric=False):
         if skipJoints == None:
             skipJoints = self.npJoints
         Smat = self.S(THETA)
         S = StrucMatrix(S=Smat, F=self.F, name=self.name, minFactor=self.minFactor)
-        S.plotCapability(showBool = showBool, colorOverride=colorOverride, obj=type(self), enforcePosTension=enforcePosTension, skipJoints=skipJoints)
+        S.plotCapability(showBool = showBool, colorOverride=colorOverride, obj=type(self), enforcePosTension=enforcePosTension, skipJoints=skipJoints, metric=metric)
 
     def plotCapabilityAcrossAllGrasps(self, resl=5, showBool=False):
         # np.linspace

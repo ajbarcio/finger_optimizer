@@ -27,6 +27,11 @@ colors = [
 ]
 import itertools
 
+def generate_binary_lists(length):
+    # Generates a cartesian product of [0, 1] repeated 'length' times
+    for combo in itertools.product([0, 1], repeat=length):
+        yield list(combo)
+
 def unique_piecewise_functions(S: sy.Matrix):
     """
     Returns a set of unique Piecewise expressions in a sympy Matrix S
@@ -378,7 +383,7 @@ def normalize_row_signs_stream(mat):
         if rn < r:
             out[i] = -out[i]
     return out
-   
+
 def canonical_form_stream(mat):
 #    mat = np.array(mat)
    mat = normalize_row_signs_stream(mat)
@@ -714,7 +719,7 @@ def special_minkowski(points):
   return hull, boundaryPoints
 
 def special_minkowski_with_mins(points, minCoeffs):
-    
+
   # this is apparently the amount of digits in the binary value 2**len(points)
   width = len(points)+2
   # vertexes for convex hull

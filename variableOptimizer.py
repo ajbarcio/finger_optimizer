@@ -1,17 +1,29 @@
 from strucMatrices import VariableStrucMatrix, secondaryDev
 from utils import *
-from finger import Finger, StructureKineMismatch
+from finger import Finger, StructureKineMismatch, Grasp
 from scipy import optimize
 from scipy.optimize import NonlinearConstraint, LinearConstraint, OptimizeResult
+import statistics
 
 from multiprocessing import Pool
 # from concurrent.futures import ProcessPoolExecutor
+
+def z_score_from_percentile(percentile):
+    """
+    Takes a percentile (0 to 100) and returns the corresponding Z-score.
+    """
+    # Convert percentile (0-100) to decimal probability (0-1)
+    probability = percentile / 100.0
+
+    # Calculate the inverse CDF
+    return statistics.NormalDist().inv_cdf(probability)
 
 class stallException(Exception):
     pass
 
 def createFingerFromVector(v) -> Finger:
     v = np.asarray(v)
+    # print(v)
     # Only accept valid vectors
     # if np.any(np.isnan(v)) or np.any(np.isinf(v)) or np.any(v < 0.0625) or np.any(v > 0.5):
     #     # Option 1: Error-out (recommended for debugging)
@@ -47,7 +59,7 @@ def createFingerFromVector(v) -> Finger:
     return Fing
 
 class FingerEvaluator:
-    def __init__(self):
+    def __init__(self, grasps: list[Grasp] = None):
         self._v_save = None
         self._v_prev = None
         self.curr_res = None
@@ -55,7 +67,11 @@ class FingerEvaluator:
         self._cb_last_lines = 0
         self._threshold_times = 0
         self.optimalities = []
+        self.worst_case_tensions =[]
         self._curr_wct = None
+        self.worst_pose_for_strength = None
+
+        self.grasps = grasps
 
     def _get_finger(self, v):
         v = np.asarray(v)
@@ -80,6 +96,7 @@ class FingerEvaluator:
         print("\r" + "\033[F" * self._cb_last_lines, end="")
 
         self.optimalities.append(intermediate_result.optimality)
+        self.worst_case_tensions.append(self._curr_wct)
         lines = [
             f"iter: {intermediate_result.niter}",
             f"optimality: {intermediate_result.optimality:.3e}",
@@ -125,29 +142,78 @@ class FingerEvaluator:
         Fing = self._get_finger(v)
         return -Fing.structure.get_magnitude([np.pi/2]*Fing.numJoints)
 
+    def worst_case_OVL(self, v):
+        Fing = self._get_finger(v)
+        worst_strength = optimize.minimize(Fing.structure.get_magnitude, x0=[0]*Fing.numJoints, bounds=[(0, np.pi/2)]*Fing.numJoints)
+        self.worst_pose_for_strength = worst_strength.x
+        return -worst_strength.fun
+
     def strength_increase(self, v):
         Fing = self._get_finger(v)
         return (np.linalg.norm(
-                    Fing.grip_to_tensions([np.pi/2]*Fing.numJoints, Fing.grasp_to_grip(Fing.grasp([F]*Fing.numJoints, [np.pi/2]*Fing.numJoints, frame="EE"))))
+                    Fing.grip_to_tensions([np.pi/2]*Fing.numJoints, Fing.grasp_to_grip(Grasp([F]*Fing.numJoints, [np.pi/2]*Fing.numJoints, frame="EE"))))
                     /
                 np.linalg.norm(
-                    Fing.grip_to_tensions([0]*Fing.numJoints, Fing.grasp_to_grip(Fing.grasp([F]*Fing.numJoints, [0]*Fing.numJoints, frame="EE"))))
+                    Fing.grip_to_tensions([0]*Fing.numJoints, Fing.grasp_to_grip(Grasp([F]*Fing.numJoints, [0]*Fing.numJoints, frame="EE"))))
                 )
 
-    def worst_case_tension(self, v):
+    def grasp_worst_case_tension(self, Fing: Finger, grasp: Grasp):
+        grip = Fing.grasp_to_grip(grasp)
+        tension = Fing.grip_to_tensions(grasp.q, grip)
+        return np.max(tension)
+
+    def all_grasps_constraint(self, v):
         Fing = self._get_finger(v)
-        # Locate maximum on 1D function (cheap) for a) flex grip at rated (5) lb grip and b) 1lb extension tip force
+        tensions = np.array([self.grasp_worst_case_tension(Fing, g) for g in self.grasps])
+        self._curr_wct = np.max(tensions)
+        return tensions
+
+    def continuous_power_constraint(self, Fing):
         res1 = optimize.minimize_scalar(lambda theta:
-                                    -np.max(Fing.grip_to_tensions([theta]*Fing.numJoints,   Fing.grasp_to_grip(Fing.grasp([F]*Fing.numJoints, [theta]*Fing.numJoints, frame="EE"))))
+                                    -np.max(Fing.grip_to_tensions([theta]*Fing.numJoints,   Fing.grasp_to_grip(Grasp([F]*Fing.numJoints, [theta]*Fing.numJoints, frame="EE"))))
                                     ,bracket=(0,np.pi/2),bounds=(0,np.pi/2))
         res2 = optimize.minimize_scalar(lambda theta:
                                     -np.max(Fing.grip_to_tensions([theta]*Fing.numJoints,  Fing.tip_wrench_at_pose_to_grip([theta]*Fing.numJoints, -F*0.1, frame="EE")))
                                     ,bracket=(0,np.pi/2),bounds=(0,np.pi/2))
         objectiveRet = np.max([-res1.fun, -res2.fun])
+        return objectiveRet
+
+    def worst_case_tension(self, v):
+        # print(v)
+        # Fing = self._get_finger(v)
+        # Locate maximum on 1D function (cheap) for a) flex grip at rated (5) lb grip and b) 1lb extension tip force
+        # objectiveRet = self.continuous_power_constraint(Fing)
+        # OR check all grasps constraints
+        tensions = self.all_grasps_constraint(v)
+        objectiveRet = np.max(tensions)
         # print(objectiveRet)
         # WHOA NOT SURE THIS IS WISE
         self._curr_wct = objectiveRet
         return objectiveRet
+
+q_ext = [10*np.pi/180]*3
+q_int = [45*np.pi/180]+[10*np.pi/180]*2
+q_flx = [45*np.pi/180]*2+[10*np.pi/180]
+
+z = z_score_from_percentile(80)
+sig = [10.86, 2.20, 12.5, 6.13, 20.2, 11.05, 10.47, 2.04, 12.68]
+means = [26.3, 6.6, 25.3, 25.25, 7.26, 26.3, 31.06, 7.56, 27.08]
+vals = [means[i]+z*sig[i] for i in range(len(sig))]
+
+VC_Dir_Grasps = [
+    # Extended pose:
+    Grasp([[0]*3,[0]*3,[0,vals[0]/4.448,0]], q_ext),
+    Grasp([[0]*3,[0]*3,[0,-vals[1]/4.448,0]], q_ext),
+    # Grasp([[0]*3,[0]*3,[vals[2]/4.448,0,0]], q_ext),
+    # Intermediate pose:
+    Grasp([[0]*3,[0]*3,[0,vals[3]/4.448,0]], q_int),
+    Grasp([[0]*3,[0]*3,[0,-vals[4]/4.448,0]], q_int),
+    # Grasp([[0]*3,[0]*3,[vals[5]/4.448,0,0]], q_int),
+    # Intermediate pose:
+    Grasp([[0]*3,[0]*3,[0,vals[6]/4.448,0]], q_flx),
+    Grasp([[0]*3,[0]*3,[0,-vals[7]/4.448,0]], q_flx),
+    # Grasp([[0]*3,[0]*3,[vals[8]/4.448,0,0]], q_flx),
+]
 
 if __name__=="__main__":
     numJoints = 3
@@ -162,22 +228,29 @@ if __name__=="__main__":
     # print(R)
     D = secondaryDev.D
     # print(D)
-    replace = True
+    replace = False
 # EDITING TO VERSION WHERE V IS (max, (DISTANCE TO MIN))
     # initialize evaluator
     if not replace:
-        evaluator = FingerEvaluator()
-        constraints_dicts = [
-            {
-            # Constrian worst case tension less than 50 lbs
-            "type": "ineq",
-            "fun":  lambda v: 50.0 - evaluator.worst_case_tension(v)
-            },
-            {
-            # Constrain each max greater than its associated min
-            "type": "ineq",
-            "fun":  lambda v: v[1::2] - v[0::2]
-            }]
+        grasps = VC_Dir_Grasps
+        for grasp in grasps:
+            print(grasp.F)
+        # print([grasp.F for grasp in grasps])
+        # print([[0]*3,[0]*3,[0,vals[0]/4.448,0]])
+        # quit()
+
+        evaluator = FingerEvaluator(grasps)
+        # constraints_dicts = [
+        #     {
+        #     # Constrian worst case tension less than 50 lbs
+        #     "type": "ineq",
+        #     "fun":  lambda v: 50.0 - evaluator.worst_case_tension(v)
+        #     },
+        #     {
+        #     # Constrain each max greater than its associated min
+        #     "type": "ineq",
+        #     "fun":  lambda v: v[1::2] - v[0::2]
+        #     }]
         max_min_jacobian = np.array([np.roll(row, shift) for row, shift in
             zip(-np.eye(numElements//2, numElements, k=1)+
                 np.eye(numElements//2, numElements, k=0),np.arange(numElements))])
@@ -210,22 +283,30 @@ if __name__=="__main__":
                 keep_feasible=True
             ),
             # Constrain worst case tension less than 50 lb
+            # NonlinearConstraint(
+            #     fun=evaluator.worst_case_tension,
+            #     lb=0,
+            #     ub=50.0,
+            #     # finite_diff_rel_step=1e-4
+            # ),
             NonlinearConstraint(
-                fun=evaluator.worst_case_tension,
+                fun=evaluator.all_grasps_constraint,
                 lb=0,
-                ub=50.0,
+                ub=55.0,
                 # finite_diff_rel_step=1e-4
             )
             ]
 
         # v0 = [(.5+.125)/2]*numElements
         # v0 = [.5,.4]*numFlexs+[.3,.25]*numExts
-        v0 = [.35,.2]*numFlexs+[0.37,0.25]*numExts
+        # v0 = [.35,.2]*numFlexs+[0.37,0.25]*numExts
+        # v0 = [0.2818, 0.206,  0.2793, 0.1488, 0.3852, 0.2605, 0.3769, 0.3645, 0.3494, 0.3494, 0.3958, 0.2114]
+        v0 = [0.2818, 0.206,  0.2793, 0.1488, 0.3852, 0.2605, 0.3769, 0.3645, 0.3494, 0.3494, 0.3958, 0.2114]
         # v0 = [.425,.25]*3+[.25]*6
         # objectivewheee = evaluator.worst_case_tension([.425,.25]*3+[.25]*6)
         # print(objectivewheee)
         try:
-            result = optimize.minimize(evaluator.ultimate_magnitude,
+            result = optimize.minimize(evaluator.worst_case_OVL,
                                     v0,
                                     # bounds=[(.125,.5)]*numElements,
                                     constraints=constraints_objects,
@@ -248,7 +329,7 @@ if __name__=="__main__":
         except stallException:
             print("Optimization terminated by step too small")
             result = evaluator.curr_res
-        print("about to start optimization")
+        # print("about to start optimization")
         # with ProcessPoolExecutor(max_workers=10) as executor:
         # with Pool(10) as pool:
         # result = optimize.differential_evolution(evaluator.ultimate_magnitude,
@@ -267,11 +348,9 @@ if __name__=="__main__":
                             #         "callback": evaluator.callback
                                 # }
         # )
-
-        print(result.fun)
         v_result = result.x
-        np.savetxt("prev.smx", v_result)
-        plt.plot(evaluator.optimalities)
+        np.savetxt("VC_Single_axis_constraints.smx", v_result)
+        plt.plot(evaluator.worst_case_tensions)
     else:
         v_result = np.loadtxt("prev.smx")
     # print(evaluator.optimalities)
@@ -307,7 +386,7 @@ if __name__=="__main__":
     magnitudes = []
     for q in qs:
         tensions  = resultFinger.grip_to_tensions([q]*resultFinger.numJoints,
-                                                  resultFinger.grasp_to_grip(resultFinger.grasp(
+                                                  resultFinger.grasp_to_grip(Grasp(
                                                                                                 [F]*resultFinger.numJoints,
                                                                                                 [q]*resultFinger.numJoints,
                                                                                                 frame="EE")))
@@ -323,10 +402,20 @@ if __name__=="__main__":
         tvecs2.append(tensions2)
         conditions.append(condition)
         magnitudes.append(magnitude)
-    plt.figure("flex grasps")
-    plt.plot(qs, tvecs)
-    plt.figure("extn grasps")
-    plt.plot(qs, tvecs2)
+
+    print("\n\n\n\n\n")
+    print("lowest OVL:")
+    print(-result.fun)
+    print(f"happens at: {evaluator.worst_pose_for_strength}")
+    print("confirming:")
+    print(f"{resultFinger.structure.get_magnitude(evaluator.worst_pose_for_strength)}")
+    print("worst case tension:")
+    print(evaluator.worst_case_tensions[-1])
+
+    # plt.figure("flex grasps")
+    # plt.plot(qs, tvecs)
+    # plt.figure("extn grasps")
+    # plt.plot(qs, tvecs2)
     plt.figure("conditions")
     plt.plot(qs, conditions)
     plt.figure("magnitudes")

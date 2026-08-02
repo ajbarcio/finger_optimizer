@@ -197,6 +197,7 @@ def generate_all_unique_large_parallel(shape, D=None, signs=None, processes=None
     print(f"Unique found: {len(final):,}, out of {processed} processed")
     return np.stack([np.array(c) for c in final])
 
+#region
 # def generate_all_unique_large_parallel(shape, processes=None):
 #     """
 #     shape: like [m, m+1] or (m, n) ; returns np.stack of unique canonical matrices discovered so far or total.
@@ -347,6 +348,7 @@ def generate_all_unique_large_parallel(shape, D=None, signs=None, processes=None
 
 #     print(f"Total unique canonical matrices: {merged.shape[0]:,}")
 #     return merged
+#endregion
 
 def select_all_possible(S_):
     possibleStructures = []
@@ -927,7 +929,6 @@ def rank_valid(mat_m_tuple):
     # print("ee")
     return matrix_rank(mat) == m
 
-
 def total_combinatoric_analysis(m: int):
     # m = 3
     print(f'There are {3**(m*(m+1))} possible {m}dof n+1 tendon routings:', )
@@ -1158,11 +1159,11 @@ def qutsm_focus():
 
 if __name__ == "__main__":
 
-    # begin = time.perf_counter()
-    # total_combinatoric_analysis(3)
-    # end = time.perf_counter()
-    # print(f"without streaming it took {end-begin}")
-    
+    begin = time.perf_counter()
+    total_combinatoric_analysis(3)
+    end = time.perf_counter()
+    print(f"without streaming it took {end-begin}")
+
     # begin = time.perf_counter()
     # total_combinatoric_analysis(4)
     # end = time.perf_counter()
