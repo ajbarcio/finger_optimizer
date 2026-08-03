@@ -1,3 +1,5 @@
+./__pycache__/*
+*.pyc
 worker_*
 *.npy
 # Combinatorics
