@@ -15,4 +15,5 @@ worker_*
 ./Combinatorics/testExpanded
 ./Combinatorics/comb2
 ./Combinatorics/comb
-./Combinatorics/testLoad
+./Combinatorics/testLoad__pycache__
+.venv

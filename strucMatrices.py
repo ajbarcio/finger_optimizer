@@ -1,16 +1,20 @@
 import numpy as np
 import scipy as sp
+import sympy as sy
 
 from matplotlib import pyplot as plt
+from matplotlib import ticker
 import warnings
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.optimize import linprog
 from scipy.linalg import null_space
 
 from utils import intersects_positive_orthant, special_minkowski, special_minkowski_with_mins, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant, intersection_with_orthant
-from utils import identify_strict_sign_central, identify_strict_central
+from utils import identify_strict_sign_central, identify_strict_central, sym_pinv, unique_piecewise_functions
 from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_annealing, differential_evolution
 from types import SimpleNamespace
+
+import itertools
 
 cmap = plt.cm.cool
 
@@ -80,6 +84,9 @@ class StrucMatrix():
                 self.halfValidity = True
             else:
                 self.halfValidity = False
+
+        self.magnitude = self.get_magnitude()
+
         self.name = name
 
     def __call__(self):
@@ -94,11 +101,14 @@ class StrucMatrix():
             self.S = S
             self.D = np.sign(S)
             self.R = np.absolute(S)
+        if R is None and D is None and S is None:
+            self.S = self.R*self.D
         self.F = self.F
         # self.minForce = self.F*0.05
         self.constraints = self.constraints
         self.domain,  self.boundaryGrasps = self.torqueDomainVolume()
         self.validity                     = self.isValid()
+        self.magnitude = self.get_magnitude()
 
     def flatten_r_matrix(self):
         r = self.R*(self.D != 0).astype(int)
@@ -160,7 +170,7 @@ class StrucMatrix():
             singleForceVectors = list(np.transpose(usableS @ np.diag(self.F)))
             sFV = singleForceVectors
         # S is a structure matrix
-        
+
         if enforcePosTension:
             if self.minFactor == None:
                 self.minFactor = 1/self.biasCondition()
@@ -168,6 +178,10 @@ class StrucMatrix():
         else:
             domain, boundaryGrasps = special_minkowski(sFV)
         return domain, boundaryGrasps
+
+    def get_magnitude(self):
+        # print(self.S.T @ self.S)
+        return np.sqrt(np.linalg.det(self.S @ self.S.T))
 
     def pulleyVariation(self):
         # print(self.flatten_r_matrix())
@@ -219,7 +233,7 @@ class StrucMatrix():
         self.reinit(R=R, D=self.D)
         return -np.max(self.domain.equations @ np.append(point, 1))
 
-    def plotCapability(self, showBool=False, colorOverride=None, transOverride=None, obj=None, enforcePosTension=False, skipJoints=None):
+    def plotCapability(self, showBool=False, colorOverride=None, transOverride=None, obj=None, enforcePosTension=False, skipJoints=None, metric=False):
 
         if obj is None:
             obj = type(self)
@@ -229,6 +243,8 @@ class StrucMatrix():
             pass
 
         color = colorOverride if colorOverride is not None else colors[obj.plot_count % len(colors)]
+
+        cf = 0.1129848 if metric else 1
 
         # Pick transparency
         alpha = transOverride if transOverride is not None else 0.4
@@ -246,7 +262,7 @@ class StrucMatrix():
 
         mask = np.ones(self.numJoints, dtype=bool)
         if skipJoints is not None:
-            mask[skipJoints] = False        
+            mask[skipJoints] = False
         usableS = self.S[mask,:]
         if usableS.shape[0] != 3:
             warnings.warn(f"You must specify at least {self.numJoints-3} rows (joints) to skip if attempting to plot capability for a finger with >3 dof")
@@ -261,12 +277,16 @@ class StrucMatrix():
             singleForceVectors = (np.transpose(usableS @ np.diag(self.F)))
             returnVal=None
         singleForceVectors = list(singleForceVectors)
-        self.ax.scatter(*boundaryGrasps.T, color=color, alpha=alpha)
+        # Units for plotting boundary grasps
+        self.ax.scatter(*(boundaryGrasps.T)*cf, color=color, alpha=alpha)
         for grasp in singleForceVectors:
+            # units for single force vectors
+            grasp *= cf
             self.ax.quiver(0,0,0,grasp[0],grasp[1],grasp[2],color="black")
             # print(grasp)
         for simplex in domain.simplices:
-            triangle = boundaryGrasps[simplex]
+            # units for plotting polytope
+            triangle = boundaryGrasps[simplex]*cf
             self.ax.add_collection3d(Poly3DCollection([triangle], color=color, alpha=alpha))
         # if StrucMatrix.plot_count == 1: plt.tight_layout()
         # Axis limits
@@ -279,9 +299,9 @@ class StrucMatrix():
             self.ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1)
             self.ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
             self.ax.plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
-            ax.set_xlabel('τ₁')
-            ax.set_ylabel('τ₂')
-            ax.set_zlabel('τ₃')
+            ax.set_xlabel('τ₁ (N)')
+            ax.set_ylabel('τ₂ (N)')
+            ax.set_zlabel('τ₃ (N)')
             # ax.set_title('Torque Components τ₁, τ₂, τ₃')
             ax.set_title(f'{self.name} Capability Polytope')
             # ax.view_init(elev=30, azim=45)
@@ -289,6 +309,15 @@ class StrucMatrix():
             plt.tight_layout()
 
             obj.figures_with_axes.add(figID)
+
+        # if metric:
+        #     ticks_x = ticker.FuncFormatter(lambda x, pos: f'{x * metric_conversion_factor:g}')
+        #     ticks_y = ticker.FuncFormatter(lambda y, pos: f'{y * metric_conversion_factor:g}')
+        #     ticks_z = ticker.FuncFormatter(lambda z, pos: f'{z * metric_conversion_factor:g}')
+        #     ax.xaxis.set_major_formatter(ticks_x)
+        #     ax.yaxis.set_major_formatter(ticks_y)
+        #     ax.zaxis.set_major_formatter(ticks_z)
+
         if showBool:
             plt.show()
         obj.plot_count += 1
@@ -918,6 +947,10 @@ class VariableStrucMatrix():
         def __call__(self, theta):
             return self.r+(self.c-self.r)*np.sin(np.pi/4+theta/2)
 
+        def sym(self):
+            theta = sy.symbols(f'theta_{self.idx[0]+1}')
+            return self.r+(self.c-self.r)*sy.sin(np.pi/4+theta/2)
+
     class convergent_circles_joint():
         """
         A class to define a type of tendon routing where each link in the joint
@@ -972,6 +1005,11 @@ class VariableStrucMatrix():
                 return self.minOverwrite
             else:
                 return val
+
+        def sym(self):
+            theta = sy.symbols(f'theta_{self.idx[0]+1}')
+            expr = self.c*sy.cos((np.pi/2-theta)/2)-self.r
+            return sy.Piecewise((expr, expr > self.minOverwrite), (self.minOverwrite, True))
 
     def __init__(self, R, D, F=None, ranges=None, types=None, minFactor=None, constraints=None, npJoints=None, name='Placeholder'):
 
@@ -1059,6 +1097,50 @@ class VariableStrucMatrix():
         S = self.D*R
         return S
 
+    def S_sym(self):
+        R = self.R.copy()
+        R = sy.Matrix(R)
+        for func in self.effortFunctions:
+            if hasattr(func, "sym"):
+                if callable(func.sym):
+                    R[func.idx] = func.sym()
+        sy.pprint(R, wrap_line=False)
+        S_sym = sy.Matrix(D).multiply_elementwise(R)
+        sy.pprint(S_sym, wrap_line=False)
+        piecewise_list = unique_piecewise_functions(S_sym)
+        n_piecewise = len(piecewise_list)
+            # You must handle variable number of branches for more complex cases:
+        n_branches = [len(pw.args) for pw in piecewise_list]
+        branch_combos = list(itertools.product(*[range(n) for n in n_branches]))
+        all_matrices = []
+        for branch_choices in branch_combos:
+            pw_sub_dict = {pw: pw.args[c][0] for pw, c in zip(piecewise_list, branch_choices)}
+            resolved = S_sym.xreplace(pw_sub_dict)
+            all_matrices.append(resolved)
+        # print(unique_piecewise_functions(S_sym))
+        return all_matrices
+
+    def F_sym(self):
+        Ss = self.S_sym()
+        R_A = sy.Matrix(np.eye(self.numTendons)*0.273)
+        theta =sy.Matrix(sy.symbols(f'theta_1:{self.numJoints+1}'))
+        phi = sy.Matrix(sy.symbols(f'phi_1:{self.numTendons+1}'))
+        Fs = []
+        for s in Ss:
+            try:
+                print("evaluating a new F")
+                F = theta + (s.T).pinv() * R_A * phi
+                Fs.append(F)
+            except:
+                print("skipping and trying again")
+        return Fs
+
+    def F_J_sym(self):
+        pass
+
+    def H_J_sym(self):
+        pass
+
     def maxGrip(self, THETA):
         maxStrength = 0
         _, boundaryGrasps = self.torqueDomainVolume(THETA)
@@ -1077,17 +1159,20 @@ class VariableStrucMatrix():
         domain, boundaryGrasps = special_minkowski(singleForceVectors)
         return domain, boundaryGrasps
 
+    def get_magnitude(self, THETA):
+        return np.sqrt(np.linalg.det(self.S(THETA) @ self.S(THETA).T))
+
     def plotGrasp(self, THETA, grasp, showBool=False):
         Smat = self.S(THETA)
         S = StrucMatrix(S=Smat, F=self.F, name=self.name)
         S.plotGrasp(grasp, showBool=showBool, obj=type(self))
 
-    def plotCapability(self, THETA, showBool=False, colorOverride=None, enforcePosTension=False, skipJoints=None):
+    def plotCapability(self, THETA, showBool=False, colorOverride=None, enforcePosTension=False, skipJoints=None, metric=False):
         if skipJoints == None:
             skipJoints = self.npJoints
         Smat = self.S(THETA)
         S = StrucMatrix(S=Smat, F=self.F, name=self.name, minFactor=self.minFactor)
-        S.plotCapability(showBool = showBool, colorOverride=colorOverride, obj=type(self), enforcePosTension=enforcePosTension, skipJoints=skipJoints)
+        S.plotCapability(showBool = showBool, colorOverride=colorOverride, obj=type(self), enforcePosTension=enforcePosTension, skipJoints=skipJoints, metric=metric)
 
     def plotCapabilityAcrossAllGrasps(self, resl=5, showBool=False):
         # np.linspace
@@ -1286,13 +1371,13 @@ class VariableStrucMatrix():
 
             mask = np.ones(self.parent.numJoints, dtype=bool)
             if self.parent.npJoints is not None:
-                mask[self.parent.npJoints] = False        
+                mask[self.parent.npJoints] = False
             S = S[mask,:]
 
             nullSpace = sp.linalg.null_space(S)
             # Condition the nullSpace output well for future checking
             nullSpace[np.isclose(nullSpace, 0)] = 0
-            
+
             biasForceSpace = nullSpace
             # Record condition of the null space
             if np.min(abs(biasForceSpace)) == 0:
@@ -1338,9 +1423,25 @@ centeredType1 = StrucMatrix(R,D,name='centered1')
 D = np.array([[-1,1,1,1],
               [0,-1,1,1],
               [0,0,-1,1]])
-r=1
-R = r*np.absolute(D)
-inherent = StrucMatrix(R,D,name='inherent')
+# r=0.25
+# R = r*np.absolute(D)
+R = np.array([[0.15,0.2,0.2,0.2],
+              [0,0.15,0.2,0.2],
+              [0,0,0.15,0.2]])
+inherentFixed = StrucMatrix(R,D,name='inherent fixed')
+
+# Inherently contollable
+D = np.array([[-1,1,1,1],
+              [0,-1,1,1],
+              [0,0,-1,1]])
+# r=0.25
+# R = r*np.absolute(D)
+R = np.array([[10,7.5,7.5,7.5],
+              [0,7.5,5,5],
+              [0,0,5,5]])
+inherentFixedLuke = StrucMatrix(R,D,name='inherent fixed luke')
+
+
 
 # Balanced type 1
 D = np.array([[1,1,1,-1],
@@ -1538,7 +1639,7 @@ D = np.array([[-1,1,1,1,1],
 R = np.array([[np.nan,np.nan,np.nan,np.nan,np.nan],
               [0,     np.nan,np.nan,np.nan,np.nan],
               [0,     0     ,np.nan,np.nan,np.nan],
-              [0,     0     ,0     ,np.nan,np.nan]])    
+              [0,     0     ,0     ,np.nan,np.nan]])
 
 fs = [(0, .35,.235),(0, .35,.235),(0, .35,.235)]
 es = [(.25, .365),(.25, .365),(.25, .365)]
@@ -1565,8 +1666,8 @@ D = D[:-1,:-1]
 
 R = R[:-1,:-1]
 
-fs = [(0, .425,.25),(0, .375,.25),(0, .4,.225)]
-es = [(0.25, .25),(0.25, .25),(.25, .25)]
+fs = [(0, .35,.2),(0, .35,.2),(0, .35,.2)]
+es = [(0.25, .367),(0.25, .367),(.25, .367)]
 ps = [(.625/2*0.65,.625/2,0.4),(.625/2*0.65,.4,0.4)]
 
 secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
@@ -1598,3 +1699,18 @@ secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
 #                                               F = np.array([50]*5),
 #                                       minFactor = 0.01,
 #                                            name = "Sdev")
+
+if __name__ == "__main__":
+    S = secondaryDev
+    # sy.pprint(S.S_sym(), wrap_line=False)
+    # Ss = S.S_sym()
+    # theta1 = sy.symbols('theta_1')
+    anglef = S.effortFunctions[1].sym()
+    print(anglef)
+    var = list(anglef.free_symbols)[0]
+    sy.plot(anglef, (var, 0, np.pi/2), title="Joint Angle Example")
+    plt.show()
+    # Fs = S.F_sym()
+    # for f in Fs:
+    #     sy.pprint(f, wrap_line=False)
+    # print(len(Fs))
