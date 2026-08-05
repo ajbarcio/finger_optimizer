@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.differentiate import jacobian
+import sympy as sp
 
 def get_bifurcation_angles(target_prox_T1, target_prox_T2, target_term_T1, target_term_T2, prox_slip, term_slip, prop_prox):
     # target_prox_T1 = -2.174503356588717; target_prox_T2 = -2.418878165370875
@@ -60,7 +61,7 @@ def transform(Q,L): # transform the world frame to end effector frame given join
         T = rot_z(Q[idx],L[idx]) # rotation and translation matrix
         # all_trans.append(T) # add to list of transformation matrices
         origin = T @ origin # transform origin (world) to end effector coordinate frame
-    return(origin[:3]) # return final transformation matrix and list of transformation matrices for each joint angle and length
+    return np.append(origin[:3], np.sum(Q))  # [x, y, z, sum_of_flexion_angles]
 
 ########### FINGER #############
 def get_jacobian_at_pose(Q,L):
@@ -126,9 +127,10 @@ D = np.array([ # direction matrix
     # [1, 1,-1,-1,-1,-1,-1],
     # [1,-1,-1,-1,-1,-1,-1]])
 
+np.set_printoptions(precision=10, formatter={'float_kind':'{:.5f}'.format})
+
 if __name__ == "__main__":
     q_flx = np.radians(np.array([0,45,45,10])); q_int = np.radians(np.array([0,45,10,10])); q_ext = np.radians(np.array([0,10,10,10]))
-    Q = q_flx
-    # print(f"########## CUEVAS MODEL #############\n{get_jacobian_at_pose_3(q_flx, L)} \n\n")
+    Q = np.array([45,45,10])
+    print(f"########## CUEVAS MODEL #############\n{get_jacobian_at_pose_3(Q, L)} \n\n")
     print(f"################ TEST MODEL ############## \n {get_jacobian_at_pose(q_flx, L)}")
-    # print(transform(Q,L))
