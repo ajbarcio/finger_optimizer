@@ -225,31 +225,31 @@ def rot(q,l):
 #     # Q = np.asarray(Q).reshape(-1)
 #     return trans(Q, L) @ np.array([0, 0, 1])
 
-def ee_func(x, l):
-    x = np.asarray(x)
-    # If jacobian passes shape (m, k) with k==1, reduce to (m,)
-    if x.ndim > 1:
-        # collapse trailing axes -> shape (m, k)
-        x = x.reshape(x.shape[0], -1)
-        if x.shape[1] == 1:
-            # single point: use 1D vector
-            qvec = x[:, 0]
-            out = (trans(qvec, l) @ np.array([0, 0, 1]))
-        else:
-            # batch of k points: compute each column
-            k = x.shape[1]
-            out = np.empty((3, k))
-            for col in range(k):
-                out[:, col] = trans(x[:, col], l) @ np.array([0, 0, 1])
-    else:
-        print("wrong way")
-        # already 1-D
-        out = trans(x, l) @ np.array([0, 0, 1])
-    if out.ndim==1:
-       out = np.atleast_2d(out).T
-    return out
+# def ee_func(x, l):
+#     x = np.asarray(x)
+#     # If jacobian passes shape (m, k) with k==1, reduce to (m,)
+#     if x.ndim > 1:
+#         # collapse trailing axes -> shape (m, k)
+#         x = x.reshape(x.shape[0], -1)
+#         if x.shape[1] == 1:
+#             # single point: use 1D vector
+#             qvec = x[:, 0]
+#             out = (trans(qvec, l) @ np.array([0, 0, 1]))
+#         else:
+#             # batch of k points: compute each column
+#             k = x.shape[1]
+#             out = np.empty((3, k))
+#             for col in range(k):
+#                 out[:, col] = trans(x[:, col], l) @ np.array([0, 0, 1])
+#     else:
+#         print("wrong way")
+#         # already 1-D
+#         out = trans(x, l) @ np.array([0, 0, 1])
+#     if out.ndim==1:
+#        out = np.atleast_2d(out).T
+#     return out
 
-def ee_func(x, l):
+def ee_func(x, l): # 'ee' meaning 'end effector
     x = np.asarray(x)
     # If jacobian passes shape (m, k) with k==1, reduce to (m,)
     if x.ndim > 1:

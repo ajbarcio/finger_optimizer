@@ -886,179 +886,158 @@ class InsufficientRanges(Exception):
     def __init__(self, message='ranges must match number of variable pulleys'):
         super().__init__(message)
 
-class DiscreteStrucMatrix(): # moment arm structure matrix, R (Valero Cuevas)
-    def __init__(self, THETA, lengths=None, F=None, name='DiscreteStrucMatrix'): ## Idk what to do for this
-        self.theta = np.asarray(THETA, dtype=float)
-        self.lengths = np.asarray(lengths if lengths is not None else [50e-3, 31e-3, 16e-3], dtype=float)
-        self.name = name
+# class DiscreteStrucMatrix(): # moment arm structure matrix, R (Valero Cuevas)
+#     def __init__(self, 
+#                  q_setpoints=[np.radians(np.array([0, 45, 45, 10])), np.radians(np.array([0, 45, 10, 10])), np.radians(np.array([0, 10, 10, 10]))],
+#                  R=None, D=None, types=[]
+#                 F=None, name='DiscreteStrucMatrix'): ## Idk what to do for this
+#         self.theta = np.asarray(THETA, dtype=float)
+#         if lengths == None:
+#             lengths=self.lengths
+#         self.name = name
 
-        self.q_flx = np.radians(np.array([0, 45, 45, 10]))
-        self.q_int = np.radians(np.array([0, 45, 10, 10]))
-        self.q_ext = np.radians(np.array([0, 10, 10, 10]))
-        self.pose_names = ['flexion', 'intermediate', 'extension']
-        self.pose_angles = [self.q_flx, self.q_int, self.q_ext]
+#         # self.q_flx = np.radians(np.array([0, 45, 45, 10]))
+#         # self.q_int = np.radians(np.array([0, 45, 10, 10]))
+#         # self.q_ext = np.radians(np.array([0, 10, 10, 10]))
+#         self.q_setpints = q_setpoints
+#         # self.pose_names = ['flexion', 'intermediate', 'extension']
+#         # self.pose_angles = [self.q_flx, self.q_int, self.q_ext]
 
-        self.F = np.ones(7) if F is None else np.asarray(F, dtype=float) # is this necessary?
-        ## how is any of this necessary (besides the moment arm matrix)
-        self.numJoints = 4
-        self.numTendons = 7
-        self.matrix = None
-        self.R = None
-        self.S = None
-        self.D = None
+#         # self.F = np.ones(7) if F is None else np.asarray(F, dtype=float) # is this necessary?
+#         # ## how is any of this necessary (besides the moment arm matrix)
+#         # self.numJoints = 4
+#         # self.numTendons = 7
+#         # self.matrix = None
+#         # self.R = None
+#         # self.S = None
+#         # self.D = None
 
-        self._update_state(self.theta)
+#         # self._update_state(self.theta)
 
-    def _get_theta(self, theta=None):
-        if theta is None:
-            theta = self.theta
-        return np.asarray(theta, dtype=float)
+#     def __call__(self, theta=None):
 
-    def _update_state(self, theta):
-        q = self._get_theta(theta)
-        self.theta = q
-        self.jacobian = self.jacobian_at_pose(q)
-        self.R = self.moment_arm_matrix(q)
-        self.S = self.R
-        self.matrix = self.R
-        self.D = np.ones_like(self.R)
-        self.numJoints = self.R.shape[0]
-        self.numTendons = self.R.shape[1]
-        return self.R
+#     def _get_theta(self, theta=None):
+#         if theta is None:
+#             theta = self.theta
+#         return np.asarray(theta, dtype=float)
 
-    def reinit(self, theta=None):
-        return self._update_state(theta)
+#     def _update_state(self, theta):
+#         q = self._get_theta(theta)
+#         self.theta = q
+#         self.jacobian = self.jacobian_at_pose(q)
+#         self.R = self.moment_arm_matrix(q)
+#         self.S = self.R
+#         self.matrix = self.R
+#         self.D = np.ones_like(self.R)
+#         self.numJoints = self.R.shape[0]
+#         self.numTendons = self.R.shape[1]
+#         return self.R
 
-    def _base_adjustment_set(self):
-        return {
-            'PIP_FDP': 1.0,
-            'MCP_FDP': 1.0,
-            'MCP_DI': 1.0,
-            'MCP_PI': 1.0,
-            'PIP_FDS': 1.0,
-            'prox_slip': 1.0,
-            'angle_top': 1.0,
-            'angle_bot': 1.0,
-            'prop_prox': 1.0,
-        }
+#     def reinit(self, theta=None):
+#         return self._update_state(theta)
 
-    def _pose_adjustment_templates(self):
-        flexion = self._base_adjustment_set()
-        intermediate = self._base_adjustment_set()
-        intermediate.update({
-            'PIP_FDP': 0.90,
-            'prox_slip': 0.80,
-            'angle_top': 0.77,
-            'angle_bot': 1.10,
-        })
-        extension = self._base_adjustment_set()
-        extension.update({
-            'PIP_FDP': 0.90,
-            'MCP_FDP': 0.80,
-            'MCP_DI': 1.80,
-            'MCP_PI': 0.40,
-            'prop_prox': 1.20,
-            'PIP_FDS': 0.8,
-        })
-        return [flexion, intermediate, extension]
+#     def _base_adjustment_set(self):
+#         return {
+#             'PIP_FDP': 1.0,
+#             'MCP_FDP': 1.0,
+#             'MCP_DI': 1.0,
+#             'MCP_PI': 1.0,
+#             'PIP_FDS': 1.0,
+#             'prox_slip': 1.0,
+#             'angle_top': 1.0,
+#             'angle_bot': 1.0,
+#             'prop_prox': 1.0,
+#         }
 
-    def _pose_adjustments(self, q):
-        q = np.asarray(q, dtype=float)
-        templates = self._pose_adjustment_templates()
-        poses = self.pose_angles
-        distances = np.array([np.linalg.norm(q - pose) for pose in poses], dtype=float)
+#     def _pose_adjustment_templates(self):
+#         flexion = self._base_adjustment_set()
+#         intermediate = self._base_adjustment_set()
+#         intermediate.update({
+#             'PIP_FDP': 0.90,
+#             'prox_slip': 0.80,
+#             'angle_top': 0.77,
+#             'angle_bot': 1.10,
+#         })
+#         extension = self._base_adjustment_set()
+#         extension.update({
+#             'PIP_FDP': 0.90,
+#             'MCP_FDP': 0.80,
+#             'MCP_DI': 1.80,
+#             'MCP_PI': 0.40,
+#             'prop_prox': 1.20,
+#             'PIP_FDS': 0.8,
+#         })
+#         return [flexion, intermediate, extension]
 
-        if np.any(np.isclose(distances, 0.0, atol=1e-12)):
-            idx = int(np.argmin(distances))
-            return templates[idx]
+#     def _pose_adjustments(self, q):
+#         q = np.asarray(q, dtype=float)
+#         templates = self._pose_adjustment_templates()
+#         poses = self.pose_angles
+#         distances = np.array([np.linalg.norm(q - pose) for pose in poses], dtype=float)
 
-        weights = 1.0 / np.maximum(distances, 1e-12)
-        weights = weights / np.sum(weights)
+#         if np.any(np.isclose(distances, 0.0, atol=1e-12)):
+#             idx = int(np.argmin(distances))
+#             return templates[idx]
 
-        all_keys = sorted({key for template in templates for key in template})
-        adjusted = {}
-        for key in all_keys:
-            adjusted[key] = float(np.dot(weights, [template.get(key, 1.0) for template in templates]))
-        return adjusted
+#         weights = 1.0 / np.maximum(distances, 1e-12)
+#         weights = weights / np.sum(weights)
 
-    def jacobian_at_pose(self, THETA, lengths=None):# NEED TO USE jacobian_at_pose2() FROM 'finger.py'
-        THETA = self._get_theta(THETA)
-        if len(THETA) != 4:
-            raise ValueError("Input THETA must contain 4 joint angles.")
+#         all_keys = sorted({key for template in templates for key in template})
+#         adjusted = {}
+#         for key in all_keys:
+#             adjusted[key] = float(np.dot(weights, [template.get(key, 1.0) for template in templates]))
+#         return adjusted
 
-        self.lengths = np.asarray(lengths if lengths is not None else [50e-3, 31e-3, 16e-3], dtype=float)
-        return np.array([
-            [
-                -1*np.cos(THETA[0])*(np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2]),
-                np.sin(THETA[0])*(self.lengths[0]*np.sin(THETA[1]) + self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
-                np.sin(THETA[0])*(self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
-                self.lengths[2]*np.sin(THETA[0])*np.sin(np.sum(THETA[1:4]))
-            ],
-            [
-                -1*(np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2])*np.sin(THETA[0]),
-                -1*np.cos(THETA[0])*(self.lengths[0]*np.sin(THETA[1]) + self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
-                -1*np.cos(THETA[0])*(self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
-                -1*np.cos(THETA[0])*self.lengths[2]*np.sin(np.sum(THETA[1:4]))
-            ],
-            [
-                0,
-                np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2],
-                np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2],
-                np.cos(np.sum(THETA[1:4]))*self.lengths[2]
-            ],
-            [0, 1, 1, 1]
-        ], dtype=float)
+#     def moment_arm_matrix(self, theta=None):
+#         q = self._get_theta(theta)
+#         if len(q) != 4:
+#             raise ValueError("Input q must be a 4-element array representing joint angles [q1, q2, q3, q4].") # this should not be a hard-coded number of angles
 
-    def moment_arm_matrix(self, theta=None):
-        q = self._get_theta(theta)
-        if len(q) != 4:
-            raise ValueError("Input q must be a 4-element array representing joint angles [q1, q2, q3, q4].") # this should not be a hard-coded number of angles
+#         # Model Parameters (Nominal Values, modified by pose)
+#         MCP_FDP, MCP_DI, MCP_PI, PIP_FDP, PIP_FDS = 9.03962540, 2.00817179, 4.01227521, 5.09361601, 0.9104356651336974
+#         prox_slip = -3.479205370541947
+#         term_slip = -1.50
+#         prop_prox = 0.625
+#         angle_top = np.radians(78.66646801)
+#         angle_bot = np.radians(38.29311372)
+#         T2_diag = np.sin(angle_top)/np.sin(angle_top+angle_bot)
+#         T2_lat = np.sin(angle_bot)/np.sin(angle_top+angle_bot)
 
-        # Model Parameters (Nominal Values, modified by pose)
-        MCP_FDP, MCP_DI, MCP_PI, PIP_FDP, PIP_FDS = 9.03962540, 2.00817179, 4.01227521, 5.09361601, 0.9104356651336974
-        prox_slip = -3.479205370541947
-        term_slip = -1.50
-        prop_prox = 0.625
-        angle_top = np.radians(78.66646801)
-        angle_bot = np.radians(38.29311372)
-        T2_diag = np.sin(angle_top)/np.sin(angle_top+angle_bot)
-        T2_lat = np.sin(angle_bot)/np.sin(angle_top+angle_bot)
+#         adjustments = self._pose_adjustments(q)
+#         MCP_FDP *= adjustments['MCP_FDP']
+#         MCP_DI *= adjustments['MCP_DI']
+#         MCP_PI *= adjustments['MCP_PI']
+#         PIP_FDP *= adjustments['PIP_FDP']
+#         PIP_FDS *= adjustments['PIP_FDS']
+#         prox_slip *= adjustments['prox_slip']
+#         angle_top *= adjustments['angle_top']
+#         angle_bot *= adjustments['angle_bot']
+#         prop_prox = adjustments['prop_prox'] # does this need to be multiplied?
 
-        adjustments = self._pose_adjustments(q)
-        MCP_FDP *= adjustments['MCP_FDP']
-        MCP_DI *= adjustments['MCP_DI']
-        MCP_PI *= adjustments['MCP_PI']
-        PIP_FDP *= adjustments['PIP_FDP']
-        PIP_FDS *= adjustments['PIP_FDS']
-        prox_slip *= adjustments['prox_slip']
-        angle_top *= adjustments['angle_top']
-        angle_bot *= adjustments['angle_bot']
-        prop_prox = adjustments['prop_prox'] # does this need to be multiplied?
+#         prox_T2 = prox_slip*T2_lat
+#         term_T2 = term_slip*T2_diag
+#         prox_T1 = prox_slip*prop_prox
+#         term_T1 = term_slip*(1-prop_prox)
 
-        prox_T2 = prox_slip*T2_lat
-        term_T2 = term_slip*T2_diag
-        prox_T1 = prox_slip*prop_prox
-        term_T1 = term_slip*(1-prop_prox)
+#         R = np.array([
+#             [2.91270673, 0.5*2.91238096, -6.79881327, 6.96495580, 0.301304379, -4.62918718, -1.19524896],
+#             [MCP_FDP, 1.105755707531863*MCP_FDP, MCP_DI, MCP_PI, -9.37992146, 7.02453290, -9.37992146],
+#             [PIP_FDP, PIP_FDS*PIP_FDP, -1.14638637e-05, prox_T2, prox_T1, prox_T2, prox_T1],
+#             [3.64002601, -1.90320646e-04, -1.14638637e-05, term_T2, term_T1, term_T2, term_T1]
+#         ], dtype=float) * 1e-3
+#         return R
 
-        R = np.array([
-            [2.91270673, 0.5*2.91238096, -6.79881327, 6.96495580, 0.301304379, -4.62918718, -1.19524896],
-            [MCP_FDP, 1.105755707531863*MCP_FDP, MCP_DI, MCP_PI, -9.37992146, 7.02453290, -9.37992146],
-            [PIP_FDP, PIP_FDS*PIP_FDP, -1.14638637e-05, prox_T2, prox_T1, prox_T2, prox_T1],
-            [3.64002601, -1.90320646e-04, -1.14638637e-05, term_T2, term_T1, term_T2, term_T1]
-        ], dtype=float) * 1e-3
-        return R
+#     def get_jacobian(self, theta=None):
+#         return self.jacobian_at_pose(theta)
 
-    def get_jacobian(self, theta=None):
-        return self.jacobian_at_pose(theta)
+#     def get_matrix(self, theta=None):
+#         return self.moment_arm_matrix(theta)
 
-    def get_matrix(self, theta=None):
-        return self.moment_arm_matrix(theta)
+#     def __call__(self, theta=None):
+#         return self._update_state(theta)
 
-    def __call__(self, theta=None):
-        return self._update_state(theta)
-
-    def __str__(self):
-        return f"DiscreteStrucMatrix with {len(self.theta)} angles"
+#     def __str__(self):
+#         return f"DiscreteStrucMatrix with {len(self.theta)} angles"
 
 class VariableStrucMatrix():
 
@@ -1827,7 +1806,7 @@ primaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*4
                                               +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
                                               +[VariableStrucMatrix.triangle_joint]*3
                                               +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
-                                           F = np.array([50]*5),
+                                           F = np.array([50]*4),
                                    minFactor = minFactor,
                                    npJoints  = [2],
                                         name = "Pdev")
@@ -1850,7 +1829,7 @@ secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
                                           types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
-                                              F = np.array([50]*5),
+                                              F = np.array([50]*4),
                                       minFactor = 0.1,
                                            name = "Sdev")
 

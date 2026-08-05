@@ -1,6 +1,6 @@
 import numpy as np
 import warnings
-from strucMatrices import VariableStrucMatrix, StrucMatrix, secondaryDev
+from strucMatrices import VariableStrucMatrix, StrucMatrix, secondaryDev, primaryDev
 from utils import trans, jac, clean_array, hArray, generate_binary_lists
 from scipy.optimize import nnls, lsq_linear, linprog
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
@@ -69,6 +69,31 @@ class Finger():
                1]])
         return J
         # -
+    def get_jacobian_at_pose_3(self, THETA, lengths=None):
+        if lengths==None:
+            lengths=self.lengths
+        J = np.array([
+            [
+                -1*np.cos(THETA[0])*(np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2]),
+                np.sin(THETA[0])*(self.lengths[0]*np.sin(THETA[1]) + self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
+                np.sin(THETA[0])*(self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
+                self.lengths[2]*np.sin(THETA[0])*np.sin(np.sum(THETA[1:4]))
+            ],
+            [
+                -1*(np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2])*np.sin(THETA[0]),
+                -1*np.cos(THETA[0])*(self.lengths[0]*np.sin(THETA[1]) + self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
+                -1*np.cos(THETA[0])*(self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
+                -1*np.cos(THETA[0])*self.lengths[2]*np.sin(np.sum(THETA[1:4]))
+            ],
+            [
+                0,
+                np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2],
+                np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2],
+                np.cos(np.sum(THETA[1:4]))*self.lengths[2]
+            ],
+            [0, 1, 1, 1]
+        ], dtype=float)
+        return J
 
     def tip_wrench_at_pose_to_grip(self, THETA, F, lengths=None, frame="world"):
         '''
@@ -233,7 +258,8 @@ class Finger():
         convex_forces = ConvexHull(np.array(unique_forces))
         return convex_forces
 
-if __name__=="__main__":
+def planar_force_demo():
+    # from strucMatrices import secondaryDev
     # from strucMatrices import secondaryDev
     testFinger = Finger(secondaryDev, [1.4,1.4,1.2])
     # pose = np.array([10,10,10])*np.pi/180
@@ -295,8 +321,14 @@ if __name__=="__main__":
     ani.save("force_capability_of_fake_finger.gif", writer="pillow", fps=10)
 
     plt.show()
-    # pose = np.array([0.5,1,0.2])
-    # print(np.linalg.norm(testFinger.get_jacobian_at_pose(pose)-testFinger.get_jacobian_at_pose_2(pose)))
-    # print(testFinger.get_jacobian_at_pose(pose))
-    # print(testFinger.get_jacobian_at_pose_2(pose))
-    # pass
+
+if __name__=="__main__":
+    lengths=[0,1.4, 1.4, 1.2]
+    testFinger = Finger(primaryDev, lengths=lengths)
+    # pose = np.array([10,10,10])*np.pi/180
+    angles = np.linspace(5*np.pi/180,np.pi/2,5)
+    for angle in angles:
+        print("algorithmically generated jacobian:")
+        print(testFinger.get_jacobian_at_pose([angle]*testFinger.numJoints))
+        print("manually generated jacobian:")
+        print(testFinger.get_jacobian_at_pose_3([angle]*testFinger.numJoints, lengths[1:]))

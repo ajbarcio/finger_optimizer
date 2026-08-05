@@ -167,7 +167,6 @@ def null_model():
         print(f"\033[1mNullspace of M=J^-TRFo:\n\033[0m{null_space(M)}"); print(f"\033[1mNullspace of RFo:\n\033[0m{null_space(RFo)}")
         print(f"\n\n\033[1mM=J^-TRFo:\n\033[0m{M}\n\033[1mRFo:\n\033[0m{RFo}")
 def output_csv():
-
 # ── Open CSV once, write header, then all rows ────────────────────────────────
     with open("solver_results.csv", "w", newline="") as csv.out:
         writer = csv.writer(csv.out)
@@ -214,7 +213,7 @@ def output_csv():
                     round(np.linalg.norm(diff[1:3]), 5)
                 ])
 
-np.set_printoptions(precision=10, formatter={'float_kind':'{:.5f}'.format})
+# np.set_printoptions(precision=10, formatter={'float_kind':'{:.5f}'.format})
 
 
 if __name__ == "__main__":    
@@ -248,5 +247,6 @@ if __name__ == "__main__":
 
         # output_csv()
         # null_model()
+        print(J_at_pos(q_flx))
         
     # print(f"M_paper:\n{M_paper}");print(f"M:\n{M}");print(f"Difference:\n\n{M-M_paper}")
