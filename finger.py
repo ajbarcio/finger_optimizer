@@ -264,6 +264,7 @@ def planar_force_demo():
     testFinger = Finger(secondaryDev, [1.4,1.4,1.2])
     # pose = np.array([10,10,10])*np.pi/180
     angles = np.linspace(5*np.pi/180,np.pi/2,86)
+    
     # plt.figure()
     fig, ax = plt.subplots()
 
@@ -327,8 +328,19 @@ if __name__=="__main__":
     testFinger = Finger(primaryDev, lengths=lengths)
     # pose = np.array([10,10,10])*np.pi/180
     angles = np.linspace(5*np.pi/180,np.pi/2,5)
-    for angle in angles:
-        print("algorithmically generated jacobian:")
-        print(testFinger.get_jacobian_at_pose([angle]*testFinger.numJoints))
-        print("manually generated jacobian:")
-        print(testFinger.get_jacobian_at_pose_3([angle]*testFinger.numJoints, lengths[1:]))
+
+    testFinger = Finger(secondaryDev, [1.4,1.4,1.2])
+    pose = np.array([10,10,10])*np.pi/180 # flexion
+    # angles = np.linspace(5*np.pi/180,np.pi/2,86)
+    convex_hull = testFinger.get_planar_force_capability_at_pose(pose)
+    plt.figure()
+    convex_hull_plot_2d(convex_hull, ax=plt.gca())
+    plt.title("Feasible Force Region for Extension Pose (lbs)", fontsize=16); plt.xlabel("Fz", fontsize=16); plt.ylabel("Fy", fontsize=16)
+    plt.show()
+
+
+    # for angle in angles:
+    #     print("algorithmically generated jacobian:")
+    #     print(testFinger.get_jacobian_at_pose([angle]*testFinger.numJoints))
+    #     print("manually generated jacobian:")
+    #     print(testFinger.get_jacobian_at_pose_3([angle]*testFinger.numJoints, lengths[1:]))

@@ -54,17 +54,26 @@ def adab_trans(Q,L): # rotation and translation matrix about z-axis (flexion-ext
 def transform(Q,L): # transform the world frame to end effector frame given joint angles and link lengths
     # pass num_joints? check if number of link lengths are equal to number of joints?
     Q = np.asarray(Q)
+    if len(Q) != len(L):
+        raise ValueError("Each input Q must have a respective length L for all joints")
     origin = np.transpose(np.array([0,0,0,1])) # world/global coordinate (x,y,z,1)=(0,0,0,1)
     trans = np.eye(4) # identity matrix to compile all matrix transformations
-    if len(Q) > len(L): # if there are more DOF than phalange lengths, assume first joint is ad-abduction and remaining are flexion-extension
+
+    if len(Q) == 4: # if there are more DOF than phalange lengths, assume first joint is ad-abduction and remaining are flexion-extension
         T = adab_trans(Q[0],0) # MCP ad-abduction transformation matrix (0 length relative to origin) 
-        Q = Q[1:] # remove first element of Q
+        Q = Q[1:]; L = L[1:] # remove first element of Q and L
         trans = trans @ T # transform origin to new coordinate frame
+
     for idx in range(len(Q)): # for each joint angle and length, find the transformation matrix
         T = fe_trans(Q[idx],L[idx]) # rotation and translation matrix
         
         trans = trans @ T
-    return np.append((trans @ origin)[:3], np.sum(Q)) # [x, y, z, sum_of_flexion_angles]
+    pos = (trans @ origin)[:3] # apply full transform to origin
+
+    if len(np.asarray(Q)) == len(L): # 3 DOF: no ad-adbuction
+        return np.append(pos[1:],np.sum(Q)) # [x, y, sum of angles] (2x2)
+    else:
+        return np.append(pos, np.sum(Q)) # [x, y, z, sum of angles] (3x3)
 
 ########### FINGER #############
 def get_jacobian_sympy():
@@ -149,7 +158,7 @@ def get_jacobian_at_pose_3(THETA, lengths):
     return J
 
 #### VALERO CUERVAS FLEXION PARAMETERS ####
-L = np.array([50e-3, 31e-3, 16e-3]) # phalange lenghts (m)
+L = np.array([0, 50e-3, 31e-3, 16e-3]) # phalange lenghts (m)
 PCSA = np.array([4.10, 7.3, 4.16, 4.32, 0.784, 0.72, 3.058]) # (cm^2) adjusted values
 Fo = np.diag(PCSA*30) # Fo=diag(fo) where fo=PCSAxσ     (cm^2*N/cm^2) = N
 
@@ -183,7 +192,8 @@ np.set_printoptions(precision=10, formatter={'float_kind':'{:.5f}'.format})
 if __name__ == "__main__":
     q_flx = np.radians(np.array([0,45,45,10])); q_int = np.radians(np.array([0,45,10,10])); q_ext = np.radians(np.array([0,10,10,10]))
     # Q = np.array([45,45,10])
-    Q = np.radians(np.array([0,45,45,10]))
+    Q = np.radians(np.array([45,45,10]))
     print(f"########## CUEVAS MODEL #############\n{get_jacobian_at_pose_3(q_flx, L)} \n\n")
+    # print(f"########## CUEVAS MODEL #############\n{get_jacobian_at_pose_3(q_flx)[1:,1:]} \n\n")
     print(f"################ TEST MODEL ############## \n {get_jacobian_at_pose(Q,L)}")
     # sp.pprint(get_jacobian_sympy())
