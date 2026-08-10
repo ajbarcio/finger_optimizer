@@ -1,3 +1,5 @@
+# TODO: We now have 2-constraint plotting for feasible force and torque regions, need to make definition for 1-constraint
+# TODO: finish feasible force and torque polytopes
 import numpy as np
 import itertools as it
 import scipy.optimize as opt
@@ -5,7 +7,7 @@ import scipy.spatial as spa
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from Solver import Mo_at_pos, q_flx, q_int, q_ext, R_at_pos, Fo_at_pos
+from .Solver import Mo_at_pos, q_flx, q_int, q_ext, R_at_pos, Fo_at_pos
 
 num_excitations = 7
 num_constraints = 5 # CONSTRAINT(1): num_constraints = 6
@@ -22,19 +24,8 @@ def solve_for_feasible_excitations(A, b):
     #     print(np.linalg.norm(res.con))
     return res.x, res.success
 
-print("--")
-
-unique_forces_q_ext = []
-unique_forces_q_int = []
-unique_forces_q_flx = []
-
-pose_dict = {"Extended": q_ext, 
-             "Intermediate": q_int,
-             "Flexed": q_flx}
-
-for name, pose in pose_dict.items():
-    # unique_froces_for_pose = []
-    print(f"-----------# Trying Pose {name} {pose} #-----------")
+def get_convex_capability_at_pos(pose,name,num_constraints): # finds feasible force and torque regions
+    # print(f"-----------# Trying Pose {name} {pose} #-----------")
     num_sols_for_pose = 0
     unique_sol_for_pose = set()
     unique_forces_for_pose = []
@@ -50,8 +41,12 @@ for name, pose in pose_dict.items():
             A = np.zeros([num_constraints,num_excitations])
             for i in range(num_constraints):
                 A[i,idx[i]]=1
-            b = np.concatenate([[0,0], b]) # CONSTRAINT(1): b = np.concatenate([[0], b])
-            A = np.vstack((Mo_at_pos(pose)[0,:],Mo_at_pos(pose)[-1,:],A)) # CONSTRAINT(1): A = np.vstack((Mo_at_pos(pose)[0,:], A))
+            if (num_excitations-num_constraints)==2: # TWO CONSTRAINTS (CUEVAS MODEL)
+                b = np.concatenate([[0,0], b])
+                A = np.vstack((Mo_at_pos(pose)[0,:],Mo_at_pos(pose)[-1,:],A))
+            elif (num_excitations-num_constraints)==1: # ONE CONSTRAINT (TORQUE ALLOWANCE)
+                b = np.concatenate([[0], b])
+                A = np.vstack((Mo_at_pos(pose)[0,:], A))
                         
             excitation, success = solve_for_feasible_excitations(A, b)
             if not success:
@@ -61,10 +56,10 @@ for name, pose in pose_dict.items():
                 # print(np.linalg.norm(con))
                 num_sols_for_pose += 1
                 unique_sol_for_pose.add(tuple(excitation))
-    print("--")
+    # print("--")
             
-    print(f"found {num_sols_for_pose} intersections at pose {pose}")
-    print(f"found {len(unique_sol_for_pose)} unique intersections at pose {pose}")
+    # print(f"found {num_sols_for_pose} intersections at pose {pose}")
+    # print(f"found {len(unique_sol_for_pose)} unique intersections at pose {pose}")
     for u_ext in list(unique_sol_for_pose):
         # print(f"For the exitation: {np.array(list(u_ext))}")
 
@@ -82,25 +77,42 @@ for name, pose in pose_dict.items():
             unique_forces_q_int.append(force)
         elif (pose == q_flx).all():
             unique_forces_q_flx.append(force)
-    print(f"")
+    # print(f"")
+    convex_forces_for_pose = spa.ConvexHull(np.array(unique_forces_for_pose))
+    return convex_forces_for_pose, np.array(unique_torques_for_pose)
 
-    if name != "bah":
-        convex_forces_for_pose = spa.ConvexHull(np.array(unique_forces_for_pose))
-        font=16
+def plot_ffr_at_pose(pose, name): # ffr: feasible force region (2d)
+    font=16
+    convex_forces_for_pose = get_convex_capability_at_pos(pose, name)[0]
+    spa.convex_hull_plot_2d(convex_forces_for_pose, ax=plt.gca())
+    plt.title(F"Feasible Force Region for {name} Pose (N)", fontsize=font); plt.xlabel("Fz", fontsize=font); plt.ylabel("Fy", fontsize=font)
 
-        ########## TWO CONSTRAINT MODEL #################
-        plt.figure() # forces
-        spa.convex_hull_plot_2d(convex_forces_for_pose, ax=plt.gca())
-        plt.title(F"Feasible Force Region for {name} Pose (N)", fontsize=font); plt.xlabel("Fz", fontsize=font); plt.ylabel("Fy", fontsize=font)
+def plot_ftr_at_pose(pose, name): # ftr: feasible torque region (3d)
+    font=16
+    unique_torques_for_pose = np.array(get_convex_capability_at_pos(pose, name)[1])
+    plt.axes(projection='3d')
+    plt.gca().scatter(unique_torques_for_pose[:, 0], unique_torques_for_pose[:, 1], unique_torques_for_pose[:, 2], color='blue')
+    plt.title(f"Feasible Torque Region for {name} Pose", fontsize=font)
+    plt.gca().set_xlabel('τ₁',fontsize=font); plt.gca().set_ylabel('τ₂',fontsize=font); plt.gca().set_zlabel('τ₃',fontsize=font)
 
-        plt.figure() # torques
-        plt.axes(projection='3d')
-        unique_torques_for_pose = np.array(unique_torques_for_pose)
-        plt.gca().scatter(unique_torques_for_pose[:, 0], unique_torques_for_pose[:, 1], unique_torques_for_pose[:, 2], color='blue')
-        plt.title(f"Feasible Torque Region for {name} Pose", fontsize=font)
-        plt.gca().set_xlabel('τ₁',fontsize=font); plt.gca().set_ylabel('τ₂',fontsize=font); plt.gca().set_zlabel('τ₃',fontsize=font)
+def feasible_force_polytope(pose, name): # single constraint version of plot_ffr_at_pose
+    return None
+def feasible_torque_polytope(pose, name): # single constraint version of plot_ftr_at_pose
+    return None
+unique_forces_q_ext = []
+unique_forces_q_int = []
+unique_forces_q_flx = []
 
-        # ########### ONE CONSTRAINT MODEL ###############
+pose_dict = {"Extended": q_ext, 
+             "Intermediate": q_int,
+             "Flexed": q_flx}
+
+# for name, pose in pose_dict.items():
+    # if name != "bah":
+    #     plt.figure()
+    #     plot_ffr_at_pose(pose, name)
+
+        ########### ONE CONSTRAINT MODEL ###############
         # plt.figure() # FORCES
         # plt.axes(projection='3d')
         # vertices = [convex_forces_for_pose.points[simplex] for simplex in convex_forces_for_pose.simplices]
@@ -139,5 +151,3 @@ for name, pose in pose_dict.items():
         # plt.title(f"Feasible Torque Region for {name} pose",fontsize=font)
 plt.show()
 
-# TODO: Since we now have 3-d force vectors, update the feasible force region plotting to 3-d as well
-# TODO: FIgure out why extension pose is still null space

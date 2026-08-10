@@ -8,6 +8,8 @@ import itertools
 
 from matplotlib import pyplot as plt
 
+from McKenzieTest.convex_hull_prediction import plot_ffr_at_pose, pose_dict
+
 import matplotlib.animation as animation
 
 class StructureKineMismatch(Warning):
@@ -323,11 +325,6 @@ def planar_force_demo():
 
     plt.show()
 
-q_flx = np.radians(np.array([45,45,10])); q_int = np.radians(np.array([45,10,10])); q_ext = np.radians(np.array([10,10,10]))
-pose_dict = {"Extended": q_ext, 
-             "Intermediate": q_int,
-             "Flexed": q_flx}
-
 if __name__=="__main__":
     lengths=[0,1.4, 1.4, 1.2]
     testFinger = Finger(primaryDev, lengths=lengths)
@@ -336,14 +333,8 @@ if __name__=="__main__":
     for name, pose in pose_dict.items():
         if name != "bah":
             font=16
-            convex_hull = testFinger.get_planar_force_capability_at_pose(pose)
             plt.figure() # forces
+            plot_ffr_at_pose(pose, name) # Cuevas Anatomical Feasible Force Region
+            convex_hull = testFinger.get_planar_force_capability_at_pose(pose[1:])
             convex_hull_plot_2d(convex_hull, ax=plt.gca())
-            plt.title(F"Feasible Force Region for {name} Pose (N)", fontsize=font); plt.xlabel("Fz", fontsize=font); plt.ylabel("Fy", fontsize=font)
     plt.show()
-
-    # for angle in angles:
-    #     print("algorithmically generated jacobian:")
-    #     print(testFinger.get_jacobian_at_pose([angle]*testFinger.numJoints))
-    #     print("manually generated jacobian:")
-    #     print(testFinger.get_jacobian_at_pose_3([angle]*testFinger.numJoints, lengths[1:]))
