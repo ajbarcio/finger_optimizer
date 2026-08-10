@@ -254,7 +254,7 @@ class Finger():
                 # unique_forces.add(tuple(M @ res.x))
         for excitation in list(unique_excitations):
             unique_forces.append((M @ excitation)[:2])
-        # print(unique_forces)
+        unique_forces = np.array(unique_forces)*4.44822162 # convert unique forces from lbs to N
         convex_forces = ConvexHull(np.array(unique_forces))
         return convex_forces
 
@@ -323,21 +323,24 @@ def planar_force_demo():
 
     plt.show()
 
+q_flx = np.radians(np.array([45,45,10])); q_int = np.radians(np.array([45,10,10])); q_ext = np.radians(np.array([10,10,10]))
+pose_dict = {"Extended": q_ext, 
+             "Intermediate": q_int,
+             "Flexed": q_flx}
+
 if __name__=="__main__":
     lengths=[0,1.4, 1.4, 1.2]
     testFinger = Finger(primaryDev, lengths=lengths)
-    # pose = np.array([10,10,10])*np.pi/180
-    angles = np.linspace(5*np.pi/180,np.pi/2,5)
+    testFinger = Finger(secondaryDev, [1.4,1.4,1.2]) # Turn this into a finger class definition?
 
-    testFinger = Finger(secondaryDev, [1.4,1.4,1.2])
-    pose = np.array([10,10,10])*np.pi/180 # flexion
-    # angles = np.linspace(5*np.pi/180,np.pi/2,86)
-    convex_hull = testFinger.get_planar_force_capability_at_pose(pose)
-    plt.figure()
-    convex_hull_plot_2d(convex_hull, ax=plt.gca())
-    plt.title("Feasible Force Region for Extension Pose (lbs)", fontsize=16); plt.xlabel("Fz", fontsize=16); plt.ylabel("Fy", fontsize=16)
+    for name, pose in pose_dict.items():
+        if name != "bah":
+            font=16
+            convex_hull = testFinger.get_planar_force_capability_at_pose(pose)
+            plt.figure() # forces
+            convex_hull_plot_2d(convex_hull, ax=plt.gca())
+            plt.title(F"Feasible Force Region for {name} Pose (N)", fontsize=font); plt.xlabel("Fz", fontsize=font); plt.ylabel("Fy", fontsize=font)
     plt.show()
-
 
     # for angle in angles:
     #     print("algorithmically generated jacobian:")
