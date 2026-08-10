@@ -3,11 +3,12 @@
 import numpy as np
 import itertools as it
 import scipy.optimize as opt
+import scipy.linalg as la
 import scipy.spatial as spa
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from .Solver import Mo_at_pos, q_flx, q_int, q_ext, R_at_pos, Fo_at_pos
+from Solver import Mo_at_pos, q_flx, q_int, q_ext, R_at_pos, Fo_at_pos
 
 num_excitations = 7
 num_constraints = 5 # CONSTRAINT(1): num_constraints = 6
@@ -41,11 +42,12 @@ def get_convex_capability_at_pos(pose,name,num_constraints): # finds feasible fo
             A = np.zeros([num_constraints,num_excitations])
             for i in range(num_constraints):
                 A[i,idx[i]]=1
+            b = np.concatenate([[0]*(num_excitations-num_constraints), b])
             if (num_excitations-num_constraints)==2: # TWO CONSTRAINTS (CUEVAS MODEL)
-                b = np.concatenate([[0,0], b])
+                # b = np.concatenate([[0,0], b])
                 A = np.vstack((Mo_at_pos(pose)[0,:],Mo_at_pos(pose)[-1,:],A))
             elif (num_excitations-num_constraints)==1: # ONE CONSTRAINT (TORQUE ALLOWANCE)
-                b = np.concatenate([[0], b])
+                # b = np.concatenate([[0], b])
                 A = np.vstack((Mo_at_pos(pose)[0,:], A))
                         
             excitation, success = solve_for_feasible_excitations(A, b)
@@ -83,7 +85,7 @@ def get_convex_capability_at_pos(pose,name,num_constraints): # finds feasible fo
 
 def plot_ffr_at_pose(pose, name): # ffr: feasible force region (2d)
     font=16
-    convex_forces_for_pose = get_convex_capability_at_pos(pose, name)[0]
+    convex_forces_for_pose = get_convex_capability_at_pos(pose, name, 5)[0]
     spa.convex_hull_plot_2d(convex_forces_for_pose, ax=plt.gca())
     plt.title(F"Feasible Force Region for {name} Pose (N)", fontsize=font); plt.xlabel("Fz", fontsize=font); plt.ylabel("Fy", fontsize=font)
 
@@ -107,6 +109,7 @@ pose_dict = {"Extended": q_ext,
              "Intermediate": q_int,
              "Flexed": q_flx}
 
+#region
 # for name, pose in pose_dict.items():
     # if name != "bah":
     #     plt.figure()
@@ -149,5 +152,14 @@ pose_dict = {"Extended": q_ext,
         # plt.gca().set_ylabel('τ₂',fontsize=font)
         # plt.gca().set_zlabel('τ₃',fontsize=font)
         # plt.title(f"Feasible Torque Region for {name} pose",fontsize=font)
-plt.show()
+# plt.show()
+#endregion
+
+if __name__ == "__main__":
+    S = R_at_pos(q_flx)
+    biasForceSpace = la.null_space(S)
+    # ideal_null_space = 
+    # print(biasForceSpace)
+    x, r, rank, s = la.lstsq(biasForceSpace, np.ones(7))
+    print(x, la.norm(r), rank, s)
 

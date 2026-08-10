@@ -215,7 +215,7 @@ class Finger():
         # else:
         #     return T, "best-case", confirm
 
-    def get_planar_force_capability_at_pose(self, THETA, f_max=None):
+    def get_planar_force_capability_at_pose(self, THETA, f_max=None, units='lbf'):
         J = self.get_jacobian_at_pose_2(THETA)
         S = self.structure(THETA)
         # F0 = self.tensionLimit
@@ -256,7 +256,8 @@ class Finger():
                 # unique_forces.add(tuple(M @ res.x))
         for excitation in list(unique_excitations):
             unique_forces.append((M @ excitation)[:2])
-        unique_forces = np.array(unique_forces)*4.44822162 # convert unique forces from lbs to N
+        if units=="N":
+            unique_forces = np.array(unique_forces)*4.44822162 # convert unique forces from lbs to N
         convex_forces = ConvexHull(np.array(unique_forces))
         return convex_forces
 
@@ -335,6 +336,6 @@ if __name__=="__main__":
             font=16
             plt.figure() # forces
             plot_ffr_at_pose(pose, name) # Cuevas Anatomical Feasible Force Region
-            convex_hull = testFinger.get_planar_force_capability_at_pose(pose[1:])
+            convex_hull = testFinger.get_planar_force_capability_at_pose(pose[1:], units='N')
             convex_hull_plot_2d(convex_hull, ax=plt.gca())
     plt.show()
