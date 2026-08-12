@@ -235,7 +235,7 @@ class StrucMatrix():
         else:
             return best_condition(self.biasForceSpace)[-1]
 
-    def biasResidual(self): # 
+    def biasResidual(self): #
         m = self.numTendons # number of tendons/muscles
         V = np.ones(m)/norm(np.ones(m)) # unit vector 1xm matrix of ones that intersects the positive orthant
 
@@ -941,7 +941,7 @@ class InsufficientRanges(Exception):
 
 # region DiscreteStrucMatrix()
 # class DiscreteStrucMatrix(): # moment arm structure matrix, R (Valero Cuevas)
-#     def __init__(self, 
+#     def __init__(self,
 #                  q_setpoints=[np.radians(np.array([0, 45, 45, 10])), np.radians(np.array([0, 45, 10, 10])), np.radians(np.array([0, 10, 10, 10]))],
 #                  R=None, D=None, types=[]
 #                 F=None, name='DiscreteStrucMatrix'): ## Idk what to do for this
@@ -1094,6 +1094,7 @@ class InsufficientRanges(Exception):
 #         return f"DiscreteStrucMatrix with {len(self.theta)} angles"
 # endregion
 
+# region VariableStrucMatrix
 class VariableStrucMatrix():
 
     plot_count = 0
@@ -1498,7 +1499,7 @@ class VariableStrucMatrix():
     def biasCondition(self, THETA):
         S = StrucMatrix(S=self.S(THETA))
         return S.biasCondition()
-    
+
     def grip_from_tensions(self, THETA, T):
         # pass # TODO: PLOT GRASPS FROM TENDON TENSIONS
         Taus = self.S(THETA).dot(T)
@@ -1673,6 +1674,7 @@ class VariableStrucMatrix():
                 nullSpaceCriterion = all([i > 0 for i in self.biasForceSpace])
 
             return biasForceSpace, nullSpaceCriterion, inherentlyControlalble
+# endregion
 
 class GraspConstraintWrapper():
     def __init__(self, function, type, *args) -> None:
