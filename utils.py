@@ -27,6 +27,32 @@ colors = [
 ]
 import itertools
 
+def best_condition(subspace):
+    includes_c = False
+    # 'central' unit vector c
+    c = np.ones((subspace.shape[0],1))
+    c = c / np.linalg.norm(c)
+    # union of space spanned by c and subspace
+    union = np.hstack([subspace, -c])
+    # null space of the union is 'bad' basis for intersection
+    intersection = null_space(union)[:subspace.shape[0],:]
+    # if the intersection exists (is more than a point at the origin)
+    if intersection.shape[1] > 0:
+        # we include the 'central' direction and therefore know we have a
+        # vector in the null space with a condition of 1
+        includes_c = True
+        # return success and condition of vector
+        return includes_c, 1.0
+    # otherwise, the subspace does not intersect the central vector
+    else:
+        # projector operator to project vector outside subspace into subspace
+        projector = subspace @ np.linalg.inv(subspace.T @ subspace) @ subspace.T
+        # closest vector to central in subspace is 'closest', this vector should
+        # have the minimal condition
+        closest = projector @ c
+        # return success and best condition of vector in null space
+        return includes_c, np.max(closest)/np.min(closest)
+
 def generate_binary_lists(length):
     # Generates a cartesian product of [0, 1] repeated 'length' times
     for combo in itertools.product([0, 1], repeat=length):

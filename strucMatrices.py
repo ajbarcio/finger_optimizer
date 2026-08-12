@@ -8,9 +8,11 @@ import warnings
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.optimize import linprog
 from scipy.linalg import null_space
+from scipy.integrate import quad
 
 from utils import intersects_positive_orthant, special_minkowski, special_minkowski_with_mins, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant, intersection_with_orthant
 from utils import identify_strict_sign_central, identify_strict_central, sym_pinv, unique_piecewise_functions
+from utils import best_condition
 from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_annealing, differential_evolution
 from types import SimpleNamespace
 
@@ -120,6 +122,32 @@ class StrucMatrix():
         self.constraints.append(constraint)
         self.validity = self.isValid()
 
+    def tjp_excursion(self, joint, tendon, t_from, t_to):
+        excursion = (self.S[joint, tendon] * (t_from - t_to))
+        return excursion
+
+    def tendon_excursion(self, tendon, THETA_f, THETA_t):
+        totalExcursion = 0.0
+        for joint in range(self.numJoints):
+            excursion = self.tjp_excursion(joint, tendon,
+                                           THETA_f[joint], THETA_t[joint])
+            totalExcursion+=excursion
+        return totalExcursion
+
+    def tendon_excursion_limits(self, tendon, THETA_f, THETA_t):
+        excursionsFlexion = 0.0
+        excursionsExtension = 0.0
+        for joint in range(self.numJoints):
+            tjp_exc = self.tjp_excursion(joint, tendon,
+                                         THETA_f[joint], THETA_t[joint])
+            if tjp_exc < 0:
+                excursionsExtension+=tjp_exc
+            elif tjp_exc > 0:
+                excursionsFlexion+=tjp_exc
+            else:
+                pass
+        return excursionsExtension, excursionsFlexion
+
     def isValid(self, suppress=True):
 
         self.numJoints = self.S.shape[0]
@@ -131,15 +159,18 @@ class StrucMatrix():
             return False
         nullSpace = sp.linalg.null_space(self.S)
         # Condition the nullSpace output well for future checking
+
         for i in range(nullSpace.shape[0]):
             for j in range(nullSpace.shape[1]):
                 if np.isclose(nullSpace[i,j], 0):
                     nullSpace[i,j] = 0
+
         self.biasForceSpace = nullSpace
         # Check to make sure that there exists an all-positive vector in the null space
         if np.shape(self.biasForceSpace)[-1]>1:
             # print("intersecting positive orthant")
             self.nullSpaceCondition = intersects_positive_orthant(nullSpace.T)
+            # max sure there's no zero-rows
             for row in self.biasForceSpace:
                 # print(row)
                 if all([x==0 for x in row]):
@@ -192,10 +223,14 @@ class StrucMatrix():
         return variation
 
     def biasCondition(self):
-        if np.min(self.biasForceSpace)<=0:
-            return 1000000000
-        else:
+        # for a strictly central bias force space of one dimension, ez money
+        if self.biasForceSpace.shape[-1] == 1:
+            if np.min(self.biasForceSpace)<=0:
+                return 1000000000
             return np.max(abs(self.biasForceSpace))/np.min(abs(self.biasForceSpace))
+        # if its more than one-dimensional we can use our compute time wisely
+        else:
+            return best_condition(self.biasForceSpace)[-1]
 
     def maxExtn(self):
         maxStrength = 0
@@ -1061,6 +1096,9 @@ class VariableStrucMatrix():
                 setattr(self, f'j{idx[0]}t{idx[1]}r', types[i](*ranges[i],idx))
                 self.effortFunctions.append(getattr(self, f'j{idx[0]}t{idx[1]}r'))
 
+        self.indexed_effort_functions = {function.idx: function
+                                           for function in self.effortFunctions}
+
         # Force-based scaling vector
         if F is None:
             self.F = np.ones(self.numTendons)
@@ -1140,6 +1178,61 @@ class VariableStrucMatrix():
 
     def H_J_sym(self):
         pass
+
+    def tjp_excursion(self, joint, tendon, t_from, t_to):
+        """
+        This function determines the excursion contribution of a tendon-joint
+        pair
+        """
+        # If the tjp is variable,
+        if (joint, tendon) in self.indexed_effort_functions.keys():
+            # use quad integration to determine total excursion over joint range
+            excursion = quad(self.indexed_effort_functions.get((joint, tendon)),
+                             t_from, t_to)[0] * self.D[joint,tendon]
+        # Otherwise, its a constant joint (might be zero)
+        else:
+            # so just simoly r * theta * direction
+            excursion = (self.R[joint, tendon] *
+                         self.D[joint, tendon] * (t_from - t_to))
+        return excursion
+
+    def tendon_excursion(self, tendon, THETA_f, THETA_t):
+        """
+        This function evaluates the excursion of a given tendon over a
+        transition between two poses. It makes some hard assumptions about the
+        path taken and therefore may not be entirely accurate for complex
+        trajectories. It should be accurate for monotonic ones, though.
+        """
+        # Simply add up the signed excursion contribution from each joint on the
+        # tendon in question
+        totalExcursion = 0.0
+        for joint in range(self.numJoints):
+            excursion = self.tjp_excursion(joint, tendon,
+                                           THETA_f[joint], THETA_t[joint])
+            totalExcursion+=excursion
+        return totalExcursion
+
+    def tendon_excursion_limits(self, tendon, THETA_f, THETA_t):
+        """
+        This function estimates the most a given tendon should have to let out
+        (min excursion) and take in (max excursion) over the course of a given
+        (assumed monotonic) trajectory between two poses.
+        """
+        # Sum positive and negative excursions seperately
+        excursionsFlexion = 0.0
+        excursionsExtension = 0.0
+        for joint in range(self.numJoints):
+            tjp_exc = self.tjp_excursion(joint, tendon,
+                                         THETA_f[joint], THETA_t[joint])
+            if tjp_exc < 0:
+                excursionsExtension+=tjp_exc
+            elif tjp_exc > 0:
+                excursionsFlexion+=tjp_exc
+            else:
+                pass
+        # return the extremes of either end of the expected range ('0' is the
+        # starting position of the tendon in question)
+        return excursionsExtension, excursionsFlexion
 
     def maxGrip(self, THETA):
         maxStrength = 0
@@ -1347,7 +1440,9 @@ class VariableStrucMatrix():
             if min(abs(self.biasForceSpace)) == 0:
                 self.biasForceCondition = np.inf
             else:
-                self.biasForceCondition = np.max((self.biasForceSpace))/np.min((self.biasForceSpace))
+                # self.biasForceCondition = np.max((self.biasForceSpace))/np.min((self.biasForceSpace))
+                # fuck it we just usin the fancy one
+                self.biasForceCondition = best_condition(self.biasForceSpace)[-1]
             # Check to make sure that there exists an all-positive vector in the null space
             if np.shape(self.biasForceSpace)[-1]>1:
                 # print("intersecting positive orthant")
@@ -1679,6 +1774,25 @@ secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
                                               F = np.array([50]*5),
                                       minFactor = 0.1,
                                            name = "Sdev")
+
+fs = [(.138, .413, .191),
+      (.134, .405, .338),
+      (.120, .385, .340)]
+
+es = [(0.217, .306),
+      (0.153, .261),
+      (0.155, .2625)]
+# ps = [(.625/2*0.65,.625/2,0.4),(.625/2*0.65,.4,0.4)]
+
+testbedFinger4 = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
+                                                   +[es[1]]+[fs[1]]*2
+                                                   +[es[2]]+[fs[2]],
+                                           types  = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+                                                   +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
+                                                   +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                                F = np.array([50]*5),
+                                        minFactor = 0.1,
+                                             name = "TF4")
 
 # secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
 #                                                  +[es[1]]+[fs[1]]*2

@@ -2,9 +2,32 @@ import numpy as np
 from scipy.optimize import linprog
 from combinatorics import *
 from strucMatrices import *
+from scipy.linalg import null_space
 import warnings
 
 warnings.filterwarnings("ignore")
+
+def balancable_bias_force(bias):
+    balancable = False
+    b = np.ones((bias.shape[0],1))
+    b = b / np.linalg.norm(b)
+    combo = np.hstack([bias, -b])
+    coeffs = null_space(combo)[:bias.shape[0],:]
+    if coeffs.shape[1] > 0:
+        balancable = True
+        basis = bias @ coeffs
+        intersection = np.linalg.svd(basis, full_matrices=False).U
+        return balancable, 1.0
+    else:
+        projector = bias @ np.linalg.inv(bias.T @ bias) @ bias.T
+        closest = projector @ b
+        # print(closest)
+        return balancable, np.max(closest)/np.min(closest)
+
+def closest_in_subspace(subspace, vector):
+    projector = subspace @ np.linalg.inv(subspace.T @ subspace) @ subspace.T
+    closest = projector @ vector
+    return closest
 
 def maximize_minimum_force(A, T, nonneg=True):
 
@@ -310,69 +333,91 @@ def minimize_u_over_l_lp_with_Fmax(A, T, F_max=None, tol_s=1e-9):
 
     return True, F_opt, u_opt, l_opt, res
 
-trials = [canonA, canonB, quasiHollow]
+# trials = [canonA, canonB, quasiHollow]
 
-for S_base in trials:
+# for S_base in trials:
 
-    S1 = S_base.S
-    # print(S1)
-    S  = generate_centered_qutsm([canonB.S])
-    S = S[0]
-    # print(S)
-    # print(np.linalg.norm(S))
-    # T = np.array([0.5,0,0])
-    S = StrucMatrix(S=S)
-    # print(S.biasCondition())
-    T_index = np.argmax([np.linalg.norm(boundaryGrasp) for boundaryGrasp in S.boundaryGrasps])
-    T = [0.25,0,0]
-    print(T)
-    rand_wins = 0
-    cent_wins = 0
-    for i in np.linspace(0,2*np.pi,10):
-        for j in np.linspace(0,2*np.pi,10):
-            for k in np.linspace(0,2*np.pi,10):
-                pass
-                # R = np.array([
-                #     [np.cos(j)*np.cos(k), -np.cos(j)*np.sin(k), np.sin(j)],
-                #     [np.cos(i)*np.sin(k) + np.sin(i)*np.sin(j)*np.cos(k),
-                #     np.cos(i)*np.cos(k) - np.sin(i)*np.sin(j)*np.sin(k),
-                #     -np.sin(i)*np.cos(j)],
-                #     [np.sin(i)*np.sin(k) - np.cos(i)*np.sin(j)*np.cos(k),
-                #     np.sin(i)*np.cos(k) + np.cos(i)*np.sin(j)*np.sin(k),
-                #     np.cos(i)*np.cos(j)]
-                # ])
+#     S1 = S_base.S
+#     # print(S1)
+#     S  = generate_centered_qutsm([canonB.S])
+#     S = S[0]
+#     # print(S)
+#     # print(np.linalg.norm(S))
+#     # T = np.array([0.5,0,0])
+#     S = StrucMatrix(S=S)
+#     # print(S.biasCondition())
+#     T_index = np.argmax([np.linalg.norm(boundaryGrasp) for boundaryGrasp in S.boundaryGrasps])
+#     T = [0.25,0,0]
+#     print(T)
+#     rand_wins = 0
+#     cent_wins = 0
+#     for i in np.linspace(0,2*np.pi,10):
+#         for j in np.linspace(0,2*np.pi,10):
+#             for k in np.linspace(0,2*np.pi,10):
+#                 pass
+#                 # R = np.array([
+#                 #     [np.cos(j)*np.cos(k), -np.cos(j)*np.sin(k), np.sin(j)],
+#                 #     [np.cos(i)*np.sin(k) + np.sin(i)*np.sin(j)*np.cos(k),
+#                 #     np.cos(i)*np.cos(k) - np.sin(i)*np.sin(j)*np.sin(k),
+#                 #     -np.sin(i)*np.cos(j)],
+#                 #     [np.sin(i)*np.sin(k) - np.cos(i)*np.sin(j)*np.cos(k),
+#                 #     np.sin(i)*np.cos(k) + np.cos(i)*np.sin(j)*np.sin(k),
+#                 #     np.cos(i)*np.cos(j)]
+#                 # ])
 
-                # Tin = R @ T
-                # _, _, _, l_opt_rand, _ = maximize_minimum_force(S1, Tin, nonneg=True)
-                # _, _, _, l_opt_cent, _ = maximize_minimum_force(S.S, Tin, nonneg=True)
+#                 # Tin = R @ T
+#                 # _, _, _, l_opt_rand, _ = maximize_minimum_force(S1, Tin, nonneg=True)
+#                 # _, _, _, l_opt_cent, _ = maximize_minimum_force(S.S, Tin, nonneg=True)
 
-                # if l_opt_cent > l_opt_rand:
-                #     cent_wins +=1
-                #     print(i,j,k,'cent',end="\r")
-                # elif l_opt_cent < l_opt_rand:
-                #     rand_wins +=1
-                #     print(i,j,k,'rand',end="\r")
-                # else:
-                #     print(i,j,k,'tie',end="\r")
-    for tindex in range(len(S_base.boundaryGrasps)):
-        Tin1 = S_base.boundaryGrasps[tindex]
-        Tin2 = S.boundaryGrasps[tindex]
-        _, _, _, l_opt_rand, _ = maximize_minimum_force(S1, Tin1, nonneg=True)
-        _, _, _, l_opt_cent, _ = maximize_minimum_force(S.S, Tin2, nonneg=True)
+#                 # if l_opt_cent > l_opt_rand:
+#                 #     cent_wins +=1
+#                 #     print(i,j,k,'cent',end="\r")
+#                 # elif l_opt_cent < l_opt_rand:
+#                 #     rand_wins +=1
+#                 #     print(i,j,k,'rand',end="\r")
+#                 # else:
+#                 #     print(i,j,k,'tie',end="\r")
+#     for tindex in range(len(S_base.boundaryGrasps)):
+#         Tin1 = S_base.boundaryGrasps[tindex]
+#         Tin2 = S.boundaryGrasps[tindex]
+#         _, _, _, l_opt_rand, _ = maximize_minimum_force(S1, Tin1, nonneg=True)
+#         _, _, _, l_opt_cent, _ = maximize_minimum_force(S.S, Tin2, nonneg=True)
 
-        if l_opt_cent > l_opt_rand:
-            cent_wins +=1
-            print(i,j,k,'cent',end="\r")
-        elif l_opt_cent < l_opt_rand:
-            rand_wins +=1
-            print(i,j,k,'rand',end="\r")
-        else:
-            print(i,j,k,'tie',end="\r")
-    print("")
-    print("name:", S_base.name)
-    print(S_base.biasCondition())
-    print(rand_wins/cent_wins)
-    print("")
+#         if l_opt_cent > l_opt_rand:
+#             cent_wins +=1
+#             print(i,j,k,'cent',end="\r")
+#         elif l_opt_cent < l_opt_rand:
+#             rand_wins +=1
+#             print(i,j,k,'rand',end="\r")
+#         else:
+#             print(i,j,k,'tie',end="\r")
+#     print("")
+#     print("name:", S_base.name)
+#     print(S_base.biasCondition())
+#     print(rand_wins/cent_wins)
+#     print("")
+
+# A = np.array([[1,0,0.25],[0,1,0.25]]).T
+# print(balancable_bias_force(A))
+# print(np.linalg.norm(balancable_bias_force(A)[-1]))
+
+S1 = np.array([[-1, 1, 1, 1, -1],
+               [ 0,-1, 1, 1, -1],
+               [ 0, 0,-1, 1, -1]])
+S2 = np.array([[-1, 1, 1, 1],
+               [ 0,-1, 1, 1],
+               [ 0, 0,-1, 1]])
+for S in [S1,S2]:
+    if(identify_strict_sign_central(S)):
+        bias_force_space = null_space(S)
+        print(bias_force_space)
+        print(np.linalg.svd(bias_force_space).S)
+        print(balancable_bias_force(bias_force_space))
+        c = np.ones((bias_force_space.shape[0],1))
+        c = c / np.linalg.norm(c)
+        print(closest_in_subspace(bias_force_space, c))
+        # print(np.max(bias_force_space)/np.min(bias_force_space))
+
 
 # Fp = np.linalg.pinv(S.S) @ T
 # print(Fp)
