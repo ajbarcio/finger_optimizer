@@ -326,16 +326,21 @@ def planar_force_demo():
 
     plt.show()
 
+
 if __name__=="__main__":
     lengths=[0,1.4, 1.4, 1.2]
-    testFinger = Finger(primaryDev, lengths=lengths)
-    testFinger = Finger(secondaryDev, [1.4,1.4,1.2]) # Turn this into a finger class definition?
+    testFinger = Finger(primaryDev, lengths=lengths) # 4DOF
+    testFinger = Finger(secondaryDev, [1.4,1.4,1.2]) # 3DOF
+
 
     for name, pose in pose_dict.items():
         if name != "bah":
-            font=16
-            plt.figure() # forces
-            plot_ffr_at_pose(pose, name) # Cuevas Anatomical Feasible Force Region
-            convex_hull = testFinger.get_planar_force_capability_at_pose(pose[1:], units='N')
-            convex_hull_plot_2d(convex_hull, ax=plt.gca())
-    plt.show()
+            # Plot comparision of anatomical vs robotic finger feasible force region
+            # font=16
+            # plt.figure() # forces
+            # plot_ffr_at_pose(pose, name) # Cuevas Anatomical Feasible Force Region
+            # convex_hull = testFinger.get_planar_force_capability_at_pose(pose[1:], units='N')
+            # convex_hull_plot_2d(convex_hull, ax=plt.gca())
+
+            print(secondaryDev.biasResidual)
+    # plt.show()

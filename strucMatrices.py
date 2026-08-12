@@ -7,12 +7,14 @@ from matplotlib import ticker
 import warnings
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.optimize import linprog
-from scipy.linalg import null_space
+from scipy.linalg import null_space, norm, lstsq
 
 from utils import intersects_positive_orthant, special_minkowski, special_minkowski_with_mins, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant, intersection_with_orthant
 from utils import identify_strict_sign_central, identify_strict_central, sym_pinv, unique_piecewise_functions
 from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_annealing, differential_evolution
 from types import SimpleNamespace
+
+from McKenzieTest.convex_hull_prediction import closest_in_subspace, balancable_bias_force
 
 import itertools
 
@@ -47,6 +49,7 @@ class Constraint():
     def __call__(self, instance, *args, **kwds):
         return self.function(instance, *self.args)
 
+# region StrucMatrix
 class StrucMatrix():
 
     plot_count = 0
@@ -121,7 +124,6 @@ class StrucMatrix():
         self.validity = self.isValid()
 
     def isValid(self, suppress=True):
-
         self.numJoints = self.S.shape[0]
         self.rankCondition = np.linalg.matrix_rank(self.S)>=self.numJoints
         # print(self.rankCondition)
@@ -196,6 +198,20 @@ class StrucMatrix():
             return 1000000000
         else:
             return np.max(abs(self.biasForceSpace))/np.min(abs(self.biasForceSpace))
+
+    def biasResidual(self): # 
+        m = self.numTendons # number of tendons/muscles
+        V = np.ones(m)/norm(np.ones(m)) # unit vector 1xm matrix of ones that intersects the positive orthant
+
+        x, r, rank, s = lstsq(self.biasForceSpace, V) # finds whether the biasforcespace intersects the positive orthant (V)
+        # region
+        # print(nullspace@x)
+        # print(norm(r), rank, s)
+        # # print(biasForceSpace)
+        # print(closest_in_subspace(nullspace, V))
+        # print(balancable_bias_force(nullspace)[-1])
+        # endregion
+        return norm(r) # returns the magnitude/length of how far away the biasForceSpace is from the positive orthant
 
     def maxExtn(self):
         maxStrength = 0
@@ -322,7 +338,7 @@ class StrucMatrix():
             plt.show()
         obj.plot_count += 1
         return returnVal
-
+    # region
     # def plotFriction(self, showBool=False, colorOverride=None, transOverride=None, obj=None):
     #     if obj is None:
     #         obj = type(self)
@@ -383,6 +399,7 @@ class StrucMatrix():
     #     else:
     #         warnings.warn("Cannot plot anything other than 3d grasps at this time")
     #     obj.plot_count += 1
+    # endregion
 
     def plotGrasp(self, grasp, showBool=False, obj=None):
 
@@ -881,11 +898,12 @@ class StrucMatrix():
         except KeyboardInterrupt:
             self.optSuccess = str(str(E.success)+str(E.message))
             return best_x, objective(best_x)
-
+# endregion
 class InsufficientRanges(Exception):
     def __init__(self, message='ranges must match number of variable pulleys'):
         super().__init__(message)
 
+# region DiscreteStrucMatrix()
 # class DiscreteStrucMatrix(): # moment arm structure matrix, R (Valero Cuevas)
 #     def __init__(self, 
 #                  q_setpoints=[np.radians(np.array([0, 45, 45, 10])), np.radians(np.array([0, 45, 10, 10])), np.radians(np.array([0, 10, 10, 10]))],
@@ -1038,6 +1056,7 @@ class InsufficientRanges(Exception):
 
 #     def __str__(self):
 #         return f"DiscreteStrucMatrix with {len(self.theta)} angles"
+# endregion
 
 class VariableStrucMatrix():
 
@@ -1378,6 +1397,14 @@ class VariableStrucMatrix():
             warnings.warn(f'the two checking methods disagree, linprog says {check1}, geometry says {check2}')
             return check1
 
+    def biasResidual(self, THETA): # use StrucMatrix function for pre-defined
+        S = StrucMatrix(S=self.S(THETA))
+        return S.biasResidual()
+
+    def biasCondition(self, THETA):
+        S = StrucMatrix(S=self.S(THETA))
+        return S.biasCondition()
+    
     def grip_from_tensions(self, THETA, T):
         # pass # TODO: PLOT GRASPS FROM TENDON TENSIONS
         Taus = self.S(THETA).dot(T)
@@ -1563,6 +1590,7 @@ class GraspConstraintWrapper():
     def __call__(self, rvec):
         return self.function(rvec, *self.args)
 
+# region Structure Matrices
 # Centered type 1
 D = np.array([[1,1,1,-1],
               [0,1,1,-1],
@@ -1852,18 +1880,22 @@ secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
 #                                               F = np.array([50]*5),
 #                                       minFactor = 0.01,
 #                                            name = "Sdev")
+# endregion
 
 if __name__ == "__main__":
     S = secondaryDev
     # sy.pprint(S.S_sym(), wrap_line=False)
     # Ss = S.S_sym()
     # theta1 = sy.symbols('theta_1')
-    anglef = S.effortFunctions[1].sym()
-    print(anglef)
-    var = list(anglef.free_symbols)[0]
-    sy.plot(anglef, (var, 0, np.pi/2), title="Joint Angle Example")
-    plt.show()
+    # anglef = S.effortFunctions[1].sym()
+    # print(anglef)
+    # var = list(anglef.free_symbols)[0]
+    # sy.plot(anglef, (var, 0, np.pi/2), title="Joint Angle Example")
+    # plt.show()
     # Fs = S.F_sym()
     # for f in Fs:
     #     sy.pprint(f, wrap_line=False)
     # print(len(Fs))
+    THETA=np.array([0,0,0])
+
+    print(secondaryDev.biasResidual(THETA))

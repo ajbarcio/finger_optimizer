@@ -8,7 +8,7 @@ import scipy.spatial as spa
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from Solver import Mo_at_pos, q_flx, q_int, q_ext, R_at_pos, Fo_at_pos
+from McKenzieTest.Solver import Mo_at_pos, q_flx, q_int, q_ext, R_at_pos, Fo_at_pos
 
 num_excitations = 7
 num_constraints = 5 # CONSTRAINT(1): num_constraints = 6
@@ -154,12 +154,47 @@ pose_dict = {"Extended": q_ext,
         # plt.title(f"Feasible Torque Region for {name} pose",fontsize=font)
 # plt.show()
 #endregion
+def closest_in_subspace(subspace, vector):
+    projector = subspace @ np.linalg.inv(subspace.T @ subspace) @ subspace.T
+    closest = projector @ vector
+    return closest
 
+def balancable_bias_force(bias):
+    balancable = False
+    b = np.ones((bias.shape[0],1))
+    b = b / np.linalg.norm(b)
+    combo = np.hstack([bias, -b])
+    coeffs = la.null_space(combo)[:bias.shape[0],:]
+    if coeffs.shape[1] > 0:
+        balancable = True
+        basis = bias @ coeffs
+        intersection = np.linalg.svd(basis, full_matrices=False).U
+        return balancable, 1.0
+    else:
+        projector = bias @ np.linalg.inv(bias.T @ bias) @ bias.T
+        closest = projector @ b
+        # print(closest)
+        return balancable, np.max(closest)/np.min(closest)
+ 
 if __name__ == "__main__":
     S = R_at_pos(q_flx)
-    biasForceSpace = la.null_space(S)
-    # ideal_null_space = 
+    biasForceSpace = la.null_space(S) # attribute of StructMatrix
+    nullspace = np.array([[1,-1,0],[0,1,-1]]).T
+    V7d = np.ones(7)/la.norm(np.ones(7))
+    V3d = np.ones(3)/la.norm(np.ones(3))
+    x, r, rank, s = la.lstsq(biasForceSpace, np.ones(7)/la.norm(np.ones(7)))
+    print(biasForceSpace@x)
+    print(la.norm(r), rank, s)
     # print(biasForceSpace)
-    x, r, rank, s = la.lstsq(biasForceSpace, np.ones(7))
-    print(x, la.norm(r), rank, s)
+    print(closest_in_subspace(biasForceSpace, V7d))
+    print(balancable_bias_force(biasForceSpace)[-1])
+
+
+
+    x, r, rank, s = la.lstsq(nullspace, V3d)
+    print(nullspace@x)
+    print(la.norm(r), rank, s)
+    # print(biasForceSpace)
+    print(closest_in_subspace(nullspace, V3d))
+    print(balancable_bias_force(nullspace)[-1])
 
