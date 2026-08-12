@@ -1,3 +1,5 @@
+# TODO: need to convert cuevas spatial jacobian to correct coordinate frame (how to adjust moment arm matrix accordingly??)
+
 import numpy as np
 from scipy.differentiate import jacobian
 import sympy as sp

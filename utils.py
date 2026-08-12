@@ -1,3 +1,5 @@
+# TODO: need to convert cuevas spatial jacobian to correct coordinate frame (how to adjust moment arm matrix accordingly??)
+
 from scipy.optimize import linprog
 from numpy.linalg import matrix_rank
 from scipy.linalg import null_space
@@ -247,11 +249,12 @@ def rot(q,l):
                      [np.sin(q),  np.cos(q), 0],
                      [0,                 0,  1]])
 
+# region Old Jacobian
 # def f_for_jac(Q, L):
 #     # Q = np.asarray(Q).reshape(-1)
 #     return trans(Q, L) @ np.array([0, 0, 1])
 
-# def ee_func(x, l):
+# def ee_func(x, l): # 'ee' meaning 'end effector
 #     x = np.asarray(x)
 #     # If jacobian passes shape (m, k) with k==1, reduce to (m,)
 #     if x.ndim > 1:
@@ -268,59 +271,104 @@ def rot(q,l):
 #             for col in range(k):
 #                 out[:, col] = trans(x[:, col], l) @ np.array([0, 0, 1])
 #     else:
-#         print("wrong way")
-#         # already 1-D
 #         out = trans(x, l) @ np.array([0, 0, 1])
 #     if out.ndim==1:
 #        out = np.atleast_2d(out).T
 #     return out
 
-def ee_func(x, l): # 'ee' meaning 'end effector
-    x = np.asarray(x)
-    # If jacobian passes shape (m, k) with k==1, reduce to (m,)
-    if x.ndim > 1:
-        # collapse trailing axes -> shape (m, k)
-        x = x.reshape(x.shape[0], -1)
-        if x.shape[1] == 1:
-            # single point: use 1D vector
-            qvec = x[:, 0]
-            out = (trans(qvec, l) @ np.array([0, 0, 1]))
-        else:
-            # batch of k points: compute each column
-            k = x.shape[1]
-            out = np.empty((3, k))
-            for col in range(k):
-                out[:, col] = trans(x[:, col], l) @ np.array([0, 0, 1])
+# def trans(Q, L):
+#     # print('trans call')
+#     if Q.ndim == 2:
+#         Q = Q[:,0]
+#     trans = np.eye(3)
+#     # print(Q)
+#     # print(L)
+#     for i in range(len(Q)+1):
+#         # print(Q[i] if 0<=i<len(Q) else 0)
+#         # print(L[i-1] if 0<=i-1<len(Q) else 0)
+#         trans = trans @ rot(Q[i] if 0<=i<len(Q) else 0, L[i-1] if 0<=i-1<len(Q) else 0)
+#     # print(trans)
+#     return(trans)
+
+# def jac(Q, L):
+#     if len(Q) == 1:
+#         if not len(L) == 1:
+#            print("EXPECT ISSUES, SIZE MISMATCH")
+#     # print(Q,L)
+#     # x = trans(Q, L) @ np.array([0,0,1])
+#     def w_ee_func(Q):
+#        return ee_func(Q,L)
+#     J = jacobian(w_ee_func, Q)
+#     return J.df
+# endregion
+
+# region Spatial Jacobian
+def trans(dx,dy,dz): # 3D translation matrix
+    trans=np.eye(4) # create identity matrix
+    trans[:,3] = np.array([dx,dy,dz,1]) # add translation vector to last column
+    return trans
+
+"""[WARNING] The coordinate frame for RAD finger differs from Valero Cuevas where RAD: (adab=Ry, fe=Rz) and Cuevas: (adab=Rz, fe=Rx). Comments and descriptions are relative to RAD 
+        coordinate frame but current code is for Valero Cuevas.
+    When switching between RAD and Cuevas coordinate frames, you must also reflect the length change in dx, dy, and dz where RAD: (dx,dy,dz=L,0,0) and Cuevas: (dx,dy,dz=0,L,0)"""
+
+def fe_trans(Q,L): # rotation and translation matrix about y-axis (ad-abduction angle) 
+    c=np.cos(Q); s=np.sin(Q)
+    dx,dy,dz=0,L,0 # translation vector across length of phalange (x)
+    Rx=np.array([  # rotation matrix about y-axis
+        [1,0,0,0], 
+        [0,c,-s,0],
+        [0,s,c,0],
+        [0,0,0,1]], dtype=float)
+    return Rx @ trans(dx,dy,dz) # returns transformation matrix
+def adab_trans(Q,L): # rotation and translation matrix about z-axis (flexion-extension angle)
+    c=np.cos(Q); s=np.sin(Q)
+    dx,dy,dz=0,L,0 # translation vector across length of phalange (x)
+    Rz=np.array([  # rotation matrix about z-axis
+        [c,-s,0,0], 
+        [s, c,0,0],
+        [0, 0,1,0],
+        [0, 0,0,1]], dtype=float)
+    return Rz @ trans(dx,dy,dz) # returns transformation matrix
+def transform(Q,L): # transform the world frame to end effector frame given joint angles and link lengths
+    # pass num_joints? check if number of link lengths are equal to number of joints?
+    Q = np.asarray(Q)
+    if len(Q) != len(L):
+        raise ValueError("Each input Q must have a respective length L for all joints")
+    origin = np.transpose(np.array([0,0,0,1])) # world/global coordinate (x,y,z,1)=(0,0,0,1)
+    trans = np.eye(4) # identity matrix to compile all matrix transformations
+
+    if len(Q) == 4: # if there are more DOF than phalange lengths, assume first joint is ad-abduction and remaining are flexion-extension
+        T = adab_trans(Q[0],0) # MCP ad-abduction transformation matrix (0 length relative to origin) 
+        Q = Q[1:]; L = L[1:] # remove first element of Q and L
+        trans = trans @ T # transform origin to new coordinate frame
+
+    for idx in range(len(Q)): # for each joint angle and length, find the transformation matrix
+        T = fe_trans(Q[idx],L[idx]) # rotation and translation matrix
+        
+        trans = trans @ T
+    pos = (trans @ origin)[:3] # apply full transform to origin
+
+    if len(np.asarray(Q)) == len(L): # 3 DOF: no ad-adbuction
+        return np.append(pos[1:],np.sum(Q)) # [x, y, sum of angles] (2x2)
     else:
-        out = trans(x, l) @ np.array([0, 0, 1])
-    if out.ndim==1:
-       out = np.atleast_2d(out).T
-    return out
+        return np.append(pos, np.sum(Q)) # [x, y, z, sum of angles] (3x3)
 
-def trans(Q, L):
-    # print('trans call')
-    if Q.ndim == 2:
-        Q = Q[:,0]
-    trans = np.eye(3)
-    # print(Q)
-    # print(L)
-    for i in range(len(Q)+1):
-        # print(Q[i] if 0<=i<len(Q) else 0)
-        # print(L[i-1] if 0<=i-1<len(Q) else 0)
-        trans = trans @ rot(Q[i] if 0<=i<len(Q) else 0, L[i-1] if 0<=i-1<len(Q) else 0)
-    # print(trans)
-    return(trans)
+########### FINGER #############
+def get_jacobian_at_pose(Q,L):
+    # if singularity is detected??? (maybe) collapse the jacobian matrix (aka remove a DOF) and return the new jacobian matrix
+    # figure out how to get the function to work with 2d and 3d inputs (1x3 and 1x4 arrays)
+    # attribute of joint type....?
+    def end_effector(Q): # input to scipy jacobian must ALWAYS be a function
+        Q = np.asarray(Q)
 
-def jac(Q, L):
-    if len(Q) == 1:
-        if not len(L) == 1:
-           print("EXPECT ISSUES, SIZE MISMATCH")
-    # print(Q,L)
-    # x = trans(Q, L) @ np.array([0,0,1])
-    def w_ee_func(Q):
-       return ee_func(Q,L)
-    J = jacobian(w_ee_func, Q)
-    return J.df
+        if Q.ndim > 1: # scipy jacobian reshapes Q and is very evil, code below uses witchcraft to fix the issue ¯\_ (ツ)_/¯
+            Q_flat = Q.reshape(Q.shape[0], -1)  # collapse all batch dims → (4, k)
+            return np.stack([transform(Q_flat[:, i], L) for i in range(Q_flat.shape[1])], axis=1)
+        
+        return transform(Q, L) # get the end effector position [x,y,z] without trailing 1
+    J = jacobian(end_effector,Q) # get the jacobian matrix of the end effector position with respect to the joint angles
+    return J.df # return the jacobian matrix
 
 def volume_centroid(points):
     hull = ConvexHull(points)

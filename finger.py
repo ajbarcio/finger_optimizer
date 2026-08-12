@@ -326,6 +326,10 @@ def planar_force_demo():
 
     plt.show()
 
+# region Finger Instances
+# testbed
+# valero
+# endregion
 
 if __name__=="__main__":
     lengths=[0,1.4, 1.4, 1.2]
@@ -342,5 +346,5 @@ if __name__=="__main__":
             # convex_hull = testFinger.get_planar_force_capability_at_pose(pose[1:], units='N')
             # convex_hull_plot_2d(convex_hull, ax=plt.gca())
 
-            print(secondaryDev.biasResidual)
+            # print(secondaryDev.biasResidual)
     # plt.show()

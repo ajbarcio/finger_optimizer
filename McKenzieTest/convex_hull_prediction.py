@@ -1,5 +1,6 @@
 # TODO: We now have 2-constraint plotting for feasible force and torque regions, need to make definition for 1-constraint
 # TODO: finish feasible force and torque polytopes
+
 import numpy as np
 import itertools as it
 import scipy.optimize as opt
