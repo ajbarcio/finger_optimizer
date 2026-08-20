@@ -401,21 +401,21 @@ def minimize_u_over_l_lp_with_Fmax(A, T, F_max=None, tol_s=1e-9):
 # print(balancable_bias_force(A))
 # print(np.linalg.norm(balancable_bias_force(A)[-1]))
 
-S1 = np.array([[-1, 1, 1, 1, -1],
-               [ 0,-1, 1, 1, -1],
-               [ 0, 0,-1, 1, -1]])
-S2 = np.array([[-1, 1, 1, 1],
-               [ 0,-1, 1, 1],
-               [ 0, 0,-1, 1]])
-for S in [S1,S2]:
-    if(identify_strict_sign_central(S)):
-        bias_force_space = null_space(S)
-        print(bias_force_space)
-        print(np.linalg.svd(bias_force_space).S)
-        print(balancable_bias_force(bias_force_space))
-        c = np.ones((bias_force_space.shape[0],1))
-        c = c / np.linalg.norm(c)
-        print(closest_in_subspace(bias_force_space, c))
+# S1 = np.array([[-1, 1, 1, 1, -1],
+#                [ 0,-1, 1, 1, -1],
+#                [ 0, 0,-1, 1, -1]])
+# S2 = np.array([[-1, 1, 1, 1],
+#                [ 0,-1, 1, 1],
+#                [ 0, 0,-1, 1]])
+# for S in [S1,S2]:
+#     if(identify_strict_sign_central(S)):
+#         bias_force_space = null_space(S)
+#         print(bias_force_space)
+#         print(np.linalg.svd(bias_force_space).S)
+#         print(balancable_bias_force(bias_force_space))
+#         c = np.ones((bias_force_space.shape[0],1))
+#         c = c / np.linalg.norm(c)
+#         print(closest_in_subspace(bias_force_space, c))
         # print(np.max(bias_force_space)/np.min(bias_force_space))
 
 

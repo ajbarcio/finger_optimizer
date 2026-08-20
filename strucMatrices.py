@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from matplotlib import ticker
 import warnings
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-from scipy.optimize import linprog
+from scipy.optimize import linprog, root_scalar
 from scipy.linalg import null_space, norm, lstsq
 from scipy.linalg import null_space
 from scipy.integrate import quad
@@ -17,7 +17,7 @@ from utils import best_condition
 from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_annealing, differential_evolution
 from types import SimpleNamespace
 
-from McKenzieTest.convex_hull_prediction import closest_in_subspace, balancable_bias_force
+from Cuevas_Resources.convex_hull_prediction import closest_in_subspace, balancable_bias_force
 
 import itertools
 
@@ -1192,6 +1192,8 @@ class VariableStrucMatrix():
             self.min = min
             self.max = max
 
+            # print(self.min, minOverwrite, self.max)
+
             self.idx = idx
             if minOverwrite is None:
                 self.minOverwrite = 0
@@ -1206,14 +1208,50 @@ class VariableStrucMatrix():
             # radius of convergent circle
             self.r = self.c-self.max
             # Check to confirm
-            self.max = self(np.pi/2)
+            # self.max = self(np.pi/2)
+            assert np.isclose(self.base_function(np.pi/2), self.max)
+            # self.solve_for_angle_threshold()
+
+        # def solve_for_angle_threshold(self):
+        #     # result = root_scalar(lambda t: (self.base_function(t)-self.minOverwrite), bracket=(1e-5,np.pi/2))
+        #     angles = np.linspace(0,np.pi/2,100)
+        #     # print(self.r, self.c, self.minOverwrite, self.min, self.max)
+        #     # plt.plot(angles, self.base_function(angles))
+        #     # plt.plot(angles, self.minim_function(angles))
+        #     # plt.show()
+        #     # plt.plot()
+        #     try:
+        #         result = root_scalar(
+        #                     lambda t: self.base_function(t) - self.minim_function(t),
+        #                     x0=0)
+        #         self.angleThreshold = result.root
+        #     except:
+        #         self.angleThreshold = 0
+
+        def base_function(self, theta):
+            val = self.c*np.cos((np.pi/2-theta)/2)-self.r
+            return val
+
+        def minim_function(self, theta):
+            # val = np.sqrt(self.r**2 +
+            #               (self.r-self.minOverwrite)**2 * (1-np.cos(theta/2)**2) -
+            #               2*self.r*(self.r-self.minOverwrite)*np.cos(theta/2))
+            val = self.b(theta)*np.cos(self.g(theta)/2)
+            return val
+
+        def b(self, theta):
+            return np.sqrt(self.r**2 + (self.r-self.minOverwrite)**2 -
+                           2*self.r*(self.r-self.minOverwrite)*np.cos(theta/2))
+
+        def g(self, theta):
+            return np.arcsin((self.r-self.minOverwrite)/self.b(theta)*np.sin(theta/2))
 
         def __call__(self, theta):
-            val = self.c*np.cos((np.pi/2-theta)/2)-self.r
-            if val <= self.minOverwrite:
-                return self.minOverwrite
-            else:
-                return val
+            # if theta <= self.angleThreshold:
+            #     return self.minOverwrite
+            # else:
+            #     return self.base_function(theta)
+            return np.max([self.base_function(theta), self.minim_function(theta)])
 
         def sym(self):
             theta = sy.symbols(f'theta_{self.idx[0]+1}')
@@ -1920,14 +1958,14 @@ R = np.array([[np.nan,np.nan,np.nan,np.nan,np.nan],
               [0,     0     ,np.nan,np.nan,np.nan],
               [0,     0     ,0     ,np.nan,np.nan]])
 
-fs = [(0, .35,.235),(0, .35,.235),(0, .35,.235)]
-es = [(.25, .365),(.25, .365),(.25, .365)]
+fs2 = [(0, .35,.235),(0, .35,.235),(0, .35,.235)]
+es2 = [(.25, .365),(.25, .365),(.25, .365)]
 ps = [(.625/2*0.65,.625/2,0.4),(.625/2*0.65,.4,0.4)]
 
-primaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*4
-                                               +[es[1]]+[fs[1]]*3
+primaryDev = VariableStrucMatrix(R, D, ranges = [es2[0]]+[fs2[0]]*4
+                                               +[es2[1]]+[fs2[1]]*3
                                                +[ps[0]]+[ps[1]]*2
-                                               +[es[2]]+[fs[2]],
+                                               +[es2[2]]+[fs2[2]],
                                        types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*4
                                               +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
                                               +[VariableStrucMatrix.triangle_joint]*3
@@ -1945,13 +1983,13 @@ D = D[:-1,:-1]
 
 R = R[:-1,:-1]
 
-fs = [(0, .35,.2),(0, .35,.2),(0, .35,.2)]
-es = [(0.25, .367),(0.25, .367),(.25, .367)]
+fs2 = [(0, .35,.2),(0, .35,.2),(0, .35,.2)]
+es2 = [(0.25, .367),(0.25, .367),(.25, .367)]
 ps = [(.625/2*0.65,.625/2,0.4),(.625/2*0.65,.4,0.4)]
 
-secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
-                                                 +[es[1]]+[fs[1]]*2
-                                                 +[es[2]]+[fs[2]],
+secondaryDev = VariableStrucMatrix(R, D, ranges = [es2[0]]+[fs2[0]]*3
+                                                 +[es2[1]]+[fs2[1]]*2
+                                                 +[es2[2]]+[fs2[2]],
                                           types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
                                                  +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
@@ -1959,18 +1997,20 @@ secondaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
                                       minFactor = 0.1,
                                            name = "Sdev")
 
-fs = [(.138, .413, .191),
+fs2 = [(.138, .413, .191),
       (.134, .405, .338),
       (.120, .385, .340)]
 
-es = [(0.217, .306),
+es2 = [(0.217, .306),
       (0.153, .261),
       (0.155, .2625)]
 # ps = [(.625/2*0.65,.625/2,0.4),(.625/2*0.65,.4,0.4)]
 
-testbedFinger4 = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
-                                                   +[es[1]]+[fs[1]]*2
-                                                   +[es[2]]+[fs[2]],
+# print(fs)
+
+testbedFinger4 = VariableStrucMatrix(R, D, ranges = [es2[0]]+[fs2[0]]*3
+                                                   +[es2[1]]+[fs2[1]]*2
+                                                   +[es2[2]]+[fs2[2]],
                                            types  = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
                                                    +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
                                                    +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],

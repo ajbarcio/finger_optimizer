@@ -8,40 +8,40 @@ from utils import hArray, ee_func
 np.set_printoptions(precision=4, suppress=True)
 
 testF = [0,20,0]
-testFinger = Finger(inherentFixedLuke,[42.074,27.613,20.615])
+quickFinger = Finger(inherentFixedLuke,[42.074,27.613,20.615])
 print("THIS SECTION OF PRINT STATEMENTS WORKS ON A FIXED FINGER")
 q = 0
 
-S = testFinger.structure()
+S = quickFinger.structure()
 
-print(f"Joint lengths: {testFinger.lengths}, total length: {np.sum(testFinger.lengths)}")
+print(f"Joint lengths: {quickFinger.lengths}, total length: {np.sum(quickFinger.lengths)}")
 print(hArray(S, "Structure:"))
 # print("structure", S)
-print(f"this structure matrix has a relative scale of {testFinger.structure.magnitude}")
-print(testFinger.structure.S.T @ testFinger.structure.S)
-print(np.sqrt(np.linalg.det(testFinger.structure.S.T @ testFinger.structure.S)))
+print(f"this structure matrix has a relative scale of {quickFinger.structure.magnitude}")
+print(quickFinger.structure.S.T @ quickFinger.structure.S)
+print(np.sqrt(np.linalg.det(quickFinger.structure.S.T @ quickFinger.structure.S)))
 
 
-print("Validity:",testFinger.structure.nullSpaceCondition, testFinger.structure.rankCondition)
-print(hArray(testFinger.structure.biasForceSpace, "Bias Force Direction:"))
+print("Validity:",quickFinger.structure.nullSpaceCondition, quickFinger.structure.rankCondition)
+print(hArray(quickFinger.structure.biasForceSpace, "Bias Force Direction:"))
 
-grip = testFinger.tip_wrench_at_pose_to_grip([q]*testFinger.numJoints, testF, frame="EE")
+grip = quickFinger.tip_wrench_at_pose_to_grip([q]*quickFinger.numJoints, testF, frame="EE")
 
-print(hArray(testFinger.get_jacobian_at_pose([q]*testFinger.numJoints), "J:"))
+print(hArray(quickFinger.get_jacobian_at_pose([q]*quickFinger.numJoints), "J:"))
 print(hArray(grip, f"resulting torques for F={testF} at tip of finger:"))
 
 
-minFactor = 1/testFinger.structure.biasCondition()*0.1
-print(f"Enforcing minimum tension of {minFactor} based on Null Space Condition of {testFinger.structure.biasCondition()} (10% of max allowable value)")
-tens = testFinger.grip_to_tensions([q]*testFinger.numJoints, grip)
+minFactor = 1/quickFinger.structure.biasCondition()*0.1
+print(f"Enforcing minimum tension of {minFactor} based on Null Space Condition of {quickFinger.structure.biasCondition()} (10% of max allowable value)")
+tens = quickFinger.grip_to_tensions([q]*quickFinger.numJoints, grip)
 print(hArray(tens, f"best case tensions for F={testF} at tip of finger:"))
 
 print(inherentFixedLuke.S)
-print(f"magnitude: {testFinger.structure.get_magnitude()}")
+print(f"magnitude: {quickFinger.structure.get_magnitude()}")
 # inherentFixedLuke.R *= 2
 inherentFixedLuke.reinit()
 print(inherentFixedLuke.S)
-print(f"magnitude: {testFinger.structure.get_magnitude()}")
+print(f"magnitude: {quickFinger.structure.get_magnitude()}")
 
 
 # print("------------------------------")

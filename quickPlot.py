@@ -5,40 +5,67 @@ from combinatorics import *
 from variableOptimizer import createFingerFromVector
 import itertools
 
-F = np.array([0,5,0])
+# F = np.array([0,5,0])
 lengths = [1.4,1.4,1.2]
 
-D = np.array([[-1,1,1,1],
-              [0,-1,1,1],
-              [0,0,-1,1]])
+# D = np.array([[-1,1,1,1],
+#               [0,-1,1,1],
+#               [0,0,-1,1]])
 
-R = np.array([[np.nan,np.nan,np.nan,np.nan],
-              [0,     np.nan,np.nan,np.nan],
-              [0,     0     ,np.nan,np.nan]])
+# R = np.array([[np.nan,np.nan,np.nan,np.nan],
+#               [0,     np.nan,np.nan,np.nan],
+#               [0,     0     ,np.nan,np.nan]])
 
-# [(min, max, minim), (), etc...]
-flexure_extents = [(0.06,0.35,0.2),(0.06,0.35,0.2),(0.06,0.35,0.2)]
-# [(min, max), (), etc...]
-extensure_extents = [(.25, .367),(.25, .364),(.25, .364)]
+# # [(min, max, minim), (), etc...]
+# flexure_extents = [(0.06,0.35,0.2),(0.06,0.35,0.2),(0.06,0.35,0.2)]
+# # [(min, max), (), etc...]
+# extensure_extents = [(.25, .367),(.25, .364),(.25, .364)]
 
-PaperStructure = VariableStrucMatrix(R, D, ranges = [extensure_extents[0]]+[flexure_extents[0]]*3
-                                              +[extensure_extents[1]]+[flexure_extents[1]]*2
-                                              +[extensure_extents[2]]+[flexure_extents[2]],
-                                       types = [VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit]*3
-                                              +[VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit]*2
-                                              +[VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit],
-                                           F = np.array([50]*4),
-                                      name="Prototype")
+# PaperStructure = VariableStrucMatrix(R, D, ranges = [extensure_extents[0]]+[flexure_extents[0]]*3
+#                                               +[extensure_extents[1]]+[flexure_extents[1]]*2
+#                                               +[extensure_extents[2]]+[flexure_extents[2]],
+#                                        types = [VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+#                                               +[VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit]*2
+#                                               +[VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit],
+#                                            F = np.array([50]*4),
+#                                       name="Prototype")
 
+fs2 = [(.138, .413, .191),
+      (.134, .405, .338),
+      (.120, .385, .340)]
 
-PaperFinger = Finger(PaperStructure, lengths)
+es2 = [(0.217, .306),
+      (0.153, .261),
+      (0.155, .2625)]
+# ps = [(.625/2*0.65,.625/2,0.4),(.625/2*0.65,.4,0.4)]
+
+# print(fs)
+
+testFingerFuckMe = VariableStrucMatrix(R, D, ranges = [es2[0]]+[fs2[0]]*3
+                                                   +[es2[1]]+[fs2[1]]*2
+                                                   +[es2[2]]+[fs2[2]],
+                                           types  = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+                                                   +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
+                                                   +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                                F = np.array([50]*5),
+                                        minFactor = 0.1,
+                                             name = "TFFM")
+
+quickFinger = Finger(testFingerFuckMe, lengths)
+print(quickFinger.structure.name)
 
 qs = np.linspace(0,np.pi/2,1000)
 tvecs = []
 tvecs2 = []
 overall_transmission_ratios = []
+j0t1_effort = []
+j1t2_effort = []
+j2t3_effort = []
 
 for q in qs:
+    j0t1_effort.append(quickFinger.structure.j0t1r(q))
+    j1t2_effort.append(quickFinger.structure.j1t2r(q))
+    j2t3_effort.append(quickFinger.structure.j2t3r(q))
     # tensions  = PaperFinger.grip_to_tensions([q]*PaperFinger.numJoints,
     #                                             PaperFinger.grasp_to_grip(PaperFinger.grasp(
     #                                                                                         [F]*PaperFinger.numJoints,
@@ -50,12 +77,31 @@ for q in qs:
     #                                                                                     frame="EE"))
 
     # condition = PaperFinger.structure.controllability([q]*PaperFinger.numJoints)
-    transmission_ratio = PaperStructure.get_magnitude([q]*PaperFinger.numJoints)
+    # transmission_ratio = PaperStructure.get_magnitude([q]*PaperFinger.numJoints)
 
     # tvecs.append(tensions)
     # tvecs2.append(tensions2)
-    overall_transmission_ratios.append(transmission_ratio)
+    # overall_transmission_ratios.append(transmission_ratio)
 
+# print(quickFinger.structure.j0t1r.angleThreshold*180/np.pi)
+# print(quickFinger.structure.j1t2r.angleThreshold*180/np.pi)
+print("--")
+print(f"c_flex: {quickFinger.structure.j1t2r.c}")
+print(f"r_flex: {quickFinger.structure.j1t2r.r}")
+print(f"parameters: {quickFinger.structure.j1t2r.min}, {quickFinger.structure.j1t2r.minOverwrite}, {quickFinger.structure.j1t2r.max}")
+print("--")
+# print(f"c_ext: {testFinger.j1t1r.c}")
+# print(f"r_ext: {testFinger.j1t1r.r}")
+print("--")
+# print(quickFinger.structure.j0t1r.angleThreshold)
+print(quickFinger.structure.j0t1r.r, quickFinger.structure.j0t1r.c, quickFinger.structure.j0t1r.minOverwrite)
+print(quickFinger.structure.j1t2r.r, quickFinger.structure.j1t2r.c, quickFinger.structure.j1t2r.minOverwrite)
+print(quickFinger.structure.j2t3r.r, quickFinger.structure.j2t3r.c, quickFinger.structure.j2t3r.minOverwrite)
+
+
+plt.plot(qs, j0t1_effort)
+plt.plot(qs, j1t2_effort)
+plt.plot(qs, j2t3_effort)
 
 # plt.figure("Flexion Grasp Tensions")
 # plt.plot(qs, tvecs)
@@ -65,17 +111,17 @@ for q in qs:
 # plt.title("magnitudes")
 
 
-plt.figure("magnitudes2")
-plt.plot(qs*180/np.pi, np.array(overall_transmission_ratios)*16387.1, lw=3, color='black')
-plt.title("OTV of Prototype Finger over Uniform Grasps")
-q_vector = "θ\u20D7"
-degree = "\u00b0"
-plt.xlabel(f"{q_vector} ({degree})")
-plt.ylabel(f"OTV (mm\u00b3)")
-plt.xticks([0, 30, 60, 90])
-
-PaperFinger.structure.plotCapability([0]*PaperFinger.numJoints, enforcePosTension=False, metric=True)
-PaperFinger.structure.plotCapability([np.pi/2]*PaperFinger.numJoints, enforcePosTension=False, metric=True)
+# plt.figure("magnitudes2")
+# plt.plot(qs*180/np.pi, np.array(overall_transmission_ratios)*16387.1, lw=3, color='black')
+# plt.title("OTV of Prototype Finger over Uniform Grasps")
+# q_vector = "θ\u20D7"
+# degree = "\u00b0"
+# plt.xlabel(f"{q_vector} ({degree})")
+# plt.ylabel(f"OTV (mm\u00b3)")
+# plt.xticks([0, 30, 60, 90])
+plt.show()
+# PaperFinger.structure.plotCapability([0]*PaperFinger.numJoints, enforcePosTension=False, metric=True)
+# PaperFinger.structure.plotCapability([np.pi/2]*PaperFinger.numJoints, enforcePosTension=False, metric=True)
 # S = overall_transmission_ratios
 # Optimus.plotCapability(showBool=True)
 
@@ -182,7 +228,7 @@ PaperFinger.structure.plotCapability([np.pi/2]*PaperFinger.numJoints, enforcePos
 # plt.figure()
 # plt.plot(qs, conditions)
 
-plt.show()
+# plt.show()
 
 # # D = np.array([[-1,1,1,1],
 # #               [0,-1,1,1],

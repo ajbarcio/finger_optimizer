@@ -4,11 +4,15 @@ from strucMatrices import VariableStrucMatrix, StrucMatrix, secondaryDev, primar
 from utils import trans, jac, clean_array, hArray, generate_binary_lists
 from scipy.optimize import nnls, lsq_linear, linprog
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
+from scipy.linalg import null_space
 import itertools
 
 from matplotlib import pyplot as plt
 
-from McKenzieTest.convex_hull_prediction import plot_ffr_at_pose, pose_dict
+from Cuevas_Resources.convex_hull_prediction import plot_ffr_at_pose, pose_dict
+from Cuevas_Resources.Solver import R_at_pos
+from nullSpaceTests import balancable_bias_force
+
 
 import matplotlib.animation as animation
 
@@ -329,18 +333,19 @@ def planar_force_demo():
 
 if __name__=="__main__":
     lengths=[0,1.4, 1.4, 1.2]
-    testFinger = Finger(primaryDev, lengths=lengths) # 4DOF
-    testFinger = Finger(secondaryDev, [1.4,1.4,1.2]) # 3DOF
-
+    quickFinger = Finger(primaryDev, lengths=lengths) # 4DOF
+    quickFinger = Finger(secondaryDev, [1.4,1.4,1.2]) # 3DOF
 
     for name, pose in pose_dict.items():
         if name != "bah":
+            print(f"For pose {name}")
             # Plot comparision of anatomical vs robotic finger feasible force region
-            # font=16
-            # plt.figure() # forces
-            # plot_ffr_at_pose(pose, name) # Cuevas Anatomical Feasible Force Region
-            # convex_hull = testFinger.get_planar_force_capability_at_pose(pose[1:], units='N')
-            # convex_hull_plot_2d(convex_hull, ax=plt.gca())
+            font=16
+            plt.figure() # forces
+            plot_ffr_at_pose(pose, name) # Cuevas Anatomical Feasible Force Region
+            convex_hull = quickFinger.get_planar_force_capability_at_pose(pose[1:], units='N')
+            convex_hull_plot_2d(convex_hull, ax=plt.gca())
 
-            print(secondaryDev.biasResidual)
-    # plt.show()
+            print(f"Human Finger Condition: {balancable_bias_force(null_space(R_at_pos(pose)))[-1]}")
+            print(f"Robot Finger Condition: {secondaryDev.biasCondition(pose)}")
+    plt.show()

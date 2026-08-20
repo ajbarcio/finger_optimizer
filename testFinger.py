@@ -7,15 +7,15 @@ from utils import hArray, ee_func
 
 np.set_printoptions(precision=4, suppress=True)
 
-testFinger = Finger(secondaryDev, [1.4,1.4,1.2])
+quickFinger = Finger(secondaryDev, [1.4,1.4,1.2])
 print("THIS SECTION OF PRINT STATEMENTS WORKS ON THE VARIABLE FINGER")
 
 q = 0
 testF = [0,5,0]
 
-S = testFinger.structure([q]*3)
-testFinger.structure.controllability([q]*3)
-controllability = testFinger.structure.controllability
+S = quickFinger.structure([q]*3)
+quickFinger.structure.controllability([q]*3)
+controllability = quickFinger.structure.controllability
 # plt.show()
 
 # print('\t' + str(a).replace('\n', '\n\t'))
@@ -24,19 +24,19 @@ print(hArray(S, "Structure:"))
 print("Validity:",controllability.nullSpaceCriterion, controllability.rankCriterion)
 print(hArray(controllability.biasForceSpace, "Bias Force Direction:"))
 
-grip = testFinger.tip_wrench_at_pose_to_grip([q]*testFinger.numJoints, testF)
+grip = quickFinger.tip_wrench_at_pose_to_grip([q]*quickFinger.numJoints, testF)
 
-print(hArray(testFinger.get_jacobian_at_pose([q]*testFinger.numJoints), "J:"))
+print(hArray(quickFinger.get_jacobian_at_pose([q]*quickFinger.numJoints), "J:"))
 print(hArray(grip, f"resulting torques for F={testF}:"))
 
-testFinger = Finger(secondaryDev, [1.4,1.4,0.6])
-grip = testFinger.tip_wrench_at_pose_to_grip([q]*testFinger.numJoints, testF)
+quickFinger = Finger(secondaryDev, [1.4,1.4,0.6])
+grip = quickFinger.tip_wrench_at_pose_to_grip([q]*quickFinger.numJoints, testF)
 
-print(hArray(testFinger.get_jacobian_at_pose([q]*testFinger.numJoints), "J:"))
+print(hArray(quickFinger.get_jacobian_at_pose([q]*quickFinger.numJoints), "J:"))
 print(hArray(grip, f"resulting torques for F={testF}:"))
 
-testFinger = Finger(secondaryDev, [1.4,1.4,1.2])
-testGrasp = testFinger.grasp([testF]*testFinger.numJoints, [q]*testFinger.numJoints)
+quickFinger = Finger(secondaryDev, [1.4,1.4,1.2])
+testGrasp = quickFinger.grasp([testF]*quickFinger.numJoints, [q]*quickFinger.numJoints)
 
 print("starting grip test")
 if hasattr(ee_func, "_called3"):
@@ -44,39 +44,39 @@ if hasattr(ee_func, "_called3"):
 if hasattr(ee_func, "_called2"):
     del ee_func._called2
 
-print(testFinger.structure([q]*testFinger.numJoints))
+print(quickFinger.structure([q]*quickFinger.numJoints))
 
-grip = testFinger.grasp_to_grip(testGrasp)
+grip = quickFinger.grasp_to_grip(testGrasp)
 print(hArray(grip, f"resulting torques for uniform normal grasp:"))
 testGrasp.frame = "EE"
-grip = testFinger.grasp_to_grip(testGrasp)
+grip = quickFinger.grasp_to_grip(testGrasp)
 print(hArray(grip, f"resulting torques for uniform normal grasp (EE Frame):"))
-tens = testFinger.grip_to_tensions([q]*testFinger.numJoints, grip)
+tens = quickFinger.grip_to_tensions([q]*quickFinger.numJoints, grip)
 print(hArray(tens, f"best case tensions for uniform normal grasp (EE Frame):"))
 
 print("------------------------------")
 F = [0,5,0]
 q = 0
-print(testFinger.structure([q]*testFinger.numJoints))
-print("grip", testFinger.grasp_to_grip(testFinger.grasp([F]*testFinger.numJoints, [q]*testFinger.numJoints, frame="EE")))
-print(hArray(testFinger.grip_to_tensions([q]*testFinger.numJoints, testFinger.grasp_to_grip(testFinger.grasp([F]*testFinger.numJoints, [q]*testFinger.numJoints, frame="EE"))), "Best Case Tensions"))
+print(quickFinger.structure([q]*quickFinger.numJoints))
+print("grip", quickFinger.grasp_to_grip(quickFinger.grasp([F]*quickFinger.numJoints, [q]*quickFinger.numJoints, frame="EE")))
+print(hArray(quickFinger.grip_to_tensions([q]*quickFinger.numJoints, quickFinger.grasp_to_grip(quickFinger.grasp([F]*quickFinger.numJoints, [q]*quickFinger.numJoints, frame="EE"))), "Best Case Tensions"))
 
 F = [0,5,0]
 q = np.pi/4
-print(testFinger.structure([q]*testFinger.numJoints))
-print("grip", testFinger.grasp_to_grip(testFinger.grasp([F]*testFinger.numJoints, [q]*testFinger.numJoints, frame="EE")))
-print(hArray(testFinger.grip_to_tensions([q]*testFinger.numJoints, testFinger.grasp_to_grip(testFinger.grasp([F]*testFinger.numJoints, [q]*testFinger.numJoints, frame="EE"))), "Best Case Tensions"))
+print(quickFinger.structure([q]*quickFinger.numJoints))
+print("grip", quickFinger.grasp_to_grip(quickFinger.grasp([F]*quickFinger.numJoints, [q]*quickFinger.numJoints, frame="EE")))
+print(hArray(quickFinger.grip_to_tensions([q]*quickFinger.numJoints, quickFinger.grasp_to_grip(quickFinger.grasp([F]*quickFinger.numJoints, [q]*quickFinger.numJoints, frame="EE"))), "Best Case Tensions"))
 
 F = [0,5,0]
 q = np.pi/2
-print(testFinger.structure([q]*testFinger.numJoints))
-print("grip", testFinger.grasp_to_grip(testFinger.grasp([F]*testFinger.numJoints, [q]*testFinger.numJoints, frame="EE")))
-print(hArray(testFinger.grip_to_tensions([q]*testFinger.numJoints, testFinger.grasp_to_grip(testFinger.grasp([F]*testFinger.numJoints, [q]*testFinger.numJoints, frame="EE"))), "Best Case Tensions"))
+print(quickFinger.structure([q]*quickFinger.numJoints))
+print("grip", quickFinger.grasp_to_grip(quickFinger.grasp([F]*quickFinger.numJoints, [q]*quickFinger.numJoints, frame="EE")))
+print(hArray(quickFinger.grip_to_tensions([q]*quickFinger.numJoints, quickFinger.grasp_to_grip(quickFinger.grasp([F]*quickFinger.numJoints, [q]*quickFinger.numJoints, frame="EE"))), "Best Case Tensions"))
 print("------------------------------")
 
 print("MAGNITUDE INCREASES -------------------------")
-print(testFinger.structure.get_magnitude([0]*testFinger.numJoints))
-print(testFinger.structure.get_magnitude([np.pi/2]*testFinger.numJoints))
+print(quickFinger.structure.get_magnitude([0]*quickFinger.numJoints))
+print(quickFinger.structure.get_magnitude([np.pi/2]*quickFinger.numJoints))
 
 qs = np.linspace(0,np.pi/2,75)
 tvecs = []
@@ -84,16 +84,16 @@ tvecs2 = []
 scales = []
 for q in qs:
 
-    grip = testFinger.tip_wrench_at_pose_to_grip([q]*testFinger.numJoints, testF, frame="EE")
+    grip = quickFinger.tip_wrench_at_pose_to_grip([q]*quickFinger.numJoints, testF, frame="EE")
     # grip = testFinger.grasp_to_grip(testFinger.grasp([F]*testFinger.numJoints, [q]*testFinger.numJoints, frame="EE"))
 
-    tensions  = testFinger.grip_to_tensions([q]*testFinger.numJoints,  grip)
-    tensions2 = testFinger.grip_to_tensions([q]*testFinger.numJoints, -grip*0.25)
+    tensions  = quickFinger.grip_to_tensions([q]*quickFinger.numJoints,  grip)
+    tensions2 = quickFinger.grip_to_tensions([q]*quickFinger.numJoints, -grip*0.25)
     
     tvecs.append(tensions)
     tvecs2.append(tensions2)
 
-    scales.append(testFinger.structure.get_magnitude([q]*testFinger.numJoints))
+    scales.append(quickFinger.structure.get_magnitude([q]*quickFinger.numJoints))
 plt.plot(qs, tvecs)
 plt.figure()
 plt.plot(qs, tvecs2)
@@ -101,32 +101,32 @@ plt.figure()
 plt.plot(qs, scales)
 plt.show()
 
-testFinger = Finger(inherentFixed,[1.4,1.4,1.2])
+quickFinger = Finger(inherentFixed,[1.4,1.4,1.2])
 print("THIS SECTION OF PRINT STATEMENTS WORKS ON A FIXED FINGER")
 q = 0
 
-S = testFinger.structure()
+S = quickFinger.structure()
 
-print(f"Joint lengths: {testFinger.lengths}, total length: {np.sum(testFinger.lengths)}")
+print(f"Joint lengths: {quickFinger.lengths}, total length: {np.sum(quickFinger.lengths)}")
 print(hArray(S, "Structure:"))
 # print("structure", S)
-print(f"this structure matrix has a relative scale of {testFinger.structure.magnitude}")
-print(testFinger.structure.S.T @ testFinger.structure.S)
-print(np.sqrt(np.linalg.det(testFinger.structure.S.T @ testFinger.structure.S)))
+print(f"this structure matrix has a relative scale of {quickFinger.structure.magnitude}")
+print(quickFinger.structure.S.T @ quickFinger.structure.S)
+print(np.sqrt(np.linalg.det(quickFinger.structure.S.T @ quickFinger.structure.S)))
 
 
-print("Validity:",testFinger.structure.nullSpaceCondition, testFinger.structure.rankCondition)
-print(hArray(testFinger.structure.biasForceSpace, "Bias Force Direction:"))
+print("Validity:",quickFinger.structure.nullSpaceCondition, quickFinger.structure.rankCondition)
+print(hArray(quickFinger.structure.biasForceSpace, "Bias Force Direction:"))
 
-grip = testFinger.tip_wrench_at_pose_to_grip([q]*testFinger.numJoints, testF, frame="EE")
+grip = quickFinger.tip_wrench_at_pose_to_grip([q]*quickFinger.numJoints, testF, frame="EE")
 
-print(hArray(testFinger.get_jacobian_at_pose([q]*testFinger.numJoints), "J:"))
+print(hArray(quickFinger.get_jacobian_at_pose([q]*quickFinger.numJoints), "J:"))
 print(hArray(grip, f"resulting torques for F={testF} at tip of finger:"))
 
 
-minFactor = 1/testFinger.structure.biasCondition()*0.1
-print(f"Enforcing minimum tension of {minFactor} based on Null Space Condition of {testFinger.structure.biasCondition()} (10% of max allowable value)")
-tens = testFinger.grip_to_tensions([q]*testFinger.numJoints, grip)
+minFactor = 1/quickFinger.structure.biasCondition()*0.1
+print(f"Enforcing minimum tension of {minFactor} based on Null Space Condition of {quickFinger.structure.biasCondition()} (10% of max allowable value)")
+tens = quickFinger.grip_to_tensions([q]*quickFinger.numJoints, grip)
 print(hArray(tens, f"best case tensions for F={testF} at tip of finger:"))
 
 # print("------------------------------")

@@ -8,7 +8,7 @@ import scipy.spatial as spa
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from McKenzieTest.Solver import Mo_at_pos, q_flx, q_int, q_ext, R_at_pos, Fo_at_pos
+from Cuevas_Resources.Solver import Mo_at_pos, q_flx, q_int, q_ext, R_at_pos, Fo_at_pos
 
 num_excitations = 7
 num_constraints = 5 # CONSTRAINT(1): num_constraints = 6
@@ -49,7 +49,7 @@ def get_convex_capability_at_pos(pose,name,num_constraints): # finds feasible fo
             elif (num_excitations-num_constraints)==1: # ONE CONSTRAINT (TORQUE ALLOWANCE)
                 # b = np.concatenate([[0], b])
                 A = np.vstack((Mo_at_pos(pose)[0,:], A))
-                        
+
             excitation, success = solve_for_feasible_excitations(A, b)
             if not success:
                 pass
@@ -59,7 +59,7 @@ def get_convex_capability_at_pos(pose,name,num_constraints): # finds feasible fo
                 num_sols_for_pose += 1
                 unique_sol_for_pose.add(tuple(excitation))
     # print("--")
-            
+
     # print(f"found {num_sols_for_pose} intersections at pose {pose}")
     # print(f"found {len(unique_sol_for_pose)} unique intersections at pose {pose}")
     for u_ext in list(unique_sol_for_pose):
@@ -105,7 +105,7 @@ unique_forces_q_ext = []
 unique_forces_q_int = []
 unique_forces_q_flx = []
 
-pose_dict = {"Extended": q_ext, 
+pose_dict = {"Extended": q_ext,
              "Intermediate": q_int,
              "Flexed": q_flx}
 
@@ -175,7 +175,7 @@ def balancable_bias_force(bias):
         closest = projector @ b
         # print(closest)
         return balancable, np.max(closest)/np.min(closest)
- 
+
 if __name__ == "__main__":
     S = R_at_pos(q_flx)
     biasForceSpace = la.null_space(S) # attribute of StructMatrix
@@ -188,8 +188,6 @@ if __name__ == "__main__":
     # print(biasForceSpace)
     print(closest_in_subspace(biasForceSpace, V7d))
     print(balancable_bias_force(biasForceSpace)[-1])
-
-
 
     x, r, rank, s = la.lstsq(nullspace, V3d)
     print(nullspace@x)
