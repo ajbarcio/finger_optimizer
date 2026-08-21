@@ -1097,6 +1097,14 @@ class InsufficientRanges(Exception):
 # region VariableStrucMatrix
 class VariableStrucMatrix():
 
+    def __enter__(self):
+        # print("Setup resource")
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # print("Clean up resource")
+        return False
+
     plot_count = 0
     figures = {}  # Dict to track figures by name
     figures_with_axes = set()
@@ -1206,7 +1214,7 @@ class VariableStrucMatrix():
             self.r = self.c-self.max
 
             # distance to center of convergent circle along link
-            a = self.c*np.cos(np.pi/2)
+            a = self.c*np.cos(np.pi/4)
             # r1 = max radius of upper surface
             self.r1 = (a**2+(a-self.minOverwrite)**2-self.r**2)/(2*(self.r-a+self.minOverwrite))
             # Spot check to make sure math is right
@@ -1234,7 +1242,7 @@ class VariableStrucMatrix():
             # val = np.sqrt(self.r**2 +
             #               (self.r-self.minOverwrite)**2 * (1-np.cos(theta/2)**2) -
             #               2*self.r*(self.r-self.minOverwrite)*np.cos(theta/2))
-            val = self.b(theta)*np.cos(self.g(theta)/2)
+            val = self.b(theta)*np.cos(self.g(theta))
             return val
 
         def b(self, theta):

@@ -89,9 +89,13 @@ for q in qs:
     # tvecs2.append(tensions2)
     overall_transmission_ratios.append(transmission_ratio)
 
-print(quickFinger.structure.j0t1r.angleThreshold*180/np.pi)
-print(quickFinger.structure.j1t2r.angleThreshold*180/np.pi)
-print(quickFinger.structure.j2t3r.angleThreshold*180/np.pi)
+with quickFinger.structure as S:
+    print(S.j0t1r.angleThreshold*180/np.pi)
+    print(S.j0t1r.r1)
+    print(S.j1t2r.angleThreshold*180/np.pi)
+    print(S.j1t2r.r1)
+    print(S.j2t3r.angleThreshold*180/np.pi)
+    print(S.j2t3r.r1)
 
 # print(quickFinger.structure.j0t1r.r, quickFinger.structure.j0t1r.c, quickFinger.structure.j0t1r.minOverwrite)
 # print(quickFinger.structure.j1t2r.r, quickFinger.structure.j1t2r.c, quickFinger.structure.j1t2r.minOverwrite)
@@ -114,6 +118,7 @@ plt.plot(qs, np.array(overall_transmission_ratios)
          )
 plt.title("magnitudes")
 
+plt.show()
 
 # plt.figure("magnitudes2")
 # plt.plot(qs*180/np.pi, np.array(overall_transmission_ratios)*16387.1, lw=3, color='black')
@@ -123,7 +128,7 @@ plt.title("magnitudes")
 # plt.xlabel(f"{q_vector} ({degree})")
 # plt.ylabel(f"OTV (mm\u00b3)")
 # plt.xticks([0, 30, 60, 90])
-plt.show()
+# plt.show()
 # PaperFinger.structure.plotCapability([0]*PaperFinger.numJoints, enforcePosTension=False, metric=True)
 # PaperFinger.structure.plotCapability([np.pi/2]*PaperFinger.numJoints, enforcePosTension=False, metric=True)
 # S = overall_transmission_ratios
