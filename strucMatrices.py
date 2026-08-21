@@ -1184,49 +1184,47 @@ class VariableStrucMatrix():
             return self.c*np.cos((np.pi/2-theta)/2)-self.r
 
     # DOES THIS WORK YET? yes it do
+    # I lied actually but NOW it do
     class convergent_circles_joint_with_limit():
         """
         Similar to convergent circles, but with a convex arc around
         """
         def __init__(self, min, max, minOverwrite, idx):
+            self.idx = idx
+
             self.min = min
             self.max = max
 
-            # print(self.min, minOverwrite, self.max)
-
-            self.idx = idx
             if minOverwrite is None:
                 self.minOverwrite = 0
             else:
                 self.minOverwrite = minOverwrite
-            # print(self.minOverwrite)
-            # if minOverwrite > self.min:
-            #     self.min = minOverwrite
 
             # distance from center of convergent circle to joint
             self.c = (self.max-self.min)/(1-np.sqrt(2)/2)
             # radius of convergent circle
             self.r = self.c-self.max
-            # Check to confirm
-            # self.max = self(np.pi/2)
-            assert np.isclose(self.base_function(np.pi/2), self.max)
-            # self.solve_for_angle_threshold()
 
-        # def solve_for_angle_threshold(self):
-        #     # result = root_scalar(lambda t: (self.base_function(t)-self.minOverwrite), bracket=(1e-5,np.pi/2))
-        #     angles = np.linspace(0,np.pi/2,100)
-        #     # print(self.r, self.c, self.minOverwrite, self.min, self.max)
-        #     # plt.plot(angles, self.base_function(angles))
-        #     # plt.plot(angles, self.minim_function(angles))
-        #     # plt.show()
-        #     # plt.plot()
-        #     try:
-        #         result = root_scalar(
-        #                     lambda t: self.base_function(t) - self.minim_function(t),
-        #                     x0=0)
-        #         self.angleThreshold = result.root
-        #     except:
-        #         self.angleThreshold = 0
+            # distance to center of convergent circle along link
+            a = self.c*np.cos(np.pi/2)
+            # r1 = max radius of upper surface
+            self.r1 = (a**2+(a-self.minOverwrite)**2-self.r**2)/(2*(self.r-a+self.minOverwrite))
+            # Spot check to make sure math is right
+            assert np.isclose(self.base_function(np.pi/2), self.max)
+            # Determine breakover angle between surfaces
+            self.solve_for_angle_threshold()
+
+        def solve_for_angle_threshold(self):
+            try:
+                result = root_scalar(
+                            lambda t: self.base_function(t) - self.minim_function(t),
+                            x0=0)
+                self.angleThreshold = result.root
+            except:
+                if self.base_function(0) <= self.minim_function(0):
+                    self.angleThreshold = np.pi*1.2
+                elif self.base_function(0) > self.minim_function(0):
+                    self.angleTrheshold = -1
 
         def base_function(self, theta):
             val = self.c*np.cos((np.pi/2-theta)/2)-self.r
@@ -1240,18 +1238,18 @@ class VariableStrucMatrix():
             return val
 
         def b(self, theta):
-            return np.sqrt(self.r**2 + (self.r-self.minOverwrite)**2 -
-                           2*self.r*(self.r-self.minOverwrite)*np.cos(theta/2))
+            return np.sqrt(self.r1**2 + (self.r1-self.minOverwrite)**2 -
+                           2*self.r1*(self.r1-self.minOverwrite)*np.cos(theta/2))
 
         def g(self, theta):
-            return np.arcsin((self.r-self.minOverwrite)/self.b(theta)*np.sin(theta/2))
+            return np.arcsin((self.r1-self.minOverwrite)/self.b(theta)*np.sin(theta/2))
 
         def __call__(self, theta):
-            # if theta <= self.angleThreshold:
-            #     return self.minOverwrite
-            # else:
-            #     return self.base_function(theta)
-            return np.max([self.base_function(theta), self.minim_function(theta)])
+            if theta <= self.angleThreshold:
+                return self.minim_function(theta)
+            else:
+                return self.base_function(theta)
+            # return np.max([self.base_function(theta), self.minim_function(theta)])
 
         def sym(self):
             theta = sy.symbols(f'theta_{self.idx[0]+1}')

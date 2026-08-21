@@ -61,11 +61,17 @@ overall_transmission_ratios = []
 j0t1_effort = []
 j1t2_effort = []
 j2t3_effort = []
+j0t0_effort = []
+j1t1_effort = []
+j2t2_effort = []
 
 for q in qs:
     j0t1_effort.append(quickFinger.structure.j0t1r(q))
     j1t2_effort.append(quickFinger.structure.j1t2r(q))
     j2t3_effort.append(quickFinger.structure.j2t3r(q))
+    j0t0_effort.append(-quickFinger.structure.j0t0r(q))
+    j1t1_effort.append(-quickFinger.structure.j1t1r(q))
+    j2t2_effort.append(-quickFinger.structure.j2t2r(q))
     # tensions  = PaperFinger.grip_to_tensions([q]*PaperFinger.numJoints,
     #                                             PaperFinger.grasp_to_grip(PaperFinger.grasp(
     #                                                                                         [F]*PaperFinger.numJoints,
@@ -77,38 +83,36 @@ for q in qs:
     #                                                                                     frame="EE"))
 
     # condition = PaperFinger.structure.controllability([q]*PaperFinger.numJoints)
-    # transmission_ratio = PaperStructure.get_magnitude([q]*PaperFinger.numJoints)
+    transmission_ratio = testFingerFuckMe.get_magnitude([q]*testFingerFuckMe.numJoints)
 
     # tvecs.append(tensions)
     # tvecs2.append(tensions2)
-    # overall_transmission_ratios.append(transmission_ratio)
+    overall_transmission_ratios.append(transmission_ratio)
 
-# print(quickFinger.structure.j0t1r.angleThreshold*180/np.pi)
-# print(quickFinger.structure.j1t2r.angleThreshold*180/np.pi)
-print("--")
-print(f"c_flex: {quickFinger.structure.j1t2r.c}")
-print(f"r_flex: {quickFinger.structure.j1t2r.r}")
-print(f"parameters: {quickFinger.structure.j1t2r.min}, {quickFinger.structure.j1t2r.minOverwrite}, {quickFinger.structure.j1t2r.max}")
-print("--")
-# print(f"c_ext: {testFinger.j1t1r.c}")
-# print(f"r_ext: {testFinger.j1t1r.r}")
-print("--")
-# print(quickFinger.structure.j0t1r.angleThreshold)
-print(quickFinger.structure.j0t1r.r, quickFinger.structure.j0t1r.c, quickFinger.structure.j0t1r.minOverwrite)
-print(quickFinger.structure.j1t2r.r, quickFinger.structure.j1t2r.c, quickFinger.structure.j1t2r.minOverwrite)
-print(quickFinger.structure.j2t3r.r, quickFinger.structure.j2t3r.c, quickFinger.structure.j2t3r.minOverwrite)
+print(quickFinger.structure.j0t1r.angleThreshold*180/np.pi)
+print(quickFinger.structure.j1t2r.angleThreshold*180/np.pi)
+print(quickFinger.structure.j2t3r.angleThreshold*180/np.pi)
+
+# print(quickFinger.structure.j0t1r.r, quickFinger.structure.j0t1r.c, quickFinger.structure.j0t1r.minOverwrite)
+# print(quickFinger.structure.j1t2r.r, quickFinger.structure.j1t2r.c, quickFinger.structure.j1t2r.minOverwrite)
+# print(quickFinger.structure.j2t3r.r, quickFinger.structure.j2t3r.c, quickFinger.structure.j2t3r.minOverwrite)
 
 
 plt.plot(qs, j0t1_effort)
 plt.plot(qs, j1t2_effort)
 plt.plot(qs, j2t3_effort)
+plt.plot(qs, j0t0_effort)
+plt.plot(qs, j1t1_effort)
+plt.plot(qs, j2t2_effort)
 
 # plt.figure("Flexion Grasp Tensions")
 # plt.plot(qs, tvecs)
 # plt.title("Flexion Grasp Tensions")
-# plt.figure("magnitudes")
-# plt.plot(qs, np.array(overall_transmission_ratios)/np.min(overall_transmission_ratios))
-# plt.title("magnitudes")
+plt.figure("magnitudes")
+plt.plot(qs, np.array(overall_transmission_ratios)
+        #  /np.min(overall_transmission_ratios)
+         )
+plt.title("magnitudes")
 
 
 # plt.figure("magnitudes2")
