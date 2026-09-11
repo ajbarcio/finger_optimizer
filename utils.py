@@ -355,7 +355,7 @@ def transform(Q,L): # transform the world frame to end effector frame given join
         return np.append(pos, np.sum(Q)) # [x, y, z, sum of angles] (3x3)
 
 ########### FINGER #############
-def get_jacobian_at_pose(Q,L): # FIXME attribute joint type
+def get_jacobian(Q,L): # FIXME attribute joint type
     # if singularity is detected??? (maybe) collapse the jacobian matrix (aka remove a DOF) and return the new jacobian matrix
     # figure out how to get the function to work with 2d and 3d inputs (1x3 and 1x4 arrays)
     # attribute of joint type....? this seems like a good idea, input joint type when inputting angles so transformation is correct

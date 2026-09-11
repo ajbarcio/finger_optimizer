@@ -1,7 +1,7 @@
 import numpy as np
 import warnings
 from strucMatrices import VariableStrucMatrix, StrucMatrix, secondaryDev, primaryDev
-from utils import trans, jac, clean_array, hArray, generate_binary_lists
+from utils import trans, jac, clean_array, hArray, generate_binary_lists, get_jacobian
 from scipy.optimize import nnls, lsq_linear, linprog
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 import itertools
@@ -46,56 +46,64 @@ class Finger():
         # print(self.numJoints, self.numTendons)
         self.tensionLimit = tensionLimit
 
+    # def get_jacobian_at_pose(self, THETA, lengths=None):
+    #     # F = trans(THETA, self.lengths)
+    #     if lengths is None:
+    #         lengths=self.lengths
+    #     J = jac(THETA, lengths)
+    #     return J
+
     def get_jacobian_at_pose(self, THETA, lengths=None):
-        # F = trans(THETA, self.lengths)
         if lengths is None:
             lengths=self.lengths
-        J = jac(THETA, lengths)
+        J = get_jacobian(THETA, lengths)
         return J
 
-    def get_jacobian_at_pose_2(self, THETA, lengths=None):
-        if lengths==None:
-            lengths=self.lengths
-        ## This is a test 32x3 array for a 3-joint finger that is only being
-        ## used to test get_jacobian_at_pose to make
-        ## sure the frame used here matches the frame in the paper
-        J = np.array([
-            [-(lengths[0]*np.sin(THETA[0])+lengths[1]*np.sin(np.sum(THETA[0:2]))+lengths[2]*np.sin(np.sum(THETA))),
-             -(lengths[1]*np.sin(np.sum(THETA[0:2]))+lengths[2]*np.sin(np.sum(THETA))),
-              -lengths[2]*np.sin(np.sum(THETA))],
-            [  lengths[0]*np.cos(THETA[0])+lengths[1]*np.cos(np.sum(THETA[0:2]))+lengths[2]*np.cos(np.sum(THETA)),
-               lengths[1]*np.cos(np.sum(THETA[0:2]))+lengths[2]*np.cos(np.sum(THETA)),
-               lengths[2]*np.cos(np.sum(THETA))],
-            [  1,
-               1,
-               1]])
-        return J
-        # -
-    def get_jacobian_at_pose_3(self, THETA, lengths=None):
-        if lengths==None:
-            lengths=self.lengths
-        J = np.array([
-            [
-                -1*np.cos(THETA[0])*(np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2]),
-                np.sin(THETA[0])*(self.lengths[0]*np.sin(THETA[1]) + self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
-                np.sin(THETA[0])*(self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
-                self.lengths[2]*np.sin(THETA[0])*np.sin(np.sum(THETA[1:4]))
-            ],
-            [
-                -1*(np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2])*np.sin(THETA[0]),
-                -1*np.cos(THETA[0])*(self.lengths[0]*np.sin(THETA[1]) + self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
-                -1*np.cos(THETA[0])*(self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
-                -1*np.cos(THETA[0])*self.lengths[2]*np.sin(np.sum(THETA[1:4]))
-            ],
-            [
-                0,
-                np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2],
-                np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2],
-                np.cos(np.sum(THETA[1:4]))*self.lengths[2]
-            ],
-            [0, 1, 1, 1]
-        ], dtype=float)
-        return J
+    # region Jacobians
+    # def get_jacobian_at_pose_2(self, THETA, lengths=None):
+    #     if lengths==None:
+    #         lengths=self.lengths
+    #     ## This is a test 32x3 array for a 3-joint finger that is only being
+    #     ## used to test get_jacobian_at_pose to make
+    #     ## sure the frame used here matches the frame in the paper
+    #     J = np.array([
+    #         [-(lengths[0]*np.sin(THETA[0])+lengths[1]*np.sin(np.sum(THETA[0:2]))+lengths[2]*np.sin(np.sum(THETA))),
+    #          -(lengths[1]*np.sin(np.sum(THETA[0:2]))+lengths[2]*np.sin(np.sum(THETA))),
+    #           -lengths[2]*np.sin(np.sum(THETA))],
+    #         [  lengths[0]*np.cos(THETA[0])+lengths[1]*np.cos(np.sum(THETA[0:2]))+lengths[2]*np.cos(np.sum(THETA)),
+    #            lengths[1]*np.cos(np.sum(THETA[0:2]))+lengths[2]*np.cos(np.sum(THETA)),
+    #            lengths[2]*np.cos(np.sum(THETA))],
+    #         [  1,
+    #            1,
+    #            1]])
+    #     return J
+    #     # -
+    # def get_jacobian_at_pose_3(self, THETA, lengths=None):
+    #     if lengths==None:
+    #         lengths=self.lengths
+    #     J = np.array([
+    #         [
+    #             -1*np.cos(THETA[0])*(np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2]),
+    #             np.sin(THETA[0])*(self.lengths[0]*np.sin(THETA[1]) + self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
+    #             np.sin(THETA[0])*(self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
+    #             self.lengths[2]*np.sin(THETA[0])*np.sin(np.sum(THETA[1:4]))
+    #         ],
+    #         [
+    #             -1*(np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2])*np.sin(THETA[0]),
+    #             -1*np.cos(THETA[0])*(self.lengths[0]*np.sin(THETA[1]) + self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
+    #             -1*np.cos(THETA[0])*(self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
+    #             -1*np.cos(THETA[0])*self.lengths[2]*np.sin(np.sum(THETA[1:4]))
+    #         ],
+    #         [
+    #             0,
+    #             np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2],
+    #             np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2],
+    #             np.cos(np.sum(THETA[1:4]))*self.lengths[2]
+    #         ],
+    #         [0, 1, 1, 1]
+    #     ], dtype=float)
+    #     return J
+    # endregion
 
     def tip_wrench_at_pose_to_grip(self, THETA, F, lengths=None, frame="world"):
         '''

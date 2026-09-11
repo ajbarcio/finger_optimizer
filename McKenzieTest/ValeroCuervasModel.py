@@ -111,13 +111,15 @@ def R_at_pos(q):
         angle_top*=.77    # top bifurcation angle -23% change
         angle_bot*=1.10   # bottom bifurcation angle +10% change
 
-        # Or we are in extension:
+        # Or we are in extension
         if (q==q_ext).all(): # int >> ext % change
             MCP_FDP*=.80    # MCP FDP -20% change
             MCP_DI*=1.80    # MCP DI +80% change
             MCP_PI*=.40     # MCP PI -60% change
             prop_prox*=1.20 # prop. to prox slip +20% change
             PIP_FDS = 0.8
+    else: 
+        raise ValueError("Input q must be flexion, intermediate, or extension")
 
     # Proximal slip component for each tendon group (I dont think this math is correct)
     prox_T2 = prox_slip*T2_lat # T2 Group (PI, LUM)
@@ -126,8 +128,6 @@ def R_at_pos(q):
     prox_T1 = prox_slip*prop_prox # T1 group (EIP, EDC)
     term_T1 = term_slip*(1-prop_prox) # ^^
 
-
-    #################### NEED TO FIX DEPENDENT PARAMETERS
     R=np.array([ 
         # (FDP,          FDS,                            DI,                PI,             EIP,             LUM,            EDC) (mm)
         # MCP adduction/abduction DOF no.1

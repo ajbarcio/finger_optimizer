@@ -943,7 +943,7 @@ class InsufficientRanges(Exception):
 class DiscreteStrucMatrix(): # moment arm structure matrix, R (Valero Cuevas)
     """ __call__: returns structure matrix S at a given pose (joint angles) q
         __init__: initializes structure matrix variables
-        ???: returns structure matrix R at given pose
+        S: returns structure matrix S at given pose
         
         needs: Fo, R, D, ...?
         
@@ -952,55 +952,42 @@ class DiscreteStrucMatrix(): # moment arm structure matrix, R (Valero Cuevas)
             biasConstraint
             plotCapability
         """
-    def __init__(self, R=None, D=None, S=None, F=None, type=[], name='Placeholder') -> None:
-        self.theta = np.asarray(THETA, dtype=float)
-        if lengths == None:
-            lengths=self.lengths
+    def __init__(self, F=[], delta={}, name='Placeholder') -> None:
+        """
+            FIXME: want to include % change for R_at_pos estimation (for both S and F)
+        """
         self.name = name
-        if R is not None and D is not None:
-            self.R = R
-            self.D = D
-            self.S = R*D
-        if S is not None:
-            self.S = S
-            self.D = np.sign(S)
-            self.R = np.absolute(S)
         if F is None:
             self.F = np.ones(self.numTendons)
         else:
             self.F = F
+        
+    def __call__(self, THETA, *args, **kwds):
+        return self.S(THETA)
 
-    def __call__(self, theta=None):
-        return self.S
+    def S(self, THETA): # FIXME
+        """
+            if THETA is in the range of dictionary values for pose (VC: q_flex, q_int, q_ext)
+                call the % change variable at pose and multiply base S (q_flex) for all % changes base-->THETA
+            if THETA is not an angle in the dictionary return ValueError
+        """
+        # Stick equivalent of R_at_pos here (do percent change stuff here (pose-dependent))
+        pass
 
-    def _get_theta(self, theta=None):
-        if theta is None:
-            theta = self.theta
-        return np.asarray(theta, dtype=float)
-
-    # def checkpose(THETA): # check if THETA is within the range of motion for the joint angles
-        #     pose = {
-        #         'flexion': np.array([np.radians(0), np.radians(45), np.radians(45), np.radians(10)]),
-        #         'intermediate': np.array([np.radians(0), np.radians(45), np.radians(10), np.radians(10)]),
-        #         'extension': np.array([np.radians(0), np.radians(10), np.radians(10), np.radians(10)])
-        #     }
-
-    # def _update_state(self, theta):
-    #     q = self._get_theta(theta)
-    #     self.theta = q
-    #     self.jacobian = self.jacobian_at_pose(q)
-    #     self.R = self.moment_arm_matrix(q)
-    #     self.S = self.R
-    #     self.matrix = self.R
-    #     self.D = np.ones_like(self.R)
-    #     self.numJoints = self.R.shape[0]
-    #     self.numTendons = self.R.shape[1]
-    #     return self.R
-
-    # def reinit(self, theta=None):
-    #     return self._update_state(theta)
-
-    def _base_adjustment_set(self):
+    def _update_state(self, theta): # NOTE: probably not needed?
+        q = self._get_theta(theta)
+        self.theta = q
+        self.jacobian = self.jacobian_at_pose(q)
+        self.R = self.moment_arm_matrix(q)
+        self.S = self.R
+        self.matrix = self.R
+        self.D = np.ones_like(self.R)
+        self.numJoints = self.R.shape[0]
+        self.numTendons = self.R.shape[1]
+        return self.R
+    def reinit(self, theta=None): # NOTE: can probably merge this with _update_state
+        return self._update_state(theta)
+    def _base_adjustment_set(self): # FIXME
         return {
             'PIP_FDP': 1.0,
             'MCP_FDP': 1.0,
@@ -1012,8 +999,7 @@ class DiscreteStrucMatrix(): # moment arm structure matrix, R (Valero Cuevas)
             'angle_bot': 1.0,
             'prop_prox': 1.0,
         }
-
-    def _pose_adjustment_templates(self):
+    def _pose_adjustment_templates(self): # FIXME
         flexion = self._base_adjustment_set()
         intermediate = self._base_adjustment_set()
         intermediate.update({
@@ -1032,8 +1018,7 @@ class DiscreteStrucMatrix(): # moment arm structure matrix, R (Valero Cuevas)
             'PIP_FDS': 0.8,
         })
         return [flexion, intermediate, extension]
-
-    def moment_arm_matrix(self, theta=None):
+    def moment_arm_matrix(self, theta=None): # FIXME this should be the function S but is currently hardcoded for Valero
         q = self._get_theta(theta)
         if len(q) != 4:
             raise ValueError("Input q must be a 4-element array representing joint angles [q1, q2, q3, q4].") # this should not be a hard-coded number of angles
@@ -1071,9 +1056,6 @@ class DiscreteStrucMatrix(): # moment arm structure matrix, R (Valero Cuevas)
             [3.64002601, -1.90320646e-04, -1.14638637e-05, term_T2, term_T1, term_T2, term_T1]
         ], dtype=float) * 1e-3
         return R
-
-    def get_jacobian(self, theta=None):
-        return self.jacobian_at_pose(theta)
     def __str__(self):
         return f"DiscreteStrucMatrix with {len(self.theta)} angles"
 # endregion
@@ -2000,6 +1982,7 @@ D = np.array([ # direction matrix
     [1, 1, 1, 1,-1, 1,-1],
     [1, 1,-1,-1,-1,-1,-1],
     [1,-1,-1,-1,-1,-1,-1]])
+
 
 ## dependent parameter implemented cuevas model
 # R = np.array([ # moment arm of each tendon across each joint (m)
