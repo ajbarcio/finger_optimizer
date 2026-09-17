@@ -1,5 +1,3 @@
-# TODO: need to convert cuevas spatial jacobian to correct coordinate frame (how to adjust moment arm matrix accordingly??)
-
 from scipy.optimize import linprog
 from numpy.linalg import matrix_rank
 from scipy.linalg import null_space
@@ -355,7 +353,7 @@ def transform(Q,L): # transform the world frame to end effector frame given join
         return np.append(pos, np.sum(Q)) # [x, y, z, sum of angles] (3x3)
 
 ########### FINGER #############
-def get_jacobian(Q,L): # FIXME attribute joint type
+def jac(Q,L): # FIXME attribute joint type
     # if singularity is detected??? (maybe) collapse the jacobian matrix (aka remove a DOF) and return the new jacobian matrix
     # figure out how to get the function to work with 2d and 3d inputs (1x3 and 1x4 arrays)
     # attribute of joint type....? this seems like a good idea, input joint type when inputting angles so transformation is correct
