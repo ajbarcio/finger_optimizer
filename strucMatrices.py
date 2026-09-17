@@ -18,6 +18,7 @@ from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_a
 from types import SimpleNamespace
 
 from BRANCH_human_finger_dev.convex_hull_prediction import closest_in_subspace, balancable_bias_force
+from BRANCH_human_finger_dev.ValeroCuervasModel import valero_model
 
 import itertools
 
@@ -939,125 +940,71 @@ class InsufficientRanges(Exception):
         super().__init__(message)
 
 # region DiscreteStrucMatrix()
-# FIXME: this needs to work for both Valero and RAD fingers, but is currently hardcoded to only work for Valero values
-class DiscreteStrucMatrix(): # moment arm structure matrix, R (Valero Cuevas)
-    """ __call__: returns structure matrix S at a given pose (joint angles) q
-        __init__: initializes structure matrix variables
-        S: returns structure matrix S at given pose
+class DiscreteStrucMatrix(): # FIXME: need to read parameter input
+    plot_count = 0
+    figures = {}  # Dict to track figures by name
+    figures_with_axes = set()
+
+    def __init__(self, model, R=None, D=None, F=None, name='Placeholder'):
+        self.dR = model['dR']
+        self.poses = model['poses']
+
+        self.F = F  # FIXME: does structmatrix or finger.py need the % change of F?
         
-        needs: Fo, R, D, ...?
-        
-        needs to work for:
-            biasResidual
-            biasConstraint
-            plotCapability
-        """
-    def __init__(self, F=[], delta={}, name='Placeholder') -> None:
-        """
-            FIXME: want to include % change for R_at_pos estimation (for both S and F)
-        """
+        self.D = D # Direction array
+        self.R_base = R # Radius array
+
+        self.numJoints  = self.D.shape[0]
+        self.numTendons = self.D.shape[1]
         self.name = name
-        if F is None:
-            self.F = np.ones(self.numTendons)
-        else:
-            self.F = F
-        
-    def __call__(self, THETA, *args, **kwds):
+
+    def __call__(self, THETA):
         return self.S(THETA)
 
-    def S(self, THETA): # FIXME
-        """
-            if THETA is in the range of dictionary values for pose (VC: q_flex, q_int, q_ext)
-                call the % change variable at pose and multiply base S (q_flex) for all % changes base-->THETA
-            if THETA is not an angle in the dictionary return ValueError
-        """
-        # Stick equivalent of R_at_pos here (do percent change stuff here (pose-dependent))
-        pass
-
-    def _update_state(self, theta): # NOTE: probably not needed?
-        q = self._get_theta(theta)
-        self.theta = q
-        self.jacobian = self.jacobian_at_pose(q)
-        self.R = self.moment_arm_matrix(q)
-        self.S = self.R
-        self.matrix = self.R
-        self.D = np.ones_like(self.R)
-        self.numJoints = self.R.shape[0]
-        self.numTendons = self.R.shape[1]
-        return self.R
-    def reinit(self, theta=None): # NOTE: can probably merge this with _update_state
-        return self._update_state(theta)
-    def _base_adjustment_set(self): # FIXME
-        return {
-            'PIP_FDP': 1.0,
-            'MCP_FDP': 1.0,
-            'MCP_DI': 1.0,
-            'MCP_PI': 1.0,
-            'PIP_FDS': 1.0,
-            'prox_slip': 1.0,
-            'angle_top': 1.0,
-            'angle_bot': 1.0,
-            'prop_prox': 1.0,
-        }
-    def _pose_adjustment_templates(self): # FIXME
-        flexion = self._base_adjustment_set()
-        intermediate = self._base_adjustment_set()
-        intermediate.update({
-            'PIP_FDP': 0.90,
-            'prox_slip': 0.80,
-            'angle_top': 0.77,
-            'angle_bot': 1.10,
-        })
-        extension = self._base_adjustment_set()
-        extension.update({
-            'PIP_FDP': 0.90,
-            'MCP_FDP': 0.80,
-            'MCP_DI': 1.80,
-            'MCP_PI': 0.40,
-            'prop_prox': 1.20,
-            'PIP_FDS': 0.8,
-        })
-        return [flexion, intermediate, extension]
-    def moment_arm_matrix(self, theta=None): # FIXME this should be the function S but is currently hardcoded for Valero
-        q = self._get_theta(theta)
-        if len(q) != 4:
-            raise ValueError("Input q must be a 4-element array representing joint angles [q1, q2, q3, q4].") # this should not be a hard-coded number of angles
-
-        # Model Parameters (Nominal Values, modified by pose)
-        MCP_FDP, MCP_DI, MCP_PI, PIP_FDP, PIP_FDS = 9.03962540, 2.00817179, 4.01227521, 5.09361601, 0.9104356651336974
-        prox_slip = -3.479205370541947
-        term_slip = -1.50
-        prop_prox = 0.625
-        angle_top = np.radians(78.66646801)
-        angle_bot = np.radians(38.29311372)
-        T2_diag = np.sin(angle_top)/np.sin(angle_top+angle_bot)
-        T2_lat = np.sin(angle_bot)/np.sin(angle_top+angle_bot)
-
-        adjustments = self._pose_adjustments(q)
-        MCP_FDP *= adjustments['MCP_FDP']
-        MCP_DI *= adjustments['MCP_DI']
-        MCP_PI *= adjustments['MCP_PI']
-        PIP_FDP *= adjustments['PIP_FDP']
-        PIP_FDS *= adjustments['PIP_FDS']
-        prox_slip *= adjustments['prox_slip']
-        angle_top *= adjustments['angle_top']
-        angle_bot *= adjustments['angle_bot']
-        prop_prox = adjustments['prop_prox'] # does this need to be multiplied?
-
-        prox_T2 = prox_slip*T2_lat
-        term_T2 = term_slip*T2_diag
-        prox_T1 = prox_slip*prop_prox
-        term_T1 = term_slip*(1-prop_prox)
-
-        R = np.array([
-            [2.91270673, 0.5*2.91238096, -6.79881327, 6.96495580, 0.301304379, -4.62918718, -1.19524896],
-            [MCP_FDP, 1.105755707531863*MCP_FDP, MCP_DI, MCP_PI, -9.37992146, 7.02453290, -9.37992146],
-            [PIP_FDP, PIP_FDS*PIP_FDP, -1.14638637e-05, prox_T2, prox_T1, prox_T2, prox_T1],
-            [3.64002601, -1.90320646e-04, -1.14638637e-05, term_T2, term_T1, term_T2, term_T1]
-        ], dtype=float) * 1e-3
-        return R
     def __str__(self):
-        return f"DiscreteStrucMatrix with {len(self.theta)} angles"
+        return self.name
+
+    def R(self, THETA):
+        THETA = np.asarray(THETA, dtype=float)  
+        pose_names  = list(self.poses.keys()) 
+        pose_values = list(self.poses.values())  
+
+        target_idx = next((i for i, q in enumerate(pose_values) if np.allclose(THETA, q)), None)  # find which calibrated pose THETA matches
+        if target_idx is None:
+            raise ValueError(f"THETA={THETA} does not match any pose in the given poses dict.") 
+
+        R = self.R_base.copy()  # start from the base-pose radius matrix
+        for name_i, name_f in zip(pose_names[:target_idx], pose_names[1:target_idx + 1]):  # pairs each pose with the next
+            for (row, col), percent_change in self.dR[(name_i, name_f)].items():  # index-based percent change between name_i and name_f
+                R[row, col] *= 1 + (percent_change / 100)
+        return R
+
+    def S(self, THETA):
+        return self.D*self.R(THETA)
+
+    # def torqueDomainVolume(self, THETA):
+    #     S = StrucMatrix(S=self.S(THETA))
+    #     return S.domain, S.boundaryGrasps
+
+    # def get_magnitude(self, THETA):
+    #     S = StrucMatrix(S=self.S(THETA))
+    #     return S.get_magnitude()
+
+    def biasResidual(self, THETA):
+        S = StrucMatrix(S=self.S(THETA))
+        return S.biasResidual()
+
+    def biasCondition(self, THETA):
+        S = StrucMatrix(S=self.S(THETA))
+        return S.biasCondition()
+
+    # def maxGrip(self, THETA):
+    #     S = StrucMatrix(S=self.S(THETA))
+    #     return S.maxGrip()
+
+    def contains(self, THETA, point):
+        S = StrucMatrix(S=self.S(THETA))
+        return S.contains(point)
 # endregion
 
 # region VariableStrucMatrix
@@ -1965,41 +1912,5 @@ testbedFinger4 = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
 #                                            name = "Sdev")
 # endregion
 
-# region Valero Cuervas Structure Matrix
-#### VALERO CUERVAS FLEXION PARAMETERS ####
-L = np.array([0, 50e-3, 31e-3, 16e-3]) # phalange lenghts (m)
-PCSA = np.array([4.10, 7.3, 4.16, 4.32, 0.784, 0.72, 3.058]) # (cm^2) adjusted values
-Fo = np.diag(PCSA*30) # Fo=diag(fo) where fo=PCSAxσ     (cm^2*N/cm^2) = N
-
-R = np.array([ # moment arm of each tendon across each joint (m)
-    # (FDP,            FDS,             DI,              PI,               EIP,             LUM,            EDC) (m)
-    [ 2.91270673e-03,  1.45619048e-03,  6.79881327e-03,  6.96495580e-03,   3.01304379e-04,  4.62918718e-03, 1.19524896e-03],  # MCP ad-abd
-    [ 9.03962540e-03,  9.99561738e-03,  2.00817179e-03,  4.01227521e-03,   9.37992146e-03,  7.02453290e-03, 9.37992146e-03],  # MCP
-    [ 5.09361601e-03,  4.63740968e-03,  1.14638637e-08, -2.41887817e-03,   2.17450336e-03,  2.41887817e-03, 2.17450336e-03],  # PIP
-    [ 3.64002601e-03,  1.90320646e-07,  1.14638637e-08,  1.65006832e-03,   5.62500000e-04,  1.65006832e-03, 5.62500000e-04]]) #DIP
-D = np.array([ # direction matrix
-    [1, 1,-1, 1, 1,-1,-1],
-    [1, 1, 1, 1,-1, 1,-1],
-    [1, 1,-1,-1,-1,-1,-1],
-    [1,-1,-1,-1,-1,-1,-1]])
-
-
-## dependent parameter implemented cuevas model
-# R = np.array([ # moment arm of each tendon across each joint (m)
-#         # (FDP,            FDS,             DI,              PI,               EIP,             LUM,            EDC) (m)
-#         [ 2.91270673e-03,  1.45619048e-03,  6.79881327e-03,  6.96495580e-03,   3.01304379e-04,  4.62918718e-03, 1.19524896e-03],  # MCP ad-abd
-#         [ np.nan,          np.nan,          np.nan,          np.nan,           9.37992146e-03,  7.02453290e-03, 9.37992146e-03],  # MCP
-#         [ np.nan,          np.nan,          1.14638637e-08,  np.nan,           np.nan,          np.nan,         np.nan],  # PIP
-#         [ 3.64002601e-03,  1.90320646e-07,  1.14638637e-08,  np.nan,           np.nan,          np.nan,         np.nan]]) #DIP
-# D = np.array([ # direction matrix
-    # [1, 1,-1, 1, 1,-1,-1],
-    # [1, 1, 1, 1,-1, 1,-1],
-    # [1, 1,-1,-1,-1,-1,-1],
-    # [1,-1,-1,-1,-1,-1,-1]])
-# endregion
-
 if __name__ == "__main__":
-    S = secondaryDev
-    THETA=np.array([0,0,0])
-
-    print(secondaryDev.biasResidual(THETA))
+    pass
