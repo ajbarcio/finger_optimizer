@@ -4,29 +4,29 @@ from scipy.linalg import null_space
 
 ## finger.py, strucMatricies.py, TestbedFingers.py
 
-"""Note: bifurcation angle adjusted from approximated model for greater precision
+'''Note: bifurcation angle adjusted from approximated model for greater precision
 Same method used for proximal slip moment arm. Calculations found in Calibration.py
 
 Changes: 
     * prox_slip [-3.44 >> -3.479205370541947]
     * angle_top [79 >> 78.66646801]
-    * angle_bot [39 >> 38.29311372]"""
+    * angle_bot [39 >> 38.29311372]'''
 
 ## Constant Variables (Nominal/Flexion) ##
 l1=50e-3; l2=31e-3; l3=16e-3    # phalange lengths
 # MCP ad-abduction, MCP Flexion, PIP, DIP (stays 10° for all poses)
 q_flx = np.radians(np.array([0,45,45,10])); q_int = np.radians(np.array([0,45,10,10])); q_ext = np.radians(np.array([0,10,10,10]))
 
-pose_dict = {"Flexion (45.0°, 45.0°, 10.0°)": q_flx,
-             "Intermediate (45.0°, 10.0°, 10.0°)": q_int,
-             "Extension (10.0°, 10.0°, 10.0°)": q_ext}
+pose_dict = {'Flexion (45.0°, 45.0°, 10.0°)': q_flx,
+             'Intermediate (45.0°, 10.0°, 10.0°)': q_int,
+             'Extension (10.0°, 10.0°, 10.0°)': q_ext}
 
 e = np.array([
     # Extension
     [0.2613, 0, 0.9356, 1, 1, 1, 1],       # 1.  pt. 40
     [0.2346, 0, 1, 1, 1, 1, 0.4141],       # 2.  pt. 42
     [0.2199, 0, 1, 1, 0, 1, 0.3014],       # 3.  pt. 45
-    [0.201,  0, 1, 0.9709, 0, 1, 0.],       # 4.  pt. 10
+    [0.201,  0, 1, 0.9709, 0, 1, 0.],      # 4.  pt. 10
     # Intermediate
     [1, 0.6842, 1, 0.4121, 0, 1, 0],       # 5.  pt. 7
     [1, 0.7245, 1, 0.2872, 0, 0, 0],       # 6.  pt. 8
@@ -63,10 +63,10 @@ M_paper=np.array([
     [ 0.003081, -0.002352,   0.0001578,     -0.000685,  -0.0001649, -0.0004483,  -0.0001649] # Tx
 ])
 
-## Jacobian for Index-Finger (4x4 Matrix) ##
+## Model Matrices (posture-dependent) ## FIXME: add description of functions and input/output variables
 def J_at_pos(q):
     if len(q) != 4:
-        raise ValueError("Input q must be a 4-element array representing joint angles [q1, q2, q3, q4].")
+        raise ValueError('Input q must be a 4-element array representing joint angles [q1, q2, q3, q4].')
     q1, q2, q3, q4 = q
     return np.array([
     [ #row sx
@@ -88,7 +88,7 @@ def J_at_pos(q):
     [0,1,1,1]])
 def R_at_pos(q):
     if len(q) != 4:
-        raise ValueError("Input q must be a 4-element array representing joint angles [q1, q2, q3, q4].")
+        raise ValueError('Input q must be a 4-element array representing joint angles [q1, q2, q3, q4].')
     q1, q2, q3, q4 = q
 
     # Model Parameters (Nominal Values, modified by pose)
@@ -111,15 +111,13 @@ def R_at_pos(q):
         angle_top*=.77    # top bifurcation angle -23% change
         angle_bot*=1.10   # bottom bifurcation angle +10% change
 
-        # Or we are in extension
+        # Or we are in extension:
         if (q==q_ext).all(): # int >> ext % change
             MCP_FDP*=.80    # MCP FDP -20% change
             MCP_DI*=1.80    # MCP DI +80% change
             MCP_PI*=.40     # MCP PI -60% change
             prop_prox*=1.20 # prop. to prox slip +20% change
             PIP_FDS = 0.8
-    else: 
-        raise ValueError("Input q must be flexion, intermediate, or extension")
 
     # Proximal slip component for each tendon group (I dont think this math is correct)
     prox_T2 = prox_slip*T2_lat # T2 Group (PI, LUM)
@@ -128,6 +126,8 @@ def R_at_pos(q):
     prox_T1 = prox_slip*prop_prox # T1 group (EIP, EDC)
     term_T1 = term_slip*(1-prop_prox) # ^^
 
+
+    #################### NEED TO FIX DEPENDENT PARAMETERS
     R=np.array([ 
         # (FDP,          FDS,                            DI,                PI,             EIP,             LUM,            EDC) (mm)
         # MCP adduction/abduction DOF no.1
@@ -140,7 +140,7 @@ def R_at_pos(q):
         [ 3.64002601,    -1.90320646e-04,                -1.14638637e-05,   term_T2,        term_T1,         term_T2,        term_T1]    
     ]) * 1e-3 # (mm to m) conversion
     return R
-def Fo_at_pos(q):
+def F_at_pos(q): # non-diagonalized Fo
     ## F_o (7x7 Matrix Diagonalized) (FDP, FDS, DI, PI, EIP, LUM, EDC) ##
     # reference: pg. 13 & Table I.1
     PCSA = np.array([4.10, 7.3, 4.16, 4.32, 0.784, 0.72, 3.058]) # (cm^2) adjusted values
@@ -150,45 +150,69 @@ def Fo_at_pos(q):
         PCSA*=np.array([1.00, 1.25, 1.10, 0.67, 1.43, 1.00, 1.14]) # FDS +25%, DI +10%, PI -33%, EIP +43%, EDC +14% change
         if (q==q_ext).all(): # int >> ext % change
             PCSA*=np.array([1.00, 1.00, 1.00, 1.50, 1.00, 1.00, 1.00]) # PI +50% change
-    Fo = np.diag(PCSA*30) # Fo=diag(fo) where fo=PCSAxσ     (cm^2*N/cm^2) = N
-    return(Fo)
+    F = PCSA*30 # Fo=diag(fo) where fo=PCSAxσ     (cm^2*N/cm^2) = N
+    return F
+def Fo_at_pos(q):
+    Fo = np.diag(F_at_pos(q))
+    return Fo
 def M_at_pos(q):
     M = np.linalg.inv(J_at_pos(q)).T @ R_at_pos(q) # Only J^-T@R (to compare to M (pg. 87)), needs Fo for actual model
     return M
 def Mo_at_pos(q):
     Mo = np.linalg.inv(J_at_pos(q)).T @ R_at_pos(q)@Fo_at_pos(q) # Only J^-T@R (to compare to M (pg. 87)), needs Fo for actual model
     return Mo
+
+## Model Evaluation ##
 def null_model():
     # Find all nullspaces of M=J^-TRFo and RFo for each pose (flexion, intermediate, extension)
     for name, pose in pose_dict.items():
-        M = Mo_at_pos(pose)
-        RFo = R_at_pos(pose)@Fo_at_pos(pose)
-        print(f"\n\033[1m#################  {name}  #################")
-        print(f"\033[1mNullspace of M=J^-TRFo:\n\033[0m{null_space(M)}"); print(f"\033[1mNullspace of RFo:\n\033[0m{null_space(RFo)}")
-        print(f"\n\n\033[1mM=J^-TRFo:\n\033[0m{M}\n\033[1mRFo:\n\033[0m{RFo}")
+        M = Mo_at_pos(pose); RFo = R_at_pos(pose)@Fo_at_pos(pose)
+        print(f'\n\033[1m#################  {name}  #################')
+        print(f'\033[1mNullspace of M=J^-TRFo:\n\033[0m{null_space(M)}'); print(f'\033[1mNullspace of RFo:\n\033[0m{null_space(RFo)}')
+        print(f'\n\n\033[1mM=J^-TRFo:\n\033[0m{M}\n\033[1mRFo:\n\033[0m{RFo}')
+def pose_percent_change(function): # create dictionary of percent changes
+    if function not in (R_at_pos, Fo_at_pos): # restrict func to one of these two pose->matrix functions
+        raise ValueError("The function must be R_at_pos or F_at_pos")
+    
+    poses = list(pose_dict.items()) # create list of each key name and its respective value
+    changes = {}
+
+    for (name_i, q_i), (name_f, q_f) in zip(poses, poses[1:]): # pair the list of poses with the next pose
+        M_i, M_f = function(q_i), function(q_f)
+
+        with np.errstate(divide='ignore', invalid='ignore'): # suppress the divide-by-zero warning for percent_change calc
+            percent_change = np.where(M_i == 0,                    # check if M_i = 0 at each index
+                                       np.where(M_f == 0, 0.0, np.inf), # if M_i=M_f=0 use 0%, else inf% (undefined ratio)
+                                       (M_f - M_i) / M_i * 100)         # otherwise compute the normal percent change
+
+        changed = ~np.isclose(M_i, M_f)   # if M_i and M_f are close in value, change=False(0)
+        rows, cols = np.nonzero(changed)  # (row, col) index arrays of the changed entries (bool=1)
+        changes[(name_i, name_f)] = dict(zip(zip(rows, cols), percent_change[changed])) # pair each changed index with its percent change
+    return changes
+
 def output_csv():
 # ── Open CSV once, write header, then all rows ────────────────────────────────
-    with open("solver_results.csv", "w", newline="") as csv.out:
+    with open('solver_results.csv', 'w', newline='') as csv.out:
         writer = csv.writer(csv.out)
         writer.writerow([
-            "Pose", "Point",
-            "Model_Fy", "Model_Fz",
-            "Paper_Fy", "Paper_Fz",
-            "Diff_Fy",  "Diff_Fz",
-            "Overall_Percentage_Error"
+            'Pose', 'Point',
+            'Model_Fy', 'Model_Fz',
+            'Paper_Fy', 'Paper_Fz',
+            'Diff_Fy',  'Diff_Fz',
+            'Overall_Percentage_Error'
         ])
 
         for q_pose, pose_label in pose_dict.items():
             q = q_pose
-            print(f"\n\n\n\n\033[1m#################{np.degrees(q)}#################")
+            print(f'\n\n\n\n\033[1m#################{np.degrees(q)}#################')
 
             for i in np.arange(1,13):
                 point = i
                             
                 R_paper = (J_at_pos(q_flx).T @ M_paper)
                 R = R_at_pos(q)
-                # print(f"\tDI\tPI\tEIP\tLUM\tEDC");print(f"R_paper:\n{R_paper[-2:, -4:]*1e3}");print(f"R:\n{R[-2:, -4:]*1e3}");print(prox_T2, term_T2, prox_T1, term_T1)
-                # print(f"R_paper:\n{R_paper*1e3}"); print(f"R:\n{R*1e3}"); print(f"Difference:\n{(R-R_paper)*1e3}")
+                # print(f'\tDI\tPI\tEIP\tLUM\tEDC');print(f'R_paper:\n{R_paper[-2:, -4:]*1e3}');print(f'R:\n{R[-2:, -4:]*1e3}');print(prox_T2, term_T2, prox_T1, term_T1)
+                # print(f'R_paper:\n{R_paper*1e3}'); print(f'R:\n{R*1e3}'); print(f'Difference:\n{(R-R_paper)*1e3}')
                 # print(R-R_paper)
 
                 Fo=Fo_at_pos(q)
@@ -201,9 +225,9 @@ def output_csv():
 
                 diff=abs(f_test-f[point-1])/((f_test + f[point-1]))*100
 
-                print(f"\033[1mPoint: {point}       ({np.degrees(q[1])}°, {np.degrees(q[2])}°, {np.degrees(q[3])}°)")
-                print(f"\033[0mModel:{f_test[1:3]} Paper:{f[point-1,1:3]}");print(f"Percentage Difference:{diff[1:3]}")
-                print(f"Overall Percentage Error: {np.linalg.norm(diff[1:3])}\n")
+                print(f'\033[1mPoint: {point}       ({np.degrees(q[1])}°, {np.degrees(q[2])}°, {np.degrees(q[3])}°)')
+                print(f'\033[0mModel:{f_test[1:3]} Paper:{f[point-1,1:3]}');print(f'Percentage Difference:{diff[1:3]}')
+                print(f'Overall Percentage Error: {np.linalg.norm(diff[1:3])}\n')
 
                 writer.writerow([
                     pose_label,point,
@@ -213,40 +237,53 @@ def output_csv():
                     round(np.linalg.norm(diff[1:3]), 5)
                 ])
 
+# indexable bundle of this model's percent-change results and parameters,
+# e.g. valero_model['R_pct'][(name_i, name_f)][(row, col)]
+q_base = next(iter(pose_dict.values()))
+
+valero_model = {
+    'poses': pose_dict,                     # all defined poses (joint angles, rad)
+    'l': np.array([l1, l2, l3]),            # link/phalange lengths (m)
+    'F': F_at_pos(q_base),                  # max tendon forces at the first pose, non-diagonalized (N)
+    'R': np.absolute(R_at_pos(q_base)),     # unsigned moment-arm magnitudes at the first pose (m)
+    'D': np.sign(Fo_at_pos(q_base)),        # sign-only direction matrix at the first pose (unitless: -1, 0, or 1)
+    'dR': pose_percent_change(R_at_pos),    # % change of R between each pose (%)
+    'dF': pose_percent_change(Fo_at_pos),   # % change of Fo between each pose (%)
+}
+
 # np.set_printoptions(precision=10, formatter={'float_kind':'{:.5f}'.format})
 
-
-if __name__ == "__main__":    
+if __name__ == '__main__':    
     # for i in np.arange(1,13):
         # for q_opt in [q_ext, q_int, q_flx]:
         q, point = q_flx, 5
 
         R_paper = (J_at_pos(q_flx).T @ M_paper)
         R = R_at_pos(q)
-        # print(f"\tDI\tPI\tEIP\tLUM\tEDC");
-        # print(f"R_paper:\n{R_paper[-2:, -2:]*1e3}");print(f"R:\n{R[-2:, -2:]*1e3}") ## Compare Dependent Parameters with Paper Moment Arms (R)
-        # print(f"R_paper:\n{R_paper*1e3}"); print(f"R:\n{R*1e3}"); print(f"Difference:\n{(R-R_paper)*1e3}") ## Compare R with R_paper
+        # print(f'\tDI\tPI\tEIP\tLUM\tEDC');
+        # print(f'R_paper:\n{R_paper[-2:, -2:]*1e3}');print(f'R:\n{R[-2:, -2:]*1e3}') ## Compare Dependent Parameters with Paper Moment Arms (R)
+        # print(f'R_paper:\n{R_paper*1e3}'); print(f'R:\n{R*1e3}'); print(f'Difference:\n{(R-R_paper)*1e3}') ## Compare R with R_paper
 
         Fo=Fo_at_pos(q)
         M = np.linalg.inv(J_at_pos(q)).T @ R # Only J^-T@R (to compare to M (pg. 87)), needs Fo for actual model
         M_percent_error = (abs(M - M_paper) / (M_paper)) * 100
         # print(M_percent_error)
         # print(M-M_paper)
-        # print(f"\n\n\n\n\033[1m#################{np.degrees(q)}#################")
-        # print(f"\033[1mModel:\n\033[0m{M}\n\033[1mPaper:\n\033[0m{M_paper}\n\033[1mDifference:\n\033[0m{M-M_paper}\n")
+        # print(f'\n\n\n\n\033[1m#################{np.degrees(q)}#################')
+        # print(f'\033[1mModel:\n\033[0m{M}\n\033[1mPaper:\n\033[0m{M_paper}\n\033[1mDifference:\n\033[0m{M-M_paper}\n')
 
         f_test=M@Fo@e[point-1] # adding Fo for actual model calculation
 
         diff=abs(f_test-f[point-1])/((f_test + f[point-1]))*100
-        # print(f"point: {point}    ({np.degrees(q[1])}°, {np.degrees(q[2])}°, {np.degrees(q[3])}°)")
-        # print(f"Model:{f_test[1:3]} Paper:{f[point-1,1:3]}");print(f"Percentage Difference:{diff[1:3]}")
+        # print(f'point: {point}    ({np.degrees(q[1])}°, {np.degrees(q[2])}°, {np.degrees(q[3])}°)')
+        # print(f'Model:{f_test[1:3]} Paper:{f[point-1,1:3]}');print(f'Percentage Difference:{diff[1:3]}')
         
-        # print(f"point: {point}    ({np.degrees(q[1])}°, {np.degrees(q[2])}°, {np.degrees(q[3])}°)")
-        # print(f"Model:{f_test[1:3]} Paper:{f[point-1,1:3]}");print(f"Percentage Difference:{diff[1:3]}")
-        # print(f"Overall Percentage Error: {np.linalg.norm(diff[1:3])}")
+        # print(f'point: {point}    ({np.degrees(q[1])}°, {np.degrees(q[2])}°, {np.degrees(q[3])}°)')
+        # print(f'Model:{f_test[1:3]} Paper:{f[point-1,1:3]}');print(f'Percentage Difference:{diff[1:3]}')
+        # print(f'Overall Percentage Error: {np.linalg.norm(diff[1:3])}')
 
         # output_csv()
         # null_model()
-        print(J_at_pos(q_flx))
+        # print(J_at_pos(q_flx))
         
-    # print(f"M_paper:\n{M_paper}");print(f"M:\n{M}");print(f"Difference:\n\n{M-M_paper}")
+    # print(f'M_paper:\n{M_paper}');print(f'M:\n{M}');print(f'Difference:\n\n{M-M_paper}')
