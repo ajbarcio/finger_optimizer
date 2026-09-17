@@ -18,7 +18,7 @@ from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_a
 from types import SimpleNamespace
 
 from BRANCH_human_finger_dev.convex_hull_prediction import closest_in_subspace, balancable_bias_force
-from BRANCH_human_finger_dev.ValeroCuervasModel import valero_model
+from BRANCH_human_finger_dev.ValeroCuervasModel import valero_model, R_at_pos
 
 import itertools
 
@@ -979,16 +979,20 @@ class DiscreteStrucMatrix(): # FIXME: need to read parameter input
                 R[row, col] *= 1 + (percent_change / 100)
         return R
 
+    def plotCapability(self, THETA, showBool=False, colorOverride=None, transOverride=None, obj=None, enforcePosTension=False, skipJoints=None, metric=False):
+        S = StrucMatrix(S=self.S(THETA))
+        S.plotCapability(showBool, colorOverride, transOverride, obj, enforcePosTension, skipJoints, metric)
+
     def S(self, THETA):
         return self.D*self.R(THETA)
 
-    # def torqueDomainVolume(self, THETA):
-    #     S = StrucMatrix(S=self.S(THETA))
-    #     return S.domain, S.boundaryGrasps
+    def torqueDomainVolume(self, THETA):
+        S = StrucMatrix(S=self.S(THETA))
+        return S.domain, S.boundaryGrasps
 
-    # def get_magnitude(self, THETA):
-    #     S = StrucMatrix(S=self.S(THETA))
-    #     return S.get_magnitude()
+    def get_magnitude(self, THETA):
+        S = StrucMatrix(S=self.S(THETA))
+        return S.get_magnitude()
 
     def biasResidual(self, THETA):
         S = StrucMatrix(S=self.S(THETA))
@@ -1913,4 +1917,10 @@ testbedFinger4 = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
 # endregion
 
 if __name__ == "__main__":
-    pass
+
+    valero = DiscreteStrucMatrix(R=valero_model['R'], D=valero_model['D'], model=valero_model)
+    poses = valero_model['poses']
+    for THETA in poses.values():
+        print(valero.S(THETA) - R_at_pos(THETA))
+        valero.plotCapability(THETA)
+    plt.show()
