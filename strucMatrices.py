@@ -17,7 +17,7 @@ from utils import best_condition
 from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_annealing, differential_evolution
 from types import SimpleNamespace
 
-from McKenzieTest.convex_hull_prediction import closest_in_subspace, balancable_bias_force
+from BRANCH_human_finger_dev.convex_hull_prediction import closest_in_subspace, balancable_bias_force
 
 import itertools
 

@@ -8,7 +8,7 @@ import itertools
 
 from matplotlib import pyplot as plt
 
-from McKenzieTest.convex_hull_prediction import plot_ffr_at_pose, pose_dict
+from BRANCH_human_finger_dev.convex_hull_prediction import plot_ffr_at_pose, pose_dict
 
 import matplotlib.animation as animation
 

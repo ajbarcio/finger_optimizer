@@ -9,7 +9,7 @@ import scipy.spatial as spa
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from ValeroCuervasModel import Mo_at_pos, q_flx, q_int, q_ext, R_at_pos, Fo_at_pos
+from BRANCH_human_finger_dev.ValeroCuervasModel import Mo_at_pos, q_flx, q_int, q_ext, R_at_pos, Fo_at_pos
 
 num_excitations = 7
 num_constraints = 5 # CONSTRAINT(1): num_constraints = 6
