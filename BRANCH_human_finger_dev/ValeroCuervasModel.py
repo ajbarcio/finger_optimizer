@@ -246,7 +246,7 @@ valero_model = {
     'l': np.array([l1, l2, l3]),            # link/phalange lengths (m)
     'F': F_at_pos(q_base),                  # max tendon forces at the first pose, non-diagonalized (N)
     'R': np.absolute(R_at_pos(q_base)),     # unsigned moment-arm magnitudes at the first pose (m)
-    'D': np.sign(Fo_at_pos(q_base)),        # sign-only direction matrix at the first pose (unitless: -1, 0, or 1)
+    'D': np.sign(R_at_pos(q_base)),        # sign-only direction matrix at the first pose (unitless: -1, 0, or 1)
     'dR': pose_percent_change(R_at_pos),    # % change of R between each pose (%)
     'dF': pose_percent_change(Fo_at_pos),   # % change of Fo between each pose (%)
 }
