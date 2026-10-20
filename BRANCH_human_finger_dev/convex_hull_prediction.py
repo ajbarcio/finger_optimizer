@@ -1,114 +1,142 @@
 # TODO: We now have 2-constraint plotting for feasible force and torque regions, need to make definition for 1-constraint
 # TODO: finish feasible force and torque polytopes
+# TODO: add 2D and 3D convex hull plots to utils.py
 
 import numpy as np
 import itertools as it
 import scipy.optimize as opt
 import scipy.linalg as la
-import scipy.spatial as spa
+from scipy.spatial import ConvexHull, convex_hull_plot_2d, QhullError
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from BRANCH_human_finger_dev.ValeroCuervasModel import Mo_at_pos, q_flx, q_int, q_ext, R_at_pos, Fo_at_pos
+from .ValeroCuervasModel import Mo_at_pos, q_flx, q_int, q_ext, R_at_pos, F_at_pos
+from utils import generate_binary_lists, solve_for_feasible_excitations
+
+pose = q_flx
+global M, R, F 
+M,R,F = Mo_at_pos(pose), R_at_pos(pose), F_at_pos(pose)
 
 num_excitations = 7
 num_constraints = 5 # CONSTRAINT(1): num_constraints = 6
 
-def generate_binary_lists(length):
-    # Generates a cartesian product of [0, 1] repeated 'length' times
-    for combo in it.product([0, 1], repeat=length):
-        yield list(combo)
+def get_convex_capability(self, THETA, f_max=None, constrained_rows=None, units='lbf'):
+    if not isinstance(constrained_rows, (list, np.ndarray)):
+        raise ValueError("constrained_rows must be a list or numpy array of integers.")
 
-def solve_for_feasible_excitations(A, b):
-    c = np.zeros(len(b))
-    res = opt.linprog(c, A_eq=A, b_eq=b, bounds=(0,1))
-    # if res.success:
-    #     print(np.linalg.norm(res.con))
-    return res.x, res.success
+    # initialize variables
+    num_excitations = self.numTendons
 
-def get_convex_capability_at_pos(pose,name,num_constraints): # finds feasible force and torque regions
-    # print(f"-----------# Trying Pose {name} {pose} #-----------")
+    if f_max is None:
+        f_max = self.tensionLimit
+    if isinstance(f_max, (np.ndarray,list)): # FIXME: convert to where()?
+        if (f_max).ndim>1:
+            Fo = f_max  # FIXME: does structmatrix or finger.py need the % change of F?
+        else: Fo = np.diag(f_max)
+    else: Fo = np.diag([f_max]*self.numTendons)
+
+    S = self.structure.get_S(THETA)
+    M = self.get_M(THETA, f_max)
+
+    constrained_rows = np.asarray(constrained_rows)
+    num_constraints = len(constrained_rows)
+    num_unconstrained = num_excitations - num_constraints
     num_sols_for_pose = 0
-    unique_sol_for_pose = set()
-    unique_forces_for_pose = []
-    unique_torques_for_pose = []
+    unique_sol_for_pose, uniqueForces, uniqueTorques = set(), [], []
 
-    for idx in it.combinations(np.arange(0,num_excitations), num_constraints):
+    for idx in it.combinations(np.arange(0,num_excitations), num_unconstrained):
         idx = np.array([int(idx_i) for idx_i in idx])
-        # print(idx)
-        for edge in generate_binary_lists(num_constraints):
+        for edge in generate_binary_lists(num_unconstrained):
             edge = np.array(edge)
             # print(edge)
             b = edge
-            A = np.zeros([num_constraints,num_excitations])
-            for i in range(num_constraints):
-                A[i,idx[i]]=1
-            b = np.concatenate([[0]*(num_excitations-num_constraints), b])
-            if (num_excitations-num_constraints)==2: # TWO CONSTRAINTS (CUEVAS MODEL)
-                # b = np.concatenate([[0,0], b])
-                A = np.vstack((Mo_at_pos(pose)[0,:],Mo_at_pos(pose)[-1,:],A))
-            elif (num_excitations-num_constraints)==1: # ONE CONSTRAINT (TORQUE ALLOWANCE)
-                # b = np.concatenate([[0], b])
-                A = np.vstack((Mo_at_pos(pose)[0,:], A))
-                        
+            A = np.zeros([num_unconstrained,num_excitations])
+            for i in range(num_unconstrained):
+                A[i,idx[i]]=1 # NOTE: what this do
+            b = np.concatenate([[0]*(num_constraints), b])
+
+            A = np.vstack((M[constrained_rows,:], A))
             excitation, success = solve_for_feasible_excitations(A, b)
-            if not success:
-                pass
+
+            if not success: pass
             else:
-                # print(f"for pose {pose} found excitation {excitation}")
-                # print(np.linalg.norm(con))
                 num_sols_for_pose += 1
                 unique_sol_for_pose.add(tuple(excitation))
-    # print("--")
-            
-    # print(f"found {num_sols_for_pose} intersections at pose {pose}")
-    # print(f"found {len(unique_sol_for_pose)} unique intersections at pose {pose}")
-    for u_ext in list(unique_sol_for_pose):
-        # print(f"For the exitation: {np.array(list(u_ext))}")
 
-        force = Mo_at_pos(pose) @ u_ext
-        # print(f"This force is produced: {force}")
+    for u_ext in list(unique_sol_for_pose): # unique excitations for pose
+        u_ext = np.array(u_ext)
+        force = M @ u_ext # J^-T*S*Fo * e
+        torques = S @ Fo @ u_ext # S*Fo * e
 
-        torques = R_at_pos(pose) @ Fo_at_pos(pose) @ u_ext
-        # print(f"These joint torques are produced: {torques}")
+        # FIXME: not sure if forces and torques are indexed correctly
+        uniqueForces.append(np.delete(force, constrained_rows)) # keep only the unconstrained rows
+        uniqueTorques.append(torques[1:]) # FIXME: need to change index?? to what tho
+    uniqueForces, uniqueTorques = np.array(uniqueForces), np.array(uniqueTorques)
+    
+    if units=='lbf':
+        uniqueForces = uniqueForces/4.44822162 # convert N to lbf
+        uniqueTorques = uniqueTorques*8.8507457916 # convert N*m to lbf-in
+    hullForces = ConvexHull(uniqueForces)
+    return hullForces, uniqueTorques
 
-        unique_forces_for_pose.append(force[1:3]) # CONSTRAINT(1): unique_forces_for_pose.append(force[1:])
-        unique_torques_for_pose.append(torques[1:])
-        if (pose == q_ext).all():
-            unique_forces_q_ext.append(force)
-        elif (pose == q_int).all():
-            unique_forces_q_int.append(force)
-        elif (pose == q_flx).all():
-            unique_forces_q_flx.append(force)
-    # print(f"")
-    convex_forces_for_pose = spa.ConvexHull(np.array(unique_forces_for_pose))
-    return convex_forces_for_pose, np.array(unique_torques_for_pose)
+def plot3D_ConvexHull(hull: ConvexHull, ax=None, labels=None, title=None, color='cyan', font=16):
+    if ax is None:
+        ax = plt.figure().add_subplot(projection='3d')
+    pts = hull.points
+    hull_surface = Poly3DCollection(pts[hull.simplices], alpha=0.3, facecolor=color, edgecolor='k', linewidths=0.3)
+    ax.add_collection3d(hull_surface)
+    ax.scatter(*pts[hull.vertices].T, color='red', s=10)
 
-def plot_ffr_at_pose(pose, name): # ffr: feasible force region (2d)
-    font=16
-    convex_forces_for_pose = get_convex_capability_at_pos(pose, name, 5)[0]
-    spa.convex_hull_plot_2d(convex_forces_for_pose, ax=plt.gca())
-    plt.title(F"Feasible Force Region for {name} Pose (N)", fontsize=font); plt.xlabel("Fz", fontsize=font); plt.ylabel("Fy", fontsize=font)
+    # collections don't autoscale, so set limits from the points (padded, and always including the origin)
+    lo = np.minimum(pts.min(axis=0), 0); hi = np.maximum(pts.max(axis=0), 0)
+    pad = 0.1*(hi - lo)
+    lo, hi = lo - pad, hi + pad
+    ax.set_xlim(lo[0], hi[0]); ax.set_ylim(lo[1], hi[1]); ax.set_zlim(lo[2], hi[2])
+    ax.set_box_aspect(hi - lo) # true proportions
 
-def plot_ftr_at_pose(pose, name): # ftr: feasible torque region (3d)
-    font=16
-    unique_torques_for_pose = np.array(get_convex_capability_at_pos(pose, name)[1])
-    plt.axes(projection='3d')
-    plt.gca().scatter(unique_torques_for_pose[:, 0], unique_torques_for_pose[:, 1], unique_torques_for_pose[:, 2], color='blue')
-    plt.title(f"Feasible Torque Region for {name} Pose", fontsize=font)
-    plt.gca().set_xlabel('τ₁',fontsize=font); plt.gca().set_ylabel('τ₂',fontsize=font); plt.gca().set_zlabel('τ₃',fontsize=font)
+    ax.plot([lo[0], hi[0]], [0, 0], [0, 0], color='black', linewidth=1)
+    ax.plot([0, 0], [lo[1], hi[1]], [0, 0], color='black', linewidth=1)
+    ax.plot([0, 0], [0, 0], [lo[2], hi[2]], color='black', linewidth=1)
 
-def feasible_force_polytope(pose, name): # single constraint version of plot_ffr_at_pose
-    return None
-def feasible_torque_polytope(pose, name): # single constraint version of plot_ftr_at_pose
-    return None
-unique_forces_q_ext = []
-unique_forces_q_int = []
-unique_forces_q_flx = []
+    if labels is not None:
+        ax.set_xlabel(labels[0], fontsize=font); ax.set_ylabel(labels[1], fontsize=font); ax.set_zlabel(labels[2], fontsize=font)
+    if title is not None:
+        ax.set_title(title, fontsize=font)
+    return ax
 
-pose_dict = {"Extended": q_ext, 
-             "Intermediate": q_int,
-             "Flexed": q_flx}
+def plot2D_ConvexHull(hull: ConvexHull, ax=None, labels=None, title=None, color='cyan', font=16):
+    if ax is None:
+        ax = plt.figure().add_subplot()
+    pts = hull.points
+    ax.fill(*pts[hull.vertices].T, alpha=0.3, facecolor=color, edgecolor='k') # 2D hull.vertices are in counterclockwise order
+    ax.scatter(*pts[hull.vertices].T, color='red', s=10)
+    ax.axhline(0, color='black', linewidth=1); ax.axvline(0, color='black', linewidth=1)
+    ax.set_aspect('equal', adjustable='datalim')
+
+    if labels is not None:
+        ax.set_xlabel(labels[0], fontsize=font); ax.set_ylabel(labels[1], fontsize=font)
+    if title is not None:
+        ax.set_title(title, fontsize=font)
+    return ax
+
+# def plot_ffr_at_pose(pose, name): # ffr: feasible force region (2d)
+#     font=16
+#     hullForces = get_convex_capability(pose, name, 5)[0]
+#     convex_hull_plot_2d(hullForces, ax=plt.gca())
+#     plt.title(F"Feasible Force Region for {name} Pose (N)", fontsize=font); plt.xlabel("Fz", fontsize=font); plt.ylabel("Fy", fontsize=font)
+
+# def plot_ftr_at_pose(pose, name): # ftr: feasible torque region (3d)
+#     font=16
+#     uniqueTorques = np.array(get_convex_capability(pose, name)[1])
+#     plt.axes(projection='3d')
+#     plt.gca().scatter(uniqueTorques[:, 0], uniqueTorques[:, 1], uniqueTorques[:, 2], color='blue')
+#     plt.title(f"Feasible Torque Region for {name} Pose", fontsize=font)
+#     plt.gca().set_xlabel('τ₁',fontsize=font); plt.gca().set_ylabel('τ₂',fontsize=font); plt.gca().set_zlabel('τ₃',fontsize=font)
+
+# def feasible_force_polytope(pose, name): # single constraint version of plot_ffr_at_pose
+#     return None
+# def feasible_torque_polytope(pose, name): # single constraint version of plot_ftr_at_pose
+#     return None
 
 #region
 # for name, pose in pose_dict.items():
@@ -119,7 +147,7 @@ pose_dict = {"Extended": q_ext,
         ########### ONE CONSTRAINT MODEL ###############
         # plt.figure() # FORCES
         # plt.axes(projection='3d')
-        # vertices = [convex_forces_for_pose.points[simplex] for simplex in convex_forces_for_pose.simplices]
+        # vertices = [hullForces.points[simplex] for simplex in hullForces.simplices]
         # hull_surface = Poly3DCollection(vertices, alpha=0.3, facecolor='cyan', edgecolor='red', linewidths=0.5)
         # plt.gca().add_collection3d(hull_surface)
         # plt.tight_layout()
@@ -134,12 +162,12 @@ pose_dict = {"Extended": q_ext,
         # plt.gca().set_zlabel('τx',fontsize=font)
         # plt.title(f"Feasible Force Region for {name} pose",fontsize=font)
 
-        # convex_torques_for_pose = spa.ConvexHull(np.array(unique_torques_for_pose))
+        # hullTorques = ConvexHull(np.array(uniqueTorques))
         # plt.figure() # TORQUES
         # plt.axes(projection='3d')
-        # unique_torques_for_pose = np.array(unique_torques_for_pose)
+        # uniqueTorques = np.array(uniqueTorques)
 
-        # vertices = [convex_torques_for_pose.points[simplex] for simplex in convex_torques_for_pose.simplices]
+        # vertices = [hullTorques.points[simplex] for simplex in hullTorques.simplices]
         # hull_surface = Poly3DCollection(vertices, alpha=0.3, facecolor='cyan', edgecolor='red', linewidths=0.5)
         # plt.gca().add_collection3d(hull_surface)
         # plt.tight_layout()
@@ -178,24 +206,5 @@ def balancable_bias_force(bias):
         return balancable, np.max(closest)/np.min(closest)
  
 if __name__ == "__main__":
-    S = R_at_pos(q_flx)
-    biasForceSpace = la.null_space(S) # attribute of StructMatrix
-    nullspace = np.array([[1,-1,0],[0,1,-1]]).T
-    V7d = np.ones(7)/la.norm(np.ones(7))
-    V3d = np.ones(3)/la.norm(np.ones(3))
-    x, r, rank, s = la.lstsq(biasForceSpace, np.ones(7)/la.norm(np.ones(7)))
-    print(biasForceSpace@x)
-    print(la.norm(r), rank, s)
-    # print(biasForceSpace)
-    print(closest_in_subspace(biasForceSpace, V7d))
-    print(balancable_bias_force(biasForceSpace)[-1])
-
-
-
-    x, r, rank, s = la.lstsq(nullspace, V3d)
-    print(nullspace@x)
-    print(la.norm(r), rank, s)
-    # print(biasForceSpace)
-    print(closest_in_subspace(nullspace, V3d))
-    print(balancable_bias_force(nullspace)[-1])
+    pass
 

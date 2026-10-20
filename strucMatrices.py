@@ -945,26 +945,30 @@ class DiscreteStrucMatrix(): # FIXME: need to read parameter input
     figures = {}  # Dict to track figures by name
     figures_with_axes = set()
 
-    def __init__(self, model, R=None, D=None, F=None, name='Placeholder'):
+    def __init__(self, model, name='Placeholder'):
+        self.model = model
         self.dR = model['dR']
+        self.dF = model['dF']
         self.poses = model['poses']
 
-        self.F = F  # FIXME: does structmatrix or finger.py need the % change of F?
+        if ((model['F']).ndim>1):
+            self.Fo_base = model['F']  # FIXME: does structmatrix or finger.py need the % change of F?
+        else: self.Fo_base = np.diag(model['F'])
         
-        self.D = D # Direction array
-        self.R_base = R # Radius array
+        self.D = model['D'] # Direction array
+        self.R_base = model['R'] # Radius array
 
         self.numJoints  = self.D.shape[0]
         self.numTendons = self.D.shape[1]
         self.name = name
 
     def __call__(self, THETA):
-        return self.S(THETA)
+        return self.get_S(THETA)
 
     def __str__(self):
         return self.name
 
-    def R(self, THETA):
+    def get_R(self, THETA):
         THETA = np.asarray(THETA, dtype=float)  
         pose_names  = list(self.poses.keys()) 
         pose_values = list(self.poses.values())  
@@ -979,35 +983,50 @@ class DiscreteStrucMatrix(): # FIXME: need to read parameter input
                 R[row, col] *= 1 + (percent_change / 100)
         return R
 
-    def plotCapability(self, THETA, showBool=False, colorOverride=None, transOverride=None, obj=None, enforcePosTension=False, skipJoints=None, metric=False):
-        S = StrucMatrix(S=self.S(THETA))
+    def get_Fo(self, THETA):
+        THETA = np.asarray(THETA, dtype=float)  
+        pose_names  = list(self.poses.keys()) 
+        pose_values = list(self.poses.values())  
+
+        target_idx = next((i for i, q in enumerate(pose_values) if np.allclose(THETA, q)), None)  # find which calibrated pose THETA matches
+        if target_idx is None:
+            raise ValueError(f"THETA={THETA} does not match any pose in the given poses dict.") 
+
+        Fo = self.Fo_base.copy()  # start from the base-pose radius matrix
+        for name_i, name_f in zip(pose_names[:target_idx], pose_names[1:target_idx + 1]):  # pairs each pose with the next
+            for (row, col), percent_change in self.dF[(name_i, name_f)].items():  # index-based percent change between name_i and name_f
+                Fo[row, col] *= 1 + (percent_change / 100)
+        return Fo
+
+    def plotCapability(self, THETA, showBool=False, colorOverride=None, transOverride=None, obj=None, enforcePosTension=False, skipJoints=[0], metric=False):
+        S = StrucMatrix(S=self.get_S(THETA))
         S.plotCapability(showBool, colorOverride, transOverride, obj, enforcePosTension, skipJoints, metric)
 
-    def S(self, THETA):
-        return self.D*self.R(THETA)
+    def get_S(self, THETA):
+        return self.D*self.get_R(THETA)
 
     def torqueDomainVolume(self, THETA):
-        S = StrucMatrix(S=self.S(THETA))
+        S = StrucMatrix(S=self.get_S(THETA))
         return S.domain, S.boundaryGrasps
 
     def get_magnitude(self, THETA):
-        S = StrucMatrix(S=self.S(THETA))
+        S = StrucMatrix(S=self.get_S(THETA))
         return S.get_magnitude()
 
     def biasResidual(self, THETA):
-        S = StrucMatrix(S=self.S(THETA))
+        S = StrucMatrix(S=self.get_S(THETA))
         return S.biasResidual()
 
     def biasCondition(self, THETA):
-        S = StrucMatrix(S=self.S(THETA))
+        S = StrucMatrix(S=self.get_S(THETA))
         return S.biasCondition()
 
     # def maxGrip(self, THETA):
-    #     S = StrucMatrix(S=self.S(THETA))
+    #     S = StrucMatrix(S=self.get_S(THETA))
     #     return S.maxGrip()
 
     def contains(self, THETA, point):
-        S = StrucMatrix(S=self.S(THETA))
+        S = StrucMatrix(S=self.get_S(THETA))
         return S.contains(point)
 # endregion
 
@@ -1915,12 +1934,12 @@ testbedFinger4 = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
 #                                       minFactor = 0.01,
 #                                            name = "Sdev")
 # endregion
-
-if __name__ == "__main__":
-
-    valero = DiscreteStrucMatrix(R=valero_model['R'], D=valero_model['D'], model=valero_model)
-    poses = valero_model['poses']
-    for THETA in poses.values():
-        print(valero.S(THETA) - R_at_pos(THETA))
-        valero.plotCapability(THETA)
-    plt.show()
+valero = DiscreteStrucMatrix(model=valero_model)
+# valero.plotCapability()
+if __name__ == "__main__": 
+    print(valero.get_S(THETA=np.radians(np.array([0,45,45,10]))))
+    # poses = valero_model['poses']
+    # for THETA in poses.values():
+    #     print(valero.S(THETA) - R_at_pos(THETA))
+    #     valero.plotCapability(THETA)
+    # plt.show()

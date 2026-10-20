@@ -58,6 +58,13 @@ def generate_binary_lists(length):
     for combo in itertools.product([0, 1], repeat=length):
         yield list(combo)
 
+def solve_for_feasible_excitations(A, b):
+    c = np.zeros(len(b))
+    res = linprog(c, A_eq=A, b_eq=b, bounds=(0,1))
+    # if res.success:
+    #     print(np.linalg.norm(res.con))
+    return res.x, res.success
+
 def unique_piecewise_functions(S: sy.Matrix):
     """
     Returns a set of unique Piecewise expressions in a sympy Matrix S
@@ -335,8 +342,9 @@ def transform(Q,L): # transform the world frame to end effector frame given join
         raise ValueError("Each input Q must have a respective length L for all joints")
     origin = np.transpose(np.array([0,0,0,1])) # world/global coordinate (x,y,z,1)=(0,0,0,1)
     trans = np.eye(4) # identity matrix to compile all matrix transformations
+    has_adab = len(Q) == 4 # check before Q and L are sliced below
 
-    if len(Q) == 4: # if there are more DOF than phalange lengths, assume first joint is ad-abduction and remaining are flexion-extension
+    if has_adab: # if there are more DOF than phalange lengths, assume first joint is ad-abduction and remaining are flexion-extension
         T = adab_trans(Q[0],0) # MCP ad-abduction transformation matrix (0 length relative to origin) 
         Q = Q[1:]; L = L[1:] # remove first element of Q and L
         trans = trans @ T # transform origin to new coordinate frame
@@ -347,13 +355,13 @@ def transform(Q,L): # transform the world frame to end effector frame given join
         trans = trans @ T
     pos = (trans @ origin)[:3] # apply full transform to origin
 
-    if len(np.asarray(Q)) == len(L): # 3 DOF: no ad-adbuction
-        return np.append(pos[1:],np.sum(Q)) # [x, y, sum of angles] (2x2)
+    if not has_adab: # 3 DOF: no ad-adbuction
+        return np.append(pos[1:],np.sum(Q)) # [y, z, sum of angles] (3x3 jacobian)
     else:
-        return np.append(pos, np.sum(Q)) # [x, y, z, sum of angles] (3x3)
+        return np.append(pos, np.sum(Q)) # [x, y, z, sum of angles] (4x4 jacobian)
 
 ########### FINGER #############
-def jac(Q,L): # FIXME attribute joint type
+def jac(Q,L): # FIXME needs attribute joint type
     # if singularity is detected??? (maybe) collapse the jacobian matrix (aka remove a DOF) and return the new jacobian matrix
     # figure out how to get the function to work with 2d and 3d inputs (1x3 and 1x4 arrays)
     # attribute of joint type....? this seems like a good idea, input joint type when inputting angles so transformation is correct
