@@ -7,7 +7,8 @@ from scipy.spatial import ConvexHull, convex_hull_plot_2d, QhullError
 import itertools as it
 
 from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from matplotlib.collections import PolyCollection
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3D
 import matplotlib.animation as animation
 
 class StructureKineMismatch(Warning):
@@ -33,7 +34,7 @@ class Finger():
 
     # // a grip is a vector of numJoints torques
 
-    def __init__(self, structure: VariableStrucMatrix | StrucMatrix | DiscreteStrucMatrix, lengths, tensionLimit=50, units='lbf', name='None'):
+    def __init__(self, structure: VariableStrucMatrix | StrucMatrix | DiscreteStrucMatrix, lengths, tensionLimit=50, units='lbf', name=None):
         self.structure = structure
         self.lengths = lengths
         if self.structure.numJoints != len(self.lengths):
@@ -372,45 +373,49 @@ class Finger():
         hullForces, hullTorques = (make_hull(pts) for pts in (uniqueTaskEfforts, uniqueJointEfforts))
         return hullForces, hullTorques
 
-    # NOTE: plot2D and 3D are the plotting methods used in the old_convex_hull.py script.
-    def plot2D_ConvexHull(self, hull : ConvexHull, ax=None, labels=None, title=None, label=None, color='cyan', font=16):
+    def plot2D_ConvexHull(self, hull : ConvexHull, ax=None, ax_labels=None, title=None, label=None, color='cyan', font=16):
         # print('Plotting 2D Convex Hull') # FIXME bug check
         if ax is None:
             ax = plt.figure().add_subplot()
-        convex_hull_plot_2d(hull, ax=plt.gca())
-
-        if labels is not None:
-            ax.set_xlabel(labels[0], fontsize=font); ax.set_ylabel(labels[1], fontsize=font)
-        if title is not None:
-            ax.set_title(title, fontsize=font)
-
-        # formatting stuff (draw "axes" through origin, etc.
-        xlim, ylim = ax.get_xlim(), ax.get_ylim()
-        ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1); ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
-        return ax
-
-    # FIXME: do i need the 'label' variable? If so, what for
-    
-    def plot3D_ConvexHull(self, hull : ConvexHull, ax=None, labels=None, title=None, label=None, color='cyan', font=16):
-        # print('Plotting 3D Convex Hull') # FIXME bug check
-        if ax is None:
-            ax = plt.figure().add_subplot(projection='3d')
 
         pts = hull.points
-        ax.scatter(*pts[hull.vertices].T, color='blue', s=10)
-        
-        vertices = [hull.points[simplex] for simplex in hull.simplices]
-        hull_surface = Poly3DCollection(vertices, facecolor=(color, 0.3), edgecolor='red', linewidths=0.5)
-        ax.add_collection3d(hull_surface)
+        ax.scatter(*pts.T, color=color, s=10, label=label) # all points (incl. interior), label = legend entry
 
-        if labels is not None:
-            ax.set_xlabel(labels[0], fontsize=font); ax.set_ylabel(labels[1], fontsize=font); ax.set_zlabel(labels[2], fontsize=font)
+        hull_surface = PolyCollection([pts[hull.vertices]], facecolor=(color, 0.2), edgecolor=color, linewidths=1.5) # 2D vertices are CCW-ordered
+        ax.add_collection(hull_surface)
+
+        if ax_labels is not None:
+            ax.set_xlabel(ax_labels[0], fontsize=font); ax.set_ylabel(ax_labels[1], fontsize=font)
         if title is not None:
             ax.set_title(title, fontsize=font)
 
         # formatting stuff (draw "axes" through origin, etc.)
+        ax.axhline(0, color='black', linewidth=1); ax.axvline(0, color='black', linewidth=1)
+        return ax
+    
+    def plot3D_ConvexHull(self, hull : ConvexHull, ax=None, ax_labels=None, title=None, label=None, color='cyan', font=16):
+        if ax is None:
+            ax = plt.figure().add_subplot(projection='3d')
+
+        pts = hull.points
+        ax.scatter(*pts[hull.vertices].T, color=color, s=10, label=label) # label = legend entry; scatter autoscales the axes (Poly3DCollection doesn't)
+
+        vertices = [hull.points[simplex] for simplex in hull.simplices]
+        hull_surface = Poly3DCollection(vertices, facecolor=(color, 0.2), edgecolor=color, linewidths=0.3)
+        ax.add_collection3d(hull_surface)
+
+        if ax_labels is not None:
+            ax.set_xlabel(ax_labels[0], fontsize=font); ax.set_ylabel(ax_labels[1], fontsize=font); ax.set_zlabel(ax_labels[2], fontsize=font)
+        if title is not None:
+            ax.set_title(title, fontsize=font)
+
+        # formatting stuff (draw "axes" through origin, etc.), redrawn each call to span every hull on this ax
+        # add_artist (not ax.plot) so these lines don't count as data and push the limits out
+        for line in getattr(ax, '_origin_lines', []): line.remove()
         xlim, ylim, zlim = ax.get_xlim(), ax.get_ylim(), ax.get_zlim()
-        ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1); ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1); ax.plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
+        ax._origin_lines = [ax.add_artist(Line3D(xlim, [0, 0], [0, 0], color='black', linewidth=1)),
+                            ax.add_artist(Line3D([0, 0], ylim, [0, 0], color='black', linewidth=1)),
+                            ax.add_artist(Line3D([0, 0], [0, 0], zlim, color='black', linewidth=1))]
         return ax
 
     def plot_Capability(self, convex_hull: ConvexHull, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None):
@@ -498,6 +503,9 @@ def planar_force_demo():
 
     plt.show()
 
+def compare_capabilities(cases, title=None):
+    if title is not None:
+        fig.suptitle(title, fontsize=10)
 # region Finger Instances
 # testbed
 # valero
@@ -507,9 +515,9 @@ if __name__=="__main__":
     np.set_printoptions(precision=10, formatter={'float_kind':'{:.5f}'.format})
     lengths=[0,1.4, 1.4, 1.2]
     testFinger = Finger(primaryDev, lengths=lengths) # 4DOF
-    testFinger = Finger(secondaryDev, [1.4,1.4,1.2]) # 3DOF
+    testFinger = Finger(secondaryDev, lengths=lengths[1:]) # 3DOF
 
-    valeroFinger, THETA = Finger(valero, [0, 50e-3, 31e-3, 16e-3 ], 'N', name='Valero (discrete)'), np.radians(np.array([0,45,45,10])) #4DOF (metric units)
+    valeroFinger, THETA = Finger(valero, [0, 50e-3, 31e-3, 16e-3 ], units='N', name='Valero (discrete)'), np.radians(np.array([0,45,45,10])) #4DOF (metric units)
     valero_model_dict = valero.model
     J = valeroFinger.get_jacobian_at_pose(THETA)
     Fo = valero.Fo(THETA)
@@ -519,37 +527,3 @@ if __name__=="__main__":
     valeroFinger.plot_jointCapability(THETA, constrained_dof=[0], f_max=Fo, 
                                       title='Feasbile Joint Capabilities for Flexion', labels=r'$\tau_{1}$') # only constrain F_x
     plt.show()
-
-    # print(valeroFinger.get_M(THETA, f_max=Fo))
-
-    # # rows = np.array([[0,3], [0,2], [0,1]]) # (always constrain out of plane Force-Fx) constrain Tx, Fy, Fz
-    # constraint = np.array([0])
-    # # for constraint in rows:
-    # convexForces, uniqueTorques = valeroFinger.get_convex_capability(THETA, f_max=Fo, constrained_dof=constraint)
-    # plt.figure()
-    # convex_hull_plot_2d(convexForces, ax=plt.gca())
-    # name, font = 'Flexion', 16
-    # plt.title(F"Feasible Force Region for {name} Pose (N)", fontsize=font); plt.xlabel("Fz", fontsize=font); plt.ylabel("Fy", fontsize=font)
-    # plt.show()
-
-    # M = np.linalg.inv(J).T @ S @ Fo
-    # print(valero.get_Fo(THETA))
-    # valeroFinger.get_convex_capability(THETA, f_max=Fo, constrained_rows=np.array([0,3]))
-
-
-
-#     # PLOTTING TEST
-#     # separate windows
-#     for name, pose in valero.poses.items():
-#         convexForces, convexTorques = valeroFinger.get_convex_capability(pose, f_max=valero.get_Fo(pose), constrained_rows=[0, 3])
-#         plot2D_ConvexHull(convexForces, title=f"Forces: {name}")
-#         plot3D_ConvexHull(convexTorques, title=f"Torques: {name}")
-
-#     # same subplot grid (single window)
-#     fig = plt.figure(figsize=(12, 5))
-#     ax1 = fig.add_subplot(1, 2, 1)                     # 1 row, 2 cols, slot 1 (2-D)
-#     ax2 = fig.add_subplot(1, 2, 2, projection='3d')    # slot 2 (3-D)
-
-#     plot2D_ConvexHull(convexForces, ax=ax1, title="Forces")
-#     plot3D_ConvexHull(convexTorques, ax=ax2, title="Torques")
-# plt.show()
