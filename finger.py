@@ -1,6 +1,6 @@
 import numpy as np
 import warnings
-from strucMatrices import VariableStrucMatrix, StrucMatrix, DiscreteStrucMatrix, secondaryDev, primaryDev, valero
+from strucMatrices import VariableStrucMatrix, StrucMatrix, DiscreteStrucMatrix, secondaryDev, primaryDev, valero, canonB
 from utils import trans, jac, clean_array, hArray, generate_binary_lists, solve_for_feasible_excitations#, plot3D_ConvexHull, plot2D_ConvexHull#, get_jacobian
 from scipy.optimize import nnls, lsq_linear, linprog
 from scipy.spatial import ConvexHull, convex_hull_plot_2d, QhullError
@@ -418,7 +418,7 @@ class Finger():
                             ax.add_artist(Line3D([0, 0], [0, 0], zlim, color='black', linewidth=1))]
         return ax
 
-    def plot_Capability(self, convex_hull: ConvexHull, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None):
+    def plot_Capability(self, convex_hull: ConvexHull, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None, label=None, color='cyan'):
         """
         helper function to simplify task and joint capability plotting (utilizes plot2D and 3D convex hull)
         """
@@ -431,12 +431,12 @@ class Finger():
         ax.figure.tight_layout(); ax.grid(True, alpha=0.8) # general formatting for ALL plots
         return ax
     
-    def plot_taskCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None):
+    def plot_taskCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None, label=None, color='cyan'):
         convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof)[0]
-        return self.plot_Capability(convex_hull, THETA, ax, f_max, constrained_dof, title, labels)
-    def plot_jointCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None):
+        return self.plot_Capability(convex_hull, THETA, ax, f_max, constrained_dof, title, labels, label, color)
+    def plot_jointCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None, label=None, color='cyan'):
         convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof)[1]
-        return self.plot_Capability(convex_hull, THETA, ax, f_max, constrained_dof, title, labels)
+        return self.plot_Capability(convex_hull, THETA, ax, f_max, constrained_dof, title, labels, label, color)
 
 def planar_force_demo():
     # from strucMatrices import secondaryDev
@@ -503,27 +503,49 @@ def planar_force_demo():
 
     plt.show()
 
-def compare_capabilities(cases, title=None):
+def compare_capabilities(cases, title=None, task_labels=None, joint_labels=None):
+    n, first = cases[0]['finger'].numJoints, cases[0]
+    fig = plt.figure(figsize=(14, 6))
+    axTask  = fig.add_subplot(1, 2, 1, projection='3d' if n-len(first['task_dof'])==3 else None) # 3 unconstrained efforts -> 3D, 2 -> 2D
+    axJoint = fig.add_subplot(1, 2, 2, projection='3d' if n-len(first['joint_dof'])==3 else None)
+
+    for case, color in zip(cases, plt.rcParams['axes.prop_cycle'].by_key()['color']): # one color per finger
+        finger, THETA, f_max = case['finger'], case['THETA'], case.get('f_max')
+        finger.plot_taskCapability(THETA, axTask, f_max, case['task_dof'], 'Feasible Task Capabilities', task_labels, finger.name, color)
+        finger.plot_jointCapability(THETA, axJoint, f_max, case['joint_dof'], 'Feasible Joint Capabilities', joint_labels, finger.name, color)
+
+    axTask.legend(); axJoint.legend()
     if title is not None:
-        fig.suptitle(title, fontsize=10)
+        fig.suptitle(title, fontsize=18); fig.subplots_adjust(top=0.85) # leave room for the suptitle
+    return axTask, axJoint
 # region Finger Instances
 # testbed
 # valero
 # endregion
 
 if __name__=="__main__":
-    np.set_printoptions(precision=10, formatter={'float_kind':'{:.5f}'.format})
-    lengths=[0,1.4, 1.4, 1.2]
-    testFinger = Finger(primaryDev, lengths=lengths) # 4DOF
-    testFinger = Finger(secondaryDev, lengths=lengths[1:]) # 3DOF
+    valeroFinger    = Finger(valero, [0, 50e-3, 31e-3, 16e-3], units='N', name='Valero (discrete)')
+    valeroStatic    = Finger(StrucMatrix(S=valero.S(list(valero.poses.values())[0])), valeroFinger.lengths, units='N', name='Valero (static)')
+    primaryFinger   = Finger(primaryDev,   [0, 1.4, 1.4, 1.2], name='primaryDev (variable)') # 4DOF
+    secondaryFinger = Finger(secondaryDev, [1.4, 1.4, 1.2],    name='secondaryDev (variable)') # 3DOF
+    constantFinger =  Finger(canonB, [1.4, 1.4, 1.2], name='staticFinger')
 
-    valeroFinger, THETA = Finger(valero, [0, 50e-3, 31e-3, 16e-3 ], units='N', name='Valero (discrete)'), np.radians(np.array([0,45,45,10])) #4DOF (metric units)
-    valero_model_dict = valero.model
-    J = valeroFinger.get_jacobian_at_pose(THETA)
-    Fo = valero.Fo(THETA)
+    dof4, dof3 = dict(task_dof=[0,3], joint_dof=[0]), dict(task_dof=[2], joint_dof=[])
 
-    valeroFinger.plot_taskCapability(THETA, constrained_dof=[0,3], f_max=Fo, 
-                                     title='Feasbile Joint Capabilities for Flexion', labels=['F_y', 'F_z']) # constrain F_x and τ_x
-    valeroFinger.plot_jointCapability(THETA, constrained_dof=[0], f_max=Fo, 
-                                      title='Feasbile Joint Capabilities for Flexion', labels=r'$\tau_{1}$') # only constrain F_x
+    THETA = np.radians(np.array([0,45,45,10])) # Flexion pose
+    title = title='Flexion Pose'; task_labels=['$F_y$ (lbf)', '$F_z$ (lbf)']
+    joint_labels = joint_labels=[r'$\tau_{1}$ (lbf-in)', r'$\tau_{2}$ (lbf-in)', r'$\tau_{3}$ (lbf-in)']
+    
+    compare_capabilities([
+        dict(finger=valeroFinger,    THETA=THETA,     f_max=valero.Fo(THETA), **dof4),
+        # dict(finger=primaryFinger,   THETA=THETA,                             **dof4),
+        # dict(finger=secondaryFinger, THETA=THETA[1:],                         **dof3), # 3DOF: drop ad/ab angle
+        dict(finger=constantFinger,  THETA=THETA[1:],                         **dof3)
+    ], title=title, task_labels=task_labels, joint_labels=joint_labels)
+
+    #-------------------- TESTING TASK AND JOINT PLOTTING --------------------
+    # valeroFinger.plot_taskCapability(THETA, constrained_dof=[0,3], f_max=Fo, 
+    #                                  title='Feasible Joint Capabilities for Flexion', labels=['F_y', 'F_z']) # constrain F_x and τ_x
+    # valeroFinger.plot_jointCapability(THETA, constrained_dof=[0], f_max=Fo, 
+    #                                   title='Feasible Joint Capabilities for Flexion', labels=r'$\tau_{1}$') # only constrain F_x
     plt.show()

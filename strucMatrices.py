@@ -1794,7 +1794,8 @@ D = np.array([[-1,1,-1,1],
 canonA = StrucMatrix(R,D,name='Canon A')
 
 # canon B
-R = np.ones([3,4])
+r = .25
+R = np.ones([3,4])*r
 D = -np.array([[1,-1,-1,1],
                [0, 1,-1,-1],
                [0, 0, 1,-1]])
