@@ -1,6 +1,6 @@
 import numpy as np
 import warnings
-from strucMatrices import VariableStrucMatrix, StrucMatrix, DiscreteStrucMatrix, secondaryDev, primaryDev, valero, canonB
+from strucMatrices import colors, VariableStrucMatrix, StrucMatrix, DiscreteStrucMatrix, secondaryDev, primaryDev, valero, canonB
 from utils import trans, jac, clean_array, hArray, generate_binary_lists, solve_for_feasible_excitations#, plot3D_ConvexHull, plot2D_ConvexHull#, get_jacobian
 from scipy.optimize import nnls, lsq_linear, linprog
 from scipy.spatial import ConvexHull, convex_hull_plot_2d, QhullError
@@ -381,7 +381,7 @@ class Finger():
         pts = hull.points
         ax.scatter(*pts.T, color=color, s=10, label=label) # all points (incl. interior), label = legend entry
 
-        hull_surface = PolyCollection([pts[hull.vertices]], facecolor=(color, 0.2), edgecolor=color, linewidths=1.5) # 2D vertices are CCW-ordered
+        hull_surface = PolyCollection([pts[hull.vertices]], facecolor=(color, 0.05), edgecolor=color, linewidths=1.5) # 2D vertices are CCW-ordered
         ax.add_collection(hull_surface)
 
         if ax_labels is not None:
@@ -390,7 +390,7 @@ class Finger():
             ax.set_title(title, fontsize=font)
 
         # formatting stuff (draw "axes" through origin, etc.)
-        ax.axhline(0, color='black', linewidth=1); ax.axvline(0, color='black', linewidth=1)
+        ax.axhline(0, color='black', linewidth=1, linestyle='--'); ax.axvline(0, color='black', linewidth=1, linestyle='--')
         return ax
     
     def plot3D_ConvexHull(self, hull : ConvexHull, ax=None, ax_labels=None, title=None, label=None, color='cyan', font=16):
@@ -401,7 +401,7 @@ class Finger():
         ax.scatter(*pts[hull.vertices].T, color=color, s=10, label=label) # label = legend entry; scatter autoscales the axes (Poly3DCollection doesn't)
 
         vertices = [hull.points[simplex] for simplex in hull.simplices]
-        hull_surface = Poly3DCollection(vertices, facecolor=(color, 0.2), edgecolor=color, linewidths=0.3)
+        hull_surface = Poly3DCollection(vertices, facecolor=(color, 0.05), edgecolor=color, linewidths=0.3)
         ax.add_collection3d(hull_surface)
 
         if ax_labels is not None:
@@ -413,9 +413,9 @@ class Finger():
         # add_artist (not ax.plot) so these lines don't count as data and push the limits out
         for line in getattr(ax, '_origin_lines', []): line.remove()
         xlim, ylim, zlim = ax.get_xlim(), ax.get_ylim(), ax.get_zlim()
-        ax._origin_lines = [ax.add_artist(Line3D(xlim, [0, 0], [0, 0], color='black', linewidth=1)),
-                            ax.add_artist(Line3D([0, 0], ylim, [0, 0], color='black', linewidth=1)),
-                            ax.add_artist(Line3D([0, 0], [0, 0], zlim, color='black', linewidth=1))]
+        ax._origin_lines = [ax.add_artist(Line3D(xlim, [0, 0], [0, 0], color='black', linewidth=1, linestyle='--')),
+                            ax.add_artist(Line3D([0, 0], ylim, [0, 0], color='black', linewidth=1, linestyle='--')),
+                            ax.add_artist(Line3D([0, 0], [0, 0], zlim, color='black', linewidth=1, linestyle='--'))]
         return ax
 
     def plot_Capability(self, convex_hull: ConvexHull, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None, label=None, color='cyan'):
@@ -426,8 +426,8 @@ class Finger():
         if num_efforts not in (2,3):
             raise ValueError(f'Hull values must only have two or three effort values. {num_efforts}) were inputted.')
         elif num_efforts==3:
-            ax = self.plot3D_ConvexHull(convex_hull, ax, labels, title)
-        else: ax = self.plot2D_ConvexHull(convex_hull, ax, labels, title)
+            ax = self.plot3D_ConvexHull(convex_hull, ax, labels, title, label, color)
+        else: ax = self.plot2D_ConvexHull(convex_hull, ax, labels, title, label, color)
         ax.figure.tight_layout(); ax.grid(True, alpha=0.8) # general formatting for ALL plots
         return ax
     
@@ -509,7 +509,8 @@ def compare_capabilities(cases, title=None, task_labels=None, joint_labels=None)
     axTask  = fig.add_subplot(1, 2, 1, projection='3d' if n-len(first['task_dof'])==3 else None) # 3 unconstrained efforts -> 3D, 2 -> 2D
     axJoint = fig.add_subplot(1, 2, 2, projection='3d' if n-len(first['joint_dof'])==3 else None)
 
-    for case, color in zip(cases, plt.rcParams['axes.prop_cycle'].by_key()['color']): # one color per finger
+    for i, case in enumerate(cases):
+        color = case.get('color', colors[i % len(colors)]) # optional per-case override, else cycle (wraps if more fingers than colors)
         finger, THETA, f_max = case['finger'], case['THETA'], case.get('f_max')
         finger.plot_taskCapability(THETA, axTask, f_max, case['task_dof'], 'Feasible Task Capabilities', task_labels, finger.name, color)
         finger.plot_jointCapability(THETA, axJoint, f_max, case['joint_dof'], 'Feasible Joint Capabilities', joint_labels, finger.name, color)
@@ -525,10 +526,10 @@ def compare_capabilities(cases, title=None, task_labels=None, joint_labels=None)
 
 if __name__=="__main__":
     valeroFinger    = Finger(valero, [0, 50e-3, 31e-3, 16e-3], units='N', name='Valero (discrete)')
-    valeroStatic    = Finger(StrucMatrix(S=valero.S(list(valero.poses.values())[0])), valeroFinger.lengths, units='N', name='Valero (static)')
+    # valeroStatic    = Finger(StrucMatrix(S=valero.S(list(valero.poses.values())[0])), valeroFinger.lengths, units='N', name='Valero (static)')
     primaryFinger   = Finger(primaryDev,   [0, 1.4, 1.4, 1.2], name='primaryDev (variable)') # 4DOF
     secondaryFinger = Finger(secondaryDev, [1.4, 1.4, 1.2],    name='secondaryDev (variable)') # 3DOF
-    constantFinger =  Finger(canonB, [1.4, 1.4, 1.2], name='staticFinger')
+    constantFinger =  Finger(canonB, [1.4, 1.4, 1.2], name='canonB (static)')
 
     dof4, dof3 = dict(task_dof=[0,3], joint_dof=[0]), dict(task_dof=[2], joint_dof=[])
 
@@ -537,10 +538,10 @@ if __name__=="__main__":
     joint_labels = joint_labels=[r'$\tau_{1}$ (lbf-in)', r'$\tau_{2}$ (lbf-in)', r'$\tau_{3}$ (lbf-in)']
     
     compare_capabilities([
-        dict(finger=valeroFinger,    THETA=THETA,     f_max=valero.Fo(THETA), **dof4),
-        # dict(finger=primaryFinger,   THETA=THETA,                             **dof4),
-        # dict(finger=secondaryFinger, THETA=THETA[1:],                         **dof3), # 3DOF: drop ad/ab angle
-        dict(finger=constantFinger,  THETA=THETA[1:],                         **dof3)
+        dict(finger=valeroFinger,    THETA=THETA,     f_max=valero.Fo(THETA), **dof4, color=colors[1]),
+        dict(finger=primaryFinger,   THETA=THETA,                             **dof4, color=colors[2]),
+        dict(finger=secondaryFinger, THETA=THETA[1:],                         **dof3, color=colors[7]), # 3DOF: drop ad/ab angle
+        dict(finger=constantFinger,  THETA=THETA[1:],                         **dof3, color=colors[0])
     ], title=title, task_labels=task_labels, joint_labels=joint_labels)
 
     #-------------------- TESTING TASK AND JOINT PLOTTING --------------------
