@@ -33,7 +33,7 @@ class Finger():
 
     # // a grip is a vector of numJoints torques
 
-    def __init__(self, structure: VariableStrucMatrix | StrucMatrix | DiscreteStrucMatrix, lengths, tensionLimit=50):
+    def __init__(self, structure: VariableStrucMatrix | StrucMatrix | DiscreteStrucMatrix, lengths, tensionLimit=50, units='lbf', name='None'):
         self.structure = structure
         self.lengths = lengths
         if self.structure.numJoints != len(self.lengths):
@@ -43,6 +43,17 @@ class Finger():
         self.numTendons = self.structure.numTendons
         # print(self.numJoints, self.numTendons)
         self.tensionLimit = tensionLimit
+
+        if units not in ('lbf', 'N'):
+            raise ValueError("units must be 'lbf' or 'N'.")
+        self.units = units
+        self.name = name if name is not None else getattr(structure, 'name', 'Finger') # FIXME: don't entirely understand what i did here or if its necessary
+
+    def S(self, THETA):
+        """Structure matrix at THETA for any structure type (StrucMatrix is pose-independent)"""
+        if isinstance(self.structure, StrucMatrix):
+            return self.structure()
+        return self.structure(THETA)
 
     def get_jacobian_at_pose(self, THETA, lengths=None):
         # F = trans(THETA, self.lengths)
@@ -61,10 +72,10 @@ class Finger():
         else: Fo = np.diag([f_max]*self.numTendons)
 
         J = self.get_jacobian_at_pose(THETA)
-        S = self.structure(THETA)
+        S = self.S(THETA)
 
         try: return np.linalg.inv(J).T @ S @ Fo
-        except np.linalg.LinAlgError: return False
+        except np.linalg.LinAlgError: raise ValueError(f"{self.name}: Jacobian is singular at THETA={THETA}")
 
     # def get_jacobian_at_pose(self, THETA, lengths=None):
     #     if lengths is None:
@@ -236,7 +247,7 @@ class Finger():
         # else:
         #     return T, "best-case", confirm
 
-    def get_planar_force_capability_at_pose(self, THETA, f_max=None, units='lbf'):
+    def get_planar_force_capability_at_pose(self, THETA, f_max=None):
         J = self.get_jacobian_at_pose_2(THETA)
         S = self.structure(THETA)
         # Fo = self.tensionLimit
@@ -277,12 +288,12 @@ class Finger():
                 # unique_forces.add(tuple(M @ res.x))
         for excitation in list(unique_excitations):
             unique_forces.append((M @ excitation)[:2])
-        if units=="N":
-            unique_forces = np.array(unique_forces)*4.44822162 # convert unique forces from lbs to N
+        if self.units=='N':
+            unique_forces = np.array(unique_forces)/4.44822162 # convert unique forces from N to lbf
         convex_forces = ConvexHull(np.array(unique_forces))
         return convex_forces
 
-    def get_convex_capability(self, THETA, f_max=None, constrained_dof=None, units='lbf'):
+    def get_convex_capability(self, THETA, f_max=None, constrained_dof=None):
         """
         FIXME: define what function does
         
@@ -312,10 +323,10 @@ class Finger():
             else: Fo = np.diag(f_max)
         else: Fo = np.diag([f_max]*self.numTendons)
 
-        S = self.structure.S(THETA)
+        S = self.S(THETA)
         M = self.M(THETA, f_max)
 
-        constrained_dof = np.asarray(constrained_dof)
+        constrained_dof = np.asarray(constrained_dof, dtype=int)
         num_constraints = len(constrained_dof)
         num_unconstrained = num_excitations - num_constraints
         num_vertex_exts_for_pose = 0
@@ -350,7 +361,7 @@ class Finger():
             uniqueJointEfforts.append(np.delete(jointEffort, constrained_dof)) # FIXME: need to change index?? to what tho (currently only removes out of plane torques)
         uniqueTaskEfforts, uniqueJointEfforts = np.array(uniqueTaskEfforts), np.array(uniqueJointEfforts)
         
-        if units=='lbf':
+        if self.units=='N':
             uniqueTaskEfforts = uniqueTaskEfforts/4.44822162 # convert N to lbf
             uniqueJointEfforts = uniqueJointEfforts*8.8507457916 # convert N*m to lbf-in
 
@@ -362,7 +373,7 @@ class Finger():
         return hullForces, hullTorques
 
     # NOTE: plot2D and 3D are the plotting methods used in the old_convex_hull.py script.
-    def plot2D_ConvexHull(self, hull : ConvexHull, ax=None, labels=None, title=None, color='cyan', font=16):
+    def plot2D_ConvexHull(self, hull : ConvexHull, ax=None, labels=None, title=None, label=None, color='cyan', font=16):
         # print('Plotting 2D Convex Hull') # FIXME bug check
         if ax is None:
             ax = plt.figure().add_subplot()
@@ -377,8 +388,10 @@ class Finger():
         xlim, ylim = ax.get_xlim(), ax.get_ylim()
         ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1); ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
         return ax
+
+    # FIXME: do i need the 'label' variable? If so, what for
     
-    def plot3D_ConvexHull(self, hull : ConvexHull, ax=None, labels=None, title=None, color='cyan', font=16):
+    def plot3D_ConvexHull(self, hull : ConvexHull, ax=None, labels=None, title=None, label=None, color='cyan', font=16):
         # print('Plotting 3D Convex Hull') # FIXME bug check
         if ax is None:
             ax = plt.figure().add_subplot(projection='3d')
@@ -400,7 +413,7 @@ class Finger():
         ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1); ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1); ax.plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
         return ax
 
-    def plot_Capability(self, convex_hull: ConvexHull, THETA, ax=None, f_max=None, constrained_dof=None, units='lbf', title=None, labels=None):
+    def plot_Capability(self, convex_hull: ConvexHull, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None):
         """
         helper function to simplify task and joint capability plotting (utilizes plot2D and 3D convex hull)
         """
@@ -413,12 +426,12 @@ class Finger():
         ax.figure.tight_layout(); ax.grid(True, alpha=0.8) # general formatting for ALL plots
         return ax
     
-    def plot_taskCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, units='lbf', title=None, labels=None):
-        convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof, units)[0]
-        return self.plot_Capability(convex_hull, THETA, ax, f_max, constrained_dof, units, title, labels)
-    def plot_jointCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, units='lbf', title=None, labels=None):
-        convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof, units)[1]
-        return self.plot_Capability(convex_hull, THETA, ax, f_max, constrained_dof, units, title, labels)
+    def plot_taskCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None):
+        convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof)[0]
+        return self.plot_Capability(convex_hull, THETA, ax, f_max, constrained_dof, title, labels)
+    def plot_jointCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None):
+        convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof)[1]
+        return self.plot_Capability(convex_hull, THETA, ax, f_max, constrained_dof, title, labels)
 
 def planar_force_demo():
     # from strucMatrices import secondaryDev
@@ -496,14 +509,14 @@ if __name__=="__main__":
     testFinger = Finger(primaryDev, lengths=lengths) # 4DOF
     testFinger = Finger(secondaryDev, [1.4,1.4,1.2]) # 3DOF
 
-    valeroFinger, THETA = Finger(valero, [0, 50e-3, 31e-3, 16e-3 ]), np.radians(np.array([0,45,45,10])) #4DOF (metric units)
+    valeroFinger, THETA = Finger(valero, [0, 50e-3, 31e-3, 16e-3 ], 'N', name='Valero (discrete)'), np.radians(np.array([0,45,45,10])) #4DOF (metric units)
     valero_model_dict = valero.model
     J = valeroFinger.get_jacobian_at_pose(THETA)
     Fo = valero.Fo(THETA)
 
-    valeroFinger.plot_taskCapability(THETA, constrained_dof=[0,3], units='N', f_max=Fo, 
+    valeroFinger.plot_taskCapability(THETA, constrained_dof=[0,3], f_max=Fo, 
                                      title='Feasbile Joint Capabilities for Flexion', labels=['F_y', 'F_z']) # constrain F_x and τ_x
-    valeroFinger.plot_jointCapability(THETA, constrained_dof=[0], units='N', f_max=Fo, 
+    valeroFinger.plot_jointCapability(THETA, constrained_dof=[0], f_max=Fo, 
                                       title='Feasbile Joint Capabilities for Flexion', labels=r'$\tau_{1}$') # only constrain F_x
     plt.show()
 
@@ -512,7 +525,7 @@ if __name__=="__main__":
     # # rows = np.array([[0,3], [0,2], [0,1]]) # (always constrain out of plane Force-Fx) constrain Tx, Fy, Fz
     # constraint = np.array([0])
     # # for constraint in rows:
-    # convexForces, uniqueTorques = valeroFinger.get_convex_capability(THETA, f_max=Fo, units='N', constrained_dof=constraint)
+    # convexForces, uniqueTorques = valeroFinger.get_convex_capability(THETA, f_max=Fo, constrained_dof=constraint)
     # plt.figure()
     # convex_hull_plot_2d(convexForces, ax=plt.gca())
     # name, font = 'Flexion', 16
@@ -528,7 +541,7 @@ if __name__=="__main__":
 #     # PLOTTING TEST
 #     # separate windows
 #     for name, pose in valero.poses.items():
-#         convexForces, convexTorques = valeroFinger.get_convex_capability(pose, f_max=valero.get_Fo(pose), units='N', constrained_rows=[0, 3])
+#         convexForces, convexTorques = valeroFinger.get_convex_capability(pose, f_max=valero.get_Fo(pose), constrained_rows=[0, 3])
 #         plot2D_ConvexHull(convexForces, title=f"Forces: {name}")
 #         plot3D_ConvexHull(convexTorques, title=f"Torques: {name}")
 
