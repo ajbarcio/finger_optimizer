@@ -26,10 +26,10 @@ primaryDev = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*4
                                                +[es[1]]+[fs[1]]*3
                                                +[ps[0]]+[ps[1]]*2
                                                +[es[2]]+[fs[2]],
-                                       types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*4
-                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+                                       types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*4
+                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*3
                                               +[VariableStrucMatrix.triangle_joint]*3
-                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit],
                                            F = np.array([50]*5),
                                    minFactor = minFactor,
                                    npJoints  = [2],
@@ -81,9 +81,9 @@ mins.reverse()
 wishfulThinking = VariableStrucMatrix(R, D, ranges =  [(mins[0], maxs[0], minim)]*3+[(cexts[0], rexts[0]+(cexts[0]-rexts[0])*np.sqrt(2)/2)]
                                                      +[(mins[1], maxs[1], minim)]*2+[(cexts[1], rexts[1]+(cexts[1]-rexts[1])*np.sqrt(2)/2)]
                                                      +[(mins[2], maxs[2], minim)]+  [(cexts[2], rexts[2]+(cexts[2]-rexts[2])*np.sqrt(2)/2)],
-                                                types = [VariableStrucMatrix.convergent_circles_joint_with_limit]*3+[VariableStrucMatrix.convergent_circles_extension_joint]
-                                                       +[VariableStrucMatrix.convergent_circles_joint_with_limit]*2+[VariableStrucMatrix.convergent_circles_extension_joint]
-                                                       +[VariableStrucMatrix.convergent_circles_joint_with_limit]+[VariableStrucMatrix.convergent_circles_extension_joint],
+                                                types = [VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*3+[VariableStrucMatrix.convergent_circles_extension_joint]
+                                                       +[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*2+[VariableStrucMatrix.convergent_circles_extension_joint]
+                                                       +[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]+[VariableStrucMatrix.convergent_circles_extension_joint],
                                                 F = np.array([50]*4),
                                                 minFactor=minFactor,
                                                 name="dev")
@@ -130,7 +130,7 @@ cext = .25
 rext = .6942
 
 ambroseInherent = VariableStrucMatrix(R, D, ranges = [(cflex*np.sqrt(2)/2-rflex, cflex-rflex, minim)]*6,
-                                            types = [VariableStrucMatrix.convergent_circles_joint_with_limit]*6,
+                                            types = [VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*6,
                                             F = np.array([50]*4),
                                             minFactor=minFactor,
                                             name="Dr. Ambrose's Inherently Controllable Design")
@@ -161,9 +161,9 @@ rext = .6942
 dimensionalInherent = VariableStrucMatrix(R, D, ranges = [(cext, rext+(cext-rext)*np.sqrt(2)/2)]+[(cflex*np.sqrt(2)/2-rflex, cflex-rflex, minim)]*3
                                                         +[(cext, rext+(cext-rext)*np.sqrt(2)/2)]+[(cflex*np.sqrt(2)/2-rflex, cflex-rflex, minim)]*2
                                                         +[(cext, rext+(cext-rext)*np.sqrt(2)/2)]+[(cflex*np.sqrt(2)/2-rflex, cflex-rflex, minim)],
-                                                types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
-                                                       +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
-                                                       +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                                types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*3
+                                                       +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*2
+                                                       +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit],
                                                 F = np.array([50]*4),
                                                 minFactor=minFactor,
                                                 name="Inherently Controllable Design V3")
@@ -235,9 +235,9 @@ rext = 0.50469953
 improvedSkinnyLegend = VariableStrucMatrix(R, D, ranges = [(cext, rext+(cext-rext)*np.sqrt(2)/2)]+[(cflex*np.sqrt(2)/2-rflex, cflex-rflex, minim)]*2+[(cext, rext+(cext-rext)*np.sqrt(2)/2)]
                                                          +[(cflex*np.sqrt(2)/2-rflex, cflex-rflex, minim)]+[(cext, rext+(cext-rext)*np.sqrt(2)/2)]+[(cflex*np.sqrt(2)/2-rflex, cflex-rflex, minim)]+[(cext, rext+(cext-rext)*np.sqrt(2)/2)]
                                                          +[(cflex*np.sqrt(2)/2-rflex, cflex-rflex, minim)]*2+[(cext, rext+(cext-rext)*np.sqrt(2)/2)]*2,
-                                                types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2+[VariableStrucMatrix.convergent_circles_extension_joint]
-                                                       +[VariableStrucMatrix.convergent_circles_joint_with_limit]+[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]+[VariableStrucMatrix.convergent_circles_extension_joint]
-                                                       +[VariableStrucMatrix.convergent_circles_joint_with_limit]*2+[VariableStrucMatrix.convergent_circles_extension_joint]*2,
+                                                types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*2+[VariableStrucMatrix.convergent_circles_extension_joint]
+                                                       +[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]+[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]+[VariableStrucMatrix.convergent_circles_extension_joint]
+                                                       +[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*2+[VariableStrucMatrix.convergent_circles_extension_joint]*2,
                                          F = np.array([50]*4),
                                          minFactor=minFactor,
                                          name='Improved Skinny Legend')

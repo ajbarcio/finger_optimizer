@@ -26,9 +26,9 @@ extensure_extents = [(.25, .367),(.25, .367),(.25, .367)]
 VaraibleArbitrary = StrucMatrix(R, D, ranges = [extensure_extents[0]]+[flexure_extents[0]]*3
                                               +[extensure_extents[1]]+[flexure_extents[1]]*2
                                               +[extensure_extents[2]]+[flexure_extents[2]],
-                                       types = [VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit]*3
-                                              +[VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit]*2
-                                              +[VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                       types = [VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*3
+                                              +[VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*2
+                                              +[VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.ideal_convergent_circles_joint_with_limit],
                                            F = np.array([50]*5),
                                       name="Arbitrary Variable")
 

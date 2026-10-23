@@ -46,9 +46,9 @@ def createFingerFromVector(v) -> Finger:
     VSM = VariableStrucMatrix(R, D, F=[50]*numTendons, ranges = [es[0]]+[fs[0]]*3
                                                               +[es[1]]+[fs[1]]*2
                                                               +[es[2]]+[fs[2]],
-                                                       types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
-                                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
-                                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                                       types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*3
+                                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*2
+                                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit],
                                                         name = f"VSM{createFingerFromVector.called}")
     # worstCondition = optimize.minimize_scalar(lambda theta: -VSM.controllability([theta]*Fing.numJoints),
     #                                 bracket=(0,np.pi/2),bounds=(0,np.pi/2))
@@ -118,7 +118,7 @@ class FingerEvaluator:
             else:
                 self._threshold_times=0
         ## THIS IS THE IMPORTANT PART ##
-        if self._threshold_times > 10:
+        if self._threshold_times > 50:
             raise stallException(f"Optimizer stalled out at low step value ater {self._threshold_times} in a row with a change less than 1 thou")
         ## OVER ##
         # Print fresh block
@@ -204,15 +204,15 @@ VC_Dir_Grasps = [
     # Extended pose:
     Grasp([[0]*3,[0]*3,[0,vals[0]/4.448,0]], q_ext),
     Grasp([[0]*3,[0]*3,[0,-vals[1]/4.448,0]], q_ext),
-    # Grasp([[0]*3,[0]*3,[vals[2]/4.448,0,0]], q_ext),
+    Grasp([[0]*3,[0]*3,[vals[2]/4.448,0,0]], q_ext),
     # Intermediate pose:
     Grasp([[0]*3,[0]*3,[0,vals[3]/4.448,0]], q_int),
     Grasp([[0]*3,[0]*3,[0,-vals[4]/4.448,0]], q_int),
-    # Grasp([[0]*3,[0]*3,[vals[5]/4.448,0,0]], q_int),
+    Grasp([[0]*3,[0]*3,[vals[5]/4.448,0,0]], q_int),
     # Intermediate pose:
     Grasp([[0]*3,[0]*3,[0,vals[6]/4.448,0]], q_flx),
     Grasp([[0]*3,[0]*3,[0,-vals[7]/4.448,0]], q_flx),
-    # Grasp([[0]*3,[0]*3,[vals[8]/4.448,0,0]], q_flx),
+    Grasp([[0]*3,[0]*3,[vals[8]/4.448,0,0]], q_flx),
 ]
 
 if __name__=="__main__":
@@ -232,9 +232,10 @@ if __name__=="__main__":
 # EDITING TO VERSION WHERE V IS (max, (DISTANCE TO MIN))
     # initialize evaluator
     if not replace:
-        grasps = VC_Dir_Grasps
-        for grasp in grasps:
-            print(grasp.F)
+        # grasps = VC_Dir_Grasps
+        grasps = []
+        # for grasp in grasps:
+        #     print(grasp.F)
         # print([grasp.F for grasp in grasps])
         # print([[0]*3,[0]*3,[0,vals[0]/4.448,0]])
         # quit()
@@ -289,12 +290,12 @@ if __name__=="__main__":
             #     ub=50.0,
             #     # finite_diff_rel_step=1e-4
             # ),
-            NonlinearConstraint(
-                fun=evaluator.all_grasps_constraint,
-                lb=0,
-                ub=55.0,
-                # finite_diff_rel_step=1e-4
-            )
+            # NonlinearConstraint(
+            #     fun=evaluator.all_grasps_constraint,
+            #     lb=0,
+            #     ub=55.0,
+            #     # finite_diff_rel_step=1e-4
+            # )
             ]
 
         # v0 = [(.5+.125)/2]*numElements
@@ -306,7 +307,7 @@ if __name__=="__main__":
         # objectivewheee = evaluator.worst_case_tension([.425,.25]*3+[.25]*6)
         # print(objectivewheee)
         try:
-            result = optimize.minimize(evaluator.worst_case_OVL,
+            result = optimize.minimize(evaluator.strength_increase,
                                     v0,
                                     # bounds=[(.125,.5)]*numElements,
                                     constraints=constraints_objects,
@@ -373,7 +374,7 @@ if __name__=="__main__":
     for function in resultFinger.structure.effortFunctions:
         if isinstance(function, VariableStrucMatrix.convergent_circles_extension_joint):
             print("type: extension")
-        elif isinstance(function, VariableStrucMatrix.convergent_circles_joint_with_limit):
+        elif isinstance(function, VariableStrucMatrix.ideal_convergent_circles_joint_with_limit):
             print("type: flexion")
         print(f"idx: {function.idx}")
         print(f"c: {function.c}")

@@ -8,6 +8,12 @@ import time
 
 from multiprocessing import Pool
 
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning,
+                        #  message="Derivative was zero."
+                        )
+
+
 def z_score_from_percentile(percentile):
     """
     Takes a percentile (0 to 100) and returns the corresponding Z-score.
@@ -39,9 +45,9 @@ def createFingerFromVector(v) -> Finger:
         ranges=[es[0]] + [fs[0]] * 3
                + [es[1]] + [fs[1]] * 2
                + [es[2]] + [fs[2]],
-        types=[VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit] * 3
-              + [VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit] * 2
-              + [VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.convergent_circles_joint_with_limit],
+        types=[VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.ideal_convergent_circles_joint_with_limit] * 3
+              + [VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.ideal_convergent_circles_joint_with_limit] * 2
+              + [VariableStrucMatrix.convergent_circles_extension_joint] + [VariableStrucMatrix.ideal_convergent_circles_joint_with_limit],
         name=f"VSM{createFingerFromVector.called}"
     )
 
@@ -68,6 +74,7 @@ class FingerEvaluator:
     OBJECTIVE_WORST_CASE_OVL = "worst_case_OVL"
     OBJECTIVE_WORST_CASE_TENSION = "worst_case_tension"
     OBJECTIVE_THICKNESS = "thickness"
+    OBJECTIVE_STRENGTH_INCREASE = "strength_increase"
 
     def __init__(self, grasps: list[Grasp] = None, objective_mode: str = "worst_case_OVL"):
         self._v_save = None
@@ -79,6 +86,7 @@ class FingerEvaluator:
         self.optimalities = []
         self.worst_case_tensions = []
         self._curr_wct = None
+        self._curr_wcr = None
         self.worst_pose_for_strength = None
         self.best_objective = np.inf
         self.best_x = None
@@ -109,6 +117,8 @@ class FingerEvaluator:
             return self.worst_case_tension(v)
         elif self.objective_mode == self.OBJECTIVE_THICKNESS:
             return v[numJointParameters]
+        elif self.objective_mode == self.OBJECTIVE_STRENGTH_INCREASE:
+            return -self.magnitude_scale(v)
         else:
             raise ValueError(f"Unknown objective mode: {self.objective_mode}")
 
@@ -137,6 +147,7 @@ class FingerEvaluator:
             f"  Current obj:     {obj_val:.6f}",
             f"  Best obj:        {self.best_objective:.6f}",
             f"  Worst tension:   {self._curr_wct}",
+            f"  Worst radius:    {self._curr_wcr}",
             f"  Current best x:  {np.array2string(xk, precision=4, suppress_small=True)}",
             f"────────────────────────────────────",
         ]
@@ -144,8 +155,9 @@ class FingerEvaluator:
         print("\r\033[2K" + "\n".join(lines), end="", flush=True)
         self._cb_last_lines = len(lines)
 
-        if elapsed > 60*5:
-            return True
+        # if elapsed > 60*10:
+        #     # print self.
+        #     return True
 
     def callback(self, intermediate_result: OptimizeResult):
         """Callback for local polish (trust-constr)."""
@@ -190,8 +202,8 @@ class FingerEvaluator:
 
     def magnitude_scale(self, v):
         Fing = self._get_finger(v)
-        return Fing.structure.get_magnitude([0] * Fing.numJoints) / Fing.structure.get_magnitude(
-            [np.pi / 2] * Fing.numJoints)
+        return 1/(Fing.structure.get_magnitude([0] * Fing.numJoints) /
+                   Fing.structure.get_magnitude([np.pi/2] * Fing.numJoints))
 
     def ultimate_magnitude(self, v):
         Fing = self._get_finger(v)
@@ -262,6 +274,39 @@ class FingerEvaluator:
         objectiveRet = np.max(tensions)
         self._curr_wct = objectiveRet
         return objectiveRet
+
+    def worst_case_bend_radius(self, v):
+            Fing = self._get_finger(v)
+            try:
+                rs = []
+                for function in Fing.structure.effortFunctions:
+                    rs.append(function.r)
+            except Exception as e:
+                print(f"error in bend radius calcs: {e}")
+            # worst case (minimum) bend radius
+            self._curr_wcr = np.min(rs)
+            return self._curr_wcr
+
+    def best_case_bend_radius(self, v):
+        Fing = self._get_finger(v)
+        try:
+            rs = []
+            for function in Fing.structure.effortFunctions:
+                rs.append(function.r)
+        except Exception as e:
+            print(f"error in bend radius calcs: {e}")
+        # worst case (minimum) bend radius
+        self._curr_wcr = np.max(rs)
+        return self._curr_wcr
+
+    def c_limit(self, v):
+        Fing = self._get_finger(v)
+        exceedances = []
+        for i in range(len(Fing.lengths)):
+            exceedances.append(Fing.lengths[i]/2-
+                               Fing.structure.indexed_effort_functions[i,i+1].c*
+                                                                np.cos(np.pi/4))
+        return exceedances
 
 def find_feasible_point(evaluator, bounds, constraints_objects, v0):
     """
@@ -394,7 +439,7 @@ q_ext = [10 * np.pi / 180] * 3
 q_int = [45 * np.pi / 180] + [10 * np.pi / 180] * 2
 q_flx = [45 * np.pi / 180] * 2 + [10 * np.pi / 180]
 
-z = z_score_from_percentile(80)
+z = z_score_from_percentile(50)
 sig = [10.86, 2.20, 12.5, 6.13, 20.2, 11.05, 10.47, 2.04, 12.68]
 means = [26.3, 6.6, 25.3, 25.25, 7.26, 26.3, 31.06, 7.56, 27.08]
 vals = [means[i] + z * sig[i] for i in range(len(sig))]
@@ -408,10 +453,10 @@ VC_Dir_Grasps = [
     Grasp([[0]*3,[0]*3,[0,vals[3]/4.448,0]], q_int),
     Grasp([[0]*3,[0]*3,[0,-vals[4]/4.448,0]], q_int),
     # Grasp([[0]*3,[0]*3,[vals[5]/4.448,0,0]], q_int),
-    # Intermediate pose:
+    # Flexed pose:
     Grasp([[0]*3,[0]*3,[0,vals[6]/4.448,0]], q_flx),
     Grasp([[0]*3,[0]*3,[0,-vals[7]/4.448,0]], q_flx),
-    # Grasp([[0]*3,[0]*3,[vals[8]/4.448,0,0]], q_flx),
+    Grasp([[0]*3,[0]*3,[vals[8]/4.448,0,0]], q_flx),
 ]
 
 # ─── Configuration ───────────────────────────────────────────────────────────
@@ -419,7 +464,7 @@ VC_Dir_Grasps = [
 # Choose your objective here:
 #   FingerEvaluator.OBJECTIVE_WORST_CASE_OVL
 #   FingerEvaluator.OBJECTIVE_WORST_CASE_TENSION
-OBJECTIVE_MODE = FingerEvaluator.OBJECTIVE_WORST_CASE_TENSION
+OBJECTIVE_MODE = FingerEvaluator.OBJECTIVE_STRENGTH_INCREASE
 
 # Global optimizer settings
 GLOBAL_METHOD = "differential_evolution"  # options: "differential_evolution", "dual_annealing", "shgo"
@@ -449,7 +494,7 @@ if DESIGN_LENGTHS:
     overallNumElements += numLengthParameters
 
 F = np.array([0, 5, 0])
-lengths = [1.6, 1.3, 1]
+lengths = [1.866, 1.4, 0.75]
 overall_length = 4
 initial_overall_thickness = 0.65
 growth_factor = 1.2
@@ -543,7 +588,7 @@ def linear_constraints():
             LinearConstraint(
                 A=overall_length_jacobian,
                 lb = 0,
-                ub = overall_length-0.3,
+                ub = overall_length-0.75,
                 keep_feasible=True
             )
         )
@@ -557,6 +602,37 @@ def linear_constraints():
             raise AssertionError("Oops ya length wrong")
 
     return bounds, constraints_objects
+
+def nonlinear_constraints():
+    constraints_objects = []
+    # Nonlinear tension constraint
+    tension_limit = NonlinearConstraint(
+        fun=evaluator.vector_grasps_constraint,
+        lb=0,
+        ub=TENSION_LIMIT,
+    )
+    # bend radius at least 0.4
+    bend_radius_limit = NonlinearConstraint(
+        fun=evaluator.worst_case_bend_radius,
+        lb=0.40,
+        ub=np.inf
+    )
+    # oversize_limit = NonlinearConstraint(
+    #     fun=evaluator.best_case_bend_radius,
+    #     lb=0.40,
+    #     ub=1.0
+    # )
+    # c dimension needs positive margin on links
+    c_limit = NonlinearConstraint(
+        fun=evaluator.c_limit,
+        lb=0,
+        ub=np.inf,
+    )
+    # Add to constraints
+    constraints_objects.append(tension_limit)
+    constraints_objects.append(bend_radius_limit)
+    constraints_objects.append(c_limit)
+    return constraints_objects
 
 if __name__ == "__main__":
 
@@ -574,17 +650,10 @@ if __name__ == "__main__":
         # Get all the linear constraints together in a subroutine so this
         # function doesn't get too long
         bounds, constraints_objects = linear_constraints()
+        constraints_objects += nonlinear_constraints()
+        # constraints_objects.append(*nonlinear_constraints())
 
-        # Nonlinear tension constraint
-        tension_limit = NonlinearConstraint(
-            fun=evaluator.vector_grasps_constraint,
-            lb=0,
-            ub=TENSION_LIMIT,
-        )
-
-        # Add to constraints
-        constraints_objects.append(tension_limit)
-
+        # print(constraints_objects)
         # Try to find feasible point
         # v0 = find_feasible_point(evaluator, bounds, constraints_objects, v0)
 
@@ -596,8 +665,13 @@ if __name__ == "__main__":
         # try:
         #     v0 = np.loadtxt("global_attempt.smx")
         # except:
-        v0 = [0.2355, 0.1996, 0.3609, 0.3273, 0.4339, 0.4081,
-              0.4271, 0.3945, 0.4171, 0.2595, 0.282,  0.1704]+ \
+
+        # [0.2355, 0.1996, 0.3609, 0.3273, 0.4339, 0.4081,
+        #       0.4271, 0.3945, 0.4171, 0.2595, 0.282,  0.1704]
+
+
+        v0 = [0.2955, 0.2481, 0.4409, 0.3633, 0.4214, 0.2341,
+              0.3686, 0.2239, 0.3608, 0.181, 0.3224, 0.2252]+ \
              ([initial_overall_thickness+.05] if RELAX_THICKNESS else [1]*0) + \
              (lengths[:numLengthParameters] if DESIGN_LENGTHS else [1]*0)
         assert len(v0)==overallNumElements
@@ -738,7 +812,7 @@ if __name__ == "__main__":
         print(f"{'═' * 60}\n")
 
         v_result = result.x
-        name = "VCSAC_"+("RT" if RELAX_THICKNESS else "")+("DL" if DESIGN_LENGTHS else "")
+        name = "VCSAC_flx_dist"+("RT" if RELAX_THICKNESS else "")+("DL" if DESIGN_LENGTHS else "")
         np.savetxt(f"{name}.smx", v_result)
 
         if len(evaluator.objective_history) > 0:
@@ -778,7 +852,7 @@ if __name__ == "__main__":
     for function in resultFinger.structure.effortFunctions:
         if isinstance(function, VariableStrucMatrix.convergent_circles_extension_joint):
             print("type: extension")
-        elif isinstance(function, VariableStrucMatrix.convergent_circles_joint_with_limit):
+        elif isinstance(function, VariableStrucMatrix.ideal_convergent_circles_joint_with_limit):
             print("type: flexion")
         print(f"idx: {function.idx}")
         print(f"c: {function.c}")

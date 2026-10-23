@@ -46,9 +46,9 @@ def createFingerFromVector(v) -> Finger:
     VSM = VariableStrucMatrix(R, D, F=[50]*numTendons, ranges = [es[0]]+[fs[0]]*3
                                                               +[es[1]]+[fs[1]]*2
                                                               +[es[2]]+[fs[2]],
-                                                       types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
-                                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
-                                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                                       types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*3
+                                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*2
+                                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit],
                                                         name = f"VSM{createFingerFromVector.called}")
     # worstCondition = optimize.minimize_scalar(lambda theta: -VSM.controllability([theta]*Fing.numJoints),
     #                                 bracket=(0,np.pi/2),bounds=(0,np.pi/2))
@@ -412,7 +412,7 @@ if __name__=="__main__":
     for function in resultFinger.structure.effortFunctions:
         if isinstance(function, VariableStrucMatrix.convergent_circles_extension_joint):
             print("type: extension")
-        elif isinstance(function, VariableStrucMatrix.convergent_circles_joint_with_limit):
+        elif isinstance(function, VariableStrucMatrix.ideal_convergent_circles_joint_with_limit):
             print("type: flexion")
         print(f"idx: {function.idx}")
         print(f"c: {function.c}")

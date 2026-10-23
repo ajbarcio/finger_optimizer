@@ -46,7 +46,7 @@ def createFingerFromVector(v) -> Finger:
     np.fill_diagonal(R_use, v[-numFixed:])
 
     VSM = VariableStrucMatrix(R_use, D, F=[50]*numTendons, ranges = ranges,
-                                                        types = [VariableStrucMatrix.convergent_circles_joint_with_limit]*6,
+                                                        types = [VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*6,
                                                          name = f"VSM{createFingerFromVector.called}")
     # worstCondition = optimize.minimize_scalar(lambda theta: -VSM.controllability([theta]*Fing.numJoints),
     #                                 bracket=(0,np.pi/2),bounds=(0,np.pi/2))
@@ -414,7 +414,7 @@ if __name__=="__main__":
     for function in resultFinger.structure.effortFunctions:
         if isinstance(function, VariableStrucMatrix.convergent_circles_extension_joint):
             print("type: extension")
-        elif isinstance(function, VariableStrucMatrix.convergent_circles_joint_with_limit):
+        elif isinstance(function, VariableStrucMatrix.ideal_convergent_circles_joint_with_limit):
             print("type: flexion")
         print(f"idx: {function.idx}")
         print(f"c: {function.c}")

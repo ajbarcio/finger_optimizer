@@ -27,6 +27,349 @@ colors = [
 ]
 import itertools
 
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+
+
+def animate_function_over_j23_grid(
+    func,
+    theta1_range=(0, np.pi/2),
+    theta2_range=(0, np.pi/2),
+    theta3_range=(0, np.pi/2),
+    n=50,
+    n_frames=60,
+    interval=50,             # ms between frames
+    cmap='turbo',
+    ax=None,
+    log_scale=False,
+    fixed_zlim=True,
+    fixed_color_scale=True,
+):
+    """
+    Animate a surface plot of func([theta1, theta2, theta3]) over
+    (theta2, theta3), sweeping theta1 back and forth across theta1_range.
+
+    Parameters
+    ----------
+    func : callable
+        Takes pose = [t1, t2, t3], returns a positive scalar.
+    theta1_range : (min, max)
+        Range for the animated sweep.
+    theta2_range, theta3_range : (min, max)
+        Ranges for the surface axes.
+    n : int
+        Grid resolution per axis.
+    n_frames : int
+        Number of frames in one full back-and-forth cycle.
+    interval : int
+        Milliseconds between frames.
+    cmap : str
+        Matplotlib colormap.
+    ax : 3D axis, optional
+    log_scale : bool
+        Color-map log10(output) instead of raw.
+    fixed_zlim : bool
+        Lock the z-axis so it doesn't jitter frame to frame.
+    fixed_color_scale : bool
+        Lock the colormap normalization to the global min/max across
+        the whole sweep (recommended — otherwise colors are meaningless
+        between frames).
+
+    Returns
+    -------
+    fig, ax, anim   (keep `anim` alive or the animation stops!)
+    """
+    # Build the (theta2, theta3) grid once
+    t2 = np.linspace(*theta2_range, n)
+    t3 = np.linspace(*theta3_range, n)
+    T2, T3 = np.meshgrid(t2, t3, indexing='ij')
+
+    # Build the theta1 sweep: 0 -> pi/2 -> 0
+    half = n_frames // 2
+    t1_forward = np.linspace(theta1_range[0], theta1_range[1], half)
+    t1_backward = np.linspace(theta1_range[1], theta1_range[0], n_frames - half)
+    t1_sweep = np.concatenate([t1_forward, t1_backward])
+
+    # Pre-compute every frame's Z. Two big wins:
+    #   1) global z/color limits are known up front
+    #   2) animation runs smoothly without re-evaluating func live
+    print(f"Precomputing {len(t1_sweep)} frames of size {n}x{n}...")
+    Z_frames = np.empty((len(t1_sweep), n, n))
+    for k, t1 in enumerate(t1_sweep):
+        for i in range(n):
+            for j in range(n):
+                Z_frames[k, i, j] = func(np.array([t1, T2[i, j], T3[i, j]]))
+    print("done.")
+
+    color_frames = np.log10(Z_frames) if log_scale else Z_frames
+
+    if ax is None:
+        fig = plt.figure(figsize=(9, 7))
+        ax = fig.add_subplot(111, projection='3d')
+    else:
+        fig = ax.figure
+
+    # Fix normalization/limits across the sweep for consistency
+    if fixed_color_scale:
+        vmin, vmax = color_frames.min(), color_frames.max()
+    else:
+        vmin, vmax = color_frames[0].min(), color_frames[0].max()
+    norm = plt.Normalize(vmin, vmax)
+    cmap_obj = plt.get_cmap(cmap)
+
+    zmin, zmax = Z_frames.min(), Z_frames.max()
+
+    ax.set_xlabel(r'$\theta_2$')
+    ax.set_ylabel(r'$\theta_3$')
+    ax.set_zlabel('output')
+
+    # Attach a static colorbar
+    mappable = plt.cm.ScalarMappable(norm=norm, cmap=cmap_obj)
+    mappable.set_array(color_frames[0])
+    cbar = fig.colorbar(mappable, ax=ax, shrink=0.7, pad=0.1)
+    cbar.set_label('log10(output)' if log_scale else 'output')
+
+    # Container for the current surface artist (so update() can remove it)
+    surf_container = {'surf': None}
+
+    def draw_frame(k):
+        # Remove previous surface (plot_surface can't be updated in place)
+        if surf_container['surf'] is not None:
+            surf_container['surf'].remove()
+
+        Z = Z_frames[k]
+        C = color_frames[k]
+        facecolors = cmap_obj(norm(C))
+
+        surf = ax.plot_surface(
+            T2, T3, Z,
+            facecolors=facecolors,
+            rstride=1, cstride=1,
+            linewidth=0, antialiased=True, shade=False,
+        )
+        surf_container['surf'] = surf
+
+        if fixed_zlim:
+            if np.isfinite([zmin, zmax]).all():
+                ax.set_zlim(zmin, zmax)
+
+        ax.set_title(rf'$\theta_1$ = {t1_sweep[k]:.3f} rad')
+        return (surf,)
+
+    anim = FuncAnimation(
+        fig, draw_frame, frames=len(t1_sweep),
+        interval=interval, blit=False, repeat=True,
+    )
+
+    return fig, ax, anim
+
+def plot_function_over_j23_grid(
+    func,
+    theta2_range=(0, np.pi/2),
+    theta3_range=(0, np.pi/2),
+    theta1_fixed=np.pi/2,
+    n=50,
+    cmap='turbo',
+    ax=None,
+    annotate_extremes=True,
+    log_scale=False,
+):
+    """
+    Evaluate `func(pose)` over a 2D grid of (theta2, theta3), holding
+    theta1 fixed, and plot the result as a colored 3D surface.
+
+    Parameters
+    ----------
+    func : callable
+        Takes a 3-vector `pose = [theta1, theta2, theta3]` and returns
+        a positive scalar.
+    theta2_range, theta3_range : (min, max) tuples
+        Range of joint angles to sweep.
+    theta1_fixed : float
+        Value of theta1 to hold constant (function is assumed invariant
+        w.r.t. it, but you still need *something* to feed in).
+    n : int
+        Samples per axis (grid is n x n).
+    cmap : str
+        Matplotlib colormap name.
+    ax : 3D axis, optional
+        If provided, plot into this axis; otherwise a new figure/axis
+        is created.
+    annotate_extremes : bool
+        Mark and label the min and max of the surface.
+    log_scale : bool
+        If True, color-map log10 of the output.
+
+    Returns
+    -------
+    fig, ax, surf
+    """
+    t2 = np.linspace(*theta2_range, n)
+    t3 = np.linspace(*theta3_range, n)
+    T2, T3 = np.meshgrid(t2, t3, indexing='ij')
+
+    Z = np.empty_like(T2)
+    for i in range(n):
+        for j in range(n):
+            Z[i, j] = (lambda v: v if np.isfinite(v) else np.nan)(
+                             func(np.array([theta1_fixed, T2[i, j], T3[i, j]])))
+
+    color_vals = np.log10(Z) if log_scale else Z
+
+    if ax is None:
+        fig = plt.figure(figsize=(9, 7))
+        ax = fig.add_subplot(111, projection='3d')
+    else:
+        fig = ax.figure
+
+    # Build face colors from the (possibly log-scaled) values
+    norm = plt.Normalize(np.nanmin(color_vals), np.nanmax(color_vals))
+    cmap_obj = plt.get_cmap(cmap)
+    facecolors = cmap_obj(norm(color_vals))
+
+    surf = ax.plot_surface(
+        T2, T3, Z,
+        facecolors=facecolors,
+        rstride=1, cstride=1,
+        linewidth=0, antialiased=True, shade=False,
+    )
+
+    ax.set_xlabel(r'$\theta_2$')
+    ax.set_ylabel(r'$\theta_3$')
+    ax.set_zlabel('output')
+
+    # Colorbar needs a ScalarMappable since plot_surface with facecolors
+    # doesn't provide one directly
+    mappable = plt.cm.ScalarMappable(norm=norm, cmap=cmap_obj)
+    mappable.set_array(color_vals)
+    cbar = fig.colorbar(mappable, ax=ax, shrink=0.7, pad=0.1)
+    cbar.set_label('log10(output)' if log_scale else 'output')
+
+    if annotate_extremes:
+        flat_idx_min = np.argmin(Z)
+        flat_idx_max = np.argmax(Z)
+        i_min, j_min = np.unravel_index(flat_idx_min, Z.shape)
+        i_max, j_max = np.unravel_index(flat_idx_max, Z.shape)
+
+        for (i, j), tag in [((i_min, j_min), 'min'),
+                            ((i_max, j_max), 'max')]:
+            x, y, z = T2[i, j], T3[i, j], Z[i, j]
+            mcolor = cmap_obj(norm(color_vals[i, j]))
+            ax.scatter([x], [y], [z], s=80, facecolors='none',
+                       edgecolors=mcolor, linewidths=2, zorder=5)
+            label = (f'{tag}: {Z[i, j]:.4g}\n'
+                     rf'$\theta_2,\theta_3$=({x:.3f}, {y:.3f})')
+            ax.text(x, y, z, '  ' + label, color=mcolor,
+                    fontsize=8, zorder=6)
+
+        ax.set_title(f'min = {Z.flatten()[flat_idx_min]:.4g}   |   '
+                     f'max = {Z.flatten()[flat_idx_max]:.4g}   '
+                     rf'(at $\theta_1$={theta1_fixed:.3f})')
+
+    return fig, ax, surf
+
+def plot_function_over_pose_grid(
+    func,
+    theta1_range=(0, np.pi/2),
+    theta2_range=(0, np.pi/2),
+    theta3_range=(0, np.pi/2),
+    n=50,
+    cmap='turbo',
+    alpha=0.6,
+    marker_size=40,
+    log_scale=False,
+    ax=None,
+    annotate_extremes=True,
+):
+    """
+    Evaluate `func` over a 3D grid of poses and plot the results as a
+    color-mapped 3D scatter.
+
+    Parameters
+    ----------
+    func : callable
+        Takes a single 3-vector `pose = [theta1, theta2, theta3]` and
+        returns a positive scalar.
+    theta1_range, theta2_range, theta3_range : (min, max) tuples
+        Range of each joint angle to sweep.
+    n : int
+        Number of samples per axis (total points = n**3).
+    cmap : str
+        Matplotlib colormap name.
+    alpha : float
+        Marker transparency (helps see through the cloud).
+    marker_size : float
+        Scatter marker size.
+    log_scale : bool
+        If True, color-map log10 of the output (useful for values
+        spanning orders of magnitude).
+    ax : matplotlib 3D axis, optional
+        If provided, plot into this axis; otherwise a new figure/axis
+        is created.
+    annotate_extremes : bool
+        If True, mark and label the min and max value locations.
+
+    Returns
+    -------
+    fig, ax, scatter : the figure, 3D axis, and scatter artist.
+    """
+    # Build the grid
+    t1 = np.linspace(*theta1_range, n)
+    t2 = np.linspace(*theta2_range, n)
+    t3 = np.linspace(*theta3_range, n)
+    T1, T2, T3 = np.meshgrid(t1, t2, t3, indexing='ij')
+
+    poses = np.stack([T1.ravel(), T2.ravel(), T3.ravel()], axis=1)
+
+    # Evaluate the function at every pose
+    vals = np.empty(poses.shape[0])
+    for i, pose in enumerate(poses):
+        vals[i] = func(pose)
+
+    color_vals = np.log10(vals) if log_scale else vals
+
+    # Set up figure/axis
+    if ax is None:
+        fig = plt.figure(figsize=(9, 7))
+        ax = fig.add_subplot(111, projection='3d')
+    else:
+        fig = ax.figure
+
+    sc = ax.scatter(
+        poses[:, 0], poses[:, 1], poses[:, 2],
+        c=color_vals, cmap=cmap, alpha=alpha, s=marker_size,
+    )
+
+    ax.set_xlabel(r'$\theta_1$')
+    ax.set_ylabel(r'$\theta_2$')
+    ax.set_zlabel(r'$\theta_3$')
+
+    cbar = fig.colorbar(sc, ax=ax, shrink=0.7, pad=0.1)
+    cbar.set_label('log10(OTV)' if log_scale else 'OTA (in^2)')
+
+    # Mark and label extremes
+    if annotate_extremes:
+        cmap_obj = sc.get_cmap()
+        norm = sc.norm
+        i_min = np.argmin(vals)
+        i_max = np.argmax(vals)
+
+        for i, tag in [(i_min, 'min'),
+                       (i_max, 'max')]:
+            mcolor = cmap_obj(norm(color_vals[i]))
+            p = poses[i]
+            ax.scatter(*p, s=marker_size * 4, facecolors='none',
+                       edgecolors=mcolor, linewidths=2, zorder=5)
+            label = (f'{tleag}: {vals[i]:.4g}\n'
+                     rf'$\theta$=({p[0]:.3f}, {p[1]:.3f}, {p[2]:.3f})')
+            ax.text(p[0], p[1], p[2], '  ' + label, color=mcolor,
+                    fontsize=8, zorder=6)
+
+        ax.set_title(f'OTA throughout Joint Configuration Space')
+
+    return fig, ax, sc
+
 def best_condition(subspace):
     includes_c = False
     # 'central' unit vector c
@@ -571,7 +914,9 @@ def remove_isomorphic(matrices):
     i = 1
     for mat in matrices:
         # print(mat)
-        print(f'checking for duplicates of matrix {i:3d} of {len(matrices)}, found {len(unique)}', end='\r')
+        print(f'checking for duplicates of matrix {i:3d} of {len(matrices)}, found {len(unique)} unique so far', 
+            #   end='\r'
+              )
         canon = canonical_form_general(mat)
         # print(canon.__class__)
         if canon not in seen:

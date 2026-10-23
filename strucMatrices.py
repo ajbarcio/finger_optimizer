@@ -1193,7 +1193,7 @@ class VariableStrucMatrix():
 
     # DOES THIS WORK YET? yes it do
     # I lied actually but NOW it do
-    class convergent_circles_joint_with_limit():
+    class ideal_convergent_circles_joint_with_limit():
         """
         Similar to convergent circles, but with a convex arc around
         """
@@ -1217,6 +1217,7 @@ class VariableStrucMatrix():
             a = self.c*np.cos(np.pi/4)
             # r1 = max radius of upper surface
             self.r1 = (a**2+(a-self.minOverwrite)**2-self.r**2)/(2*(self.r-a+self.minOverwrite))
+            # self.r1=self.r
             # Spot check to make sure math is right
             assert np.isclose(self.base_function(np.pi/2), self.max)
             # Determine breakover angle between surfaces
@@ -1232,7 +1233,7 @@ class VariableStrucMatrix():
                 if self.base_function(0) <= self.minim_function(0):
                     self.angleThreshold = np.pi*1.2
                 elif self.base_function(0) > self.minim_function(0):
-                    self.angleTrheshold = -1
+                    self.angleThreshold = -1
 
         def base_function(self, theta):
             val = self.c*np.cos((np.pi/2-theta)/2)-self.r
@@ -1972,10 +1973,10 @@ primaryDev = VariableStrucMatrix(R, D, ranges = [es2[0]]+[fs2[0]]*4
                                                +[es2[1]]+[fs2[1]]*3
                                                +[ps[0]]+[ps[1]]*2
                                                +[es2[2]]+[fs2[2]],
-                                       types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*4
-                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
+                                       types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*4
+                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*3
                                               +[VariableStrucMatrix.triangle_joint]*3
-                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                              +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit],
                                            F = np.array([50]*4),
                                    minFactor = minFactor,
                                    npJoints  = [2],
@@ -1996,9 +1997,9 @@ ps = [(.625/2*0.65,.625/2,0.4),(.625/2*0.65,.4,0.4)]
 secondaryDev = VariableStrucMatrix(R, D, ranges = [es2[0]]+[fs2[0]]*3
                                                  +[es2[1]]+[fs2[1]]*2
                                                  +[es2[2]]+[fs2[2]],
-                                          types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
-                                                 +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
-                                                 +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                          types = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*3
+                                                 +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*2
+                                                 +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit],
                                               F = np.array([50]*4),
                                       minFactor = 0.1,
                                            name = "Sdev")
@@ -2017,9 +2018,9 @@ es2 = [(0.217, .306),
 testbedFinger4 = VariableStrucMatrix(R, D, ranges = [es2[0]]+[fs2[0]]*3
                                                    +[es2[1]]+[fs2[1]]*2
                                                    +[es2[2]]+[fs2[2]],
-                                           types  = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*3
-                                                   +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit]*2
-                                                   +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.convergent_circles_joint_with_limit],
+                                           types  = [VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*3
+                                                   +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit]*2
+                                                   +[VariableStrucMatrix.convergent_circles_extension_joint]+[VariableStrucMatrix.ideal_convergent_circles_joint_with_limit],
                                                 F = np.array([50]*5),
                                         minFactor = 0.1,
                                              name = "TF4")

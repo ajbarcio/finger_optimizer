@@ -12,9 +12,11 @@ import os
 import glob
 obj=StrucMatrix # why on earth is this here, what did I do, what weird merge conflict created this
 
+
 from collections import deque
 # from numba import njit, prange
 # from joblib import Parallel, delayed
+
 from concurrent.futures import ProcessPoolExecutor
 
 def create_decoupling_matrix(S):
@@ -1157,7 +1159,7 @@ def qutsm_focus():
 if __name__ == "__main__":
 
     begin = time.perf_counter()
-    total_combinatoric_analysis(3)
+    total_combinatoric_analysis(4)
     end = time.perf_counter()
     print(f"without streaming it took {end-begin}")
 
