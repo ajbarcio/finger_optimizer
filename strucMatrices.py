@@ -963,12 +963,12 @@ class DiscreteStrucMatrix(): # FIXME: need to read parameter input
         self.name = name
 
     def __call__(self, THETA):
-        return self.get_S(THETA)
+        return self.S(THETA)
 
     def __str__(self):
         return self.name
 
-    def get_R(self, THETA):
+    def R(self, THETA):
         THETA = np.asarray(THETA, dtype=float)  
         pose_names  = list(self.poses.keys()) 
         pose_values = list(self.poses.values())  
@@ -983,7 +983,7 @@ class DiscreteStrucMatrix(): # FIXME: need to read parameter input
                 R[row, col] *= 1 + (percent_change / 100)
         return R
 
-    def get_Fo(self, THETA):
+    def Fo(self, THETA):
         THETA = np.asarray(THETA, dtype=float)  
         pose_names  = list(self.poses.keys()) 
         pose_values = list(self.poses.values())  
@@ -999,26 +999,26 @@ class DiscreteStrucMatrix(): # FIXME: need to read parameter input
         return Fo
 
     def plotCapability(self, THETA, showBool=False, colorOverride=None, transOverride=None, obj=None, enforcePosTension=False, skipJoints=[0], metric=False):
-        S = StrucMatrix(S=self.get_S(THETA))
+        S = StrucMatrix(S=self.S(THETA))
         S.plotCapability(showBool, colorOverride, transOverride, obj, enforcePosTension, skipJoints, metric)
 
-    def get_S(self, THETA):
-        return self.D*self.get_R(THETA)
+    def S(self, THETA):
+        return self.D*self.R(THETA)
 
     def torqueDomainVolume(self, THETA):
-        S = StrucMatrix(S=self.get_S(THETA))
+        S = StrucMatrix(S=self.S(THETA))
         return S.domain, S.boundaryGrasps
 
     def get_magnitude(self, THETA):
-        S = StrucMatrix(S=self.get_S(THETA))
+        S = StrucMatrix(S=self.S(THETA))
         return S.get_magnitude()
 
     def biasResidual(self, THETA):
-        S = StrucMatrix(S=self.get_S(THETA))
+        S = StrucMatrix(S=self.S(THETA))
         return S.biasResidual()
 
     def biasCondition(self, THETA):
-        S = StrucMatrix(S=self.get_S(THETA))
+        S = StrucMatrix(S=self.S(THETA))
         return S.biasCondition()
 
     # def maxGrip(self, THETA):
@@ -1026,7 +1026,7 @@ class DiscreteStrucMatrix(): # FIXME: need to read parameter input
     #     return S.maxGrip()
 
     def contains(self, THETA, point):
-        S = StrucMatrix(S=self.get_S(THETA))
+        S = StrucMatrix(S=self.S(THETA))
         return S.contains(point)
 # endregion
 
@@ -1937,7 +1937,7 @@ testbedFinger4 = VariableStrucMatrix(R, D, ranges = [es[0]]+[fs[0]]*3
 valero = DiscreteStrucMatrix(model=valero_model)
 # valero.plotCapability()
 if __name__ == "__main__": 
-    print(valero.get_S(THETA=np.radians(np.array([0,45,45,10]))))
+    print(valero.S(THETA=np.radians(np.array([0,45,45,10]))))
     # poses = valero_model['poses']
     # for THETA in poses.values():
     #     print(valero.S(THETA) - R_at_pos(THETA))

@@ -171,6 +171,10 @@ def null_model():
         print(f'\033[1mNullspace of M=J^-TRFo:\n\033[0m{null_space(M)}'); print(f'\033[1mNullspace of RFo:\n\033[0m{null_space(RFo)}')
         print(f'\n\n\033[1mM=J^-TRFo:\n\033[0m{M}\n\033[1mRFo:\n\033[0m{RFo}')
 def pose_percent_change(function): # create dictionary of percent changes
+    # FIXME: add README
+    """
+    what function do #FIXME
+    """
     if function not in (R_at_pos, Fo_at_pos): # restrict func to one of these two pose->matrix functions
         raise ValueError("The function must be R_at_pos or Fo_at_pos")
     
@@ -243,10 +247,9 @@ q_base = next(iter(pose_dict.values()))
 
 valero_model = {
     'poses': pose_dict,                     # all defined poses (joint angles, rad)
-    'l': np.array([l1, l2, l3]),            # link/phalange lengths (m)
     'F': Fo_at_pos(q_base),                 # max tendon forces at the first pose, diagonalized (N)
     'R': np.absolute(R_at_pos(q_base)),     # unsigned moment-arm magnitudes at the first pose (m)
-    'D': np.sign(R_at_pos(q_base)),        # sign-only direction matrix at the first pose (unitless: -1, 0, or 1)
+    'D': np.sign(R_at_pos(q_base)),         # sign-only direction matrix at the first pose (unitless: -1, 0, or 1)
     'dR': pose_percent_change(R_at_pos),    # % change of R between each pose (%)
     'dF': pose_percent_change(Fo_at_pos),   # % change of F between each pose (%)
 }

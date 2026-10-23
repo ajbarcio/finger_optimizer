@@ -1,7 +1,7 @@
 import numpy as np
 import warnings
 from strucMatrices import VariableStrucMatrix, StrucMatrix, DiscreteStrucMatrix, secondaryDev, primaryDev, valero
-from utils import trans, jac, clean_array, hArray, generate_binary_lists, solve_for_feasible_excitations, plot3D_ConvexHull, plot2D_ConvexHull#, get_jacobian
+from utils import trans, jac, clean_array, hArray, generate_binary_lists, solve_for_feasible_excitations#, plot3D_ConvexHull, plot2D_ConvexHull#, get_jacobian
 from scipy.optimize import nnls, lsq_linear, linprog
 from scipy.spatial import ConvexHull, convex_hull_plot_2d, QhullError
 import itertools as it
@@ -51,7 +51,7 @@ class Finger():
         J = jac(THETA, lengths)
         return J
 
-    def get_M(self, THETA, f_max=None):
+    def M(self, THETA, f_max=None):
         if f_max is None:
             f_max = self.tensionLimit
         if isinstance(f_max, (np.ndarray, list)):
@@ -282,7 +282,7 @@ class Finger():
         convex_forces = ConvexHull(np.array(unique_forces))
         return convex_forces
 
-    def get_convex_capability(self, THETA, f_max=None, constrained_rows=None, units='lbf'):
+    def get_convex_capability(self, THETA, f_max=None, constrained_dof=None, units='lbf'):
         """
         FIXME: define what function does
         
@@ -295,10 +295,10 @@ class Finger():
         -------
         convexForces : numpy array
             Data structure containing the parameters of the rover with updated telemetry data after simulation
-        uniqueTorques : numpy array
+        uniqueTorques : numpy array #FIXME out of date.
         """
         
-        if not isinstance(constrained_rows, (list, np.ndarray)):
+        if not isinstance(constrained_dof, (list, np.ndarray)):
             raise ValueError("constrained_rows must be a list or numpy array of integers.")
 
         # initialize variables
@@ -312,14 +312,14 @@ class Finger():
             else: Fo = np.diag(f_max)
         else: Fo = np.diag([f_max]*self.numTendons)
 
-        S = self.structure.get_S(THETA)
-        M = self.get_M(THETA, f_max)
+        S = self.structure.S(THETA)
+        M = self.M(THETA, f_max)
 
-        constrained_rows = np.asarray(constrained_rows)
-        num_constraints = len(constrained_rows)
+        constrained_dof = np.asarray(constrained_dof)
+        num_constraints = len(constrained_dof)
         num_unconstrained = num_excitations - num_constraints
-        num_sols_for_pose = 0
-        unique_sol_for_pose, uniqueForces, uniqueTorques = set(), [], []
+        num_vertex_exts_for_pose = 0
+        unique_vertex_exts_for_pose, uniqueTaskEfforts, uniqueJointEfforts = set(), [], []
 
         for idx in it.combinations(np.arange(0,num_excitations), num_unconstrained):
             idx = np.array([int(idx_i) for idx_i in idx])
@@ -332,83 +332,93 @@ class Finger():
                     A[i,idx[i]]=1 # NOTE: what this do
                 b = np.concatenate([[0]*(num_constraints), b])
 
-                A = np.vstack((M[constrained_rows,:], A))
+                A = np.vstack((M[constrained_dof,:], A))
                 excitation, success = solve_for_feasible_excitations(A, b)
 
                 if not success: pass
                 else:
-                    num_sols_for_pose += 1
-                    unique_sol_for_pose.add(tuple(excitation))
+                    num_vertex_exts_for_pose += 1
+                    unique_vertex_exts_for_pose.add(tuple(excitation))
 
-        for u_ext in list(unique_sol_for_pose): # unique excitations for pose
+        for u_ext in list(unique_vertex_exts_for_pose): # unique excitations for pose
             u_ext = np.array(u_ext)
-            force = M @ u_ext # J^-T*S*Fo * e
-            torques = S @ Fo @ u_ext # S*Fo * e
+            taskEffort = M @ u_ext # J^-T*S*Fo * e
+            jointEffort = S @ Fo @ u_ext # S*Fo * e
 
             # FIXME: not sure if forces and torques are indexed correctly
-            uniqueForces.append(np.delete(force, constrained_rows)) # keep only the unconstrained rows
-            uniqueTorques.append(torques[1:]) # FIXME: need to change index?? to what tho (currently only removes out of plane torques)
-        uniqueForces, uniqueTorques = np.array(uniqueForces), np.array(uniqueTorques)
+            uniqueTaskEfforts.append(np.delete(taskEffort, constrained_dof)) # keep only the unconstrained rows
+            uniqueJointEfforts.append(np.delete(jointEffort, constrained_dof)) # FIXME: need to change index?? to what tho (currently only removes out of plane torques)
+        uniqueTaskEfforts, uniqueJointEfforts = np.array(uniqueTaskEfforts), np.array(uniqueJointEfforts)
         
         if units=='lbf':
-            uniqueForces = uniqueForces/4.44822162 # convert N to lbf
-            uniqueTorques = uniqueTorques*8.8507457916 # convert N*m to lbf-in
+            uniqueTaskEfforts = uniqueTaskEfforts/4.44822162 # convert N to lbf
+            uniqueJointEfforts = uniqueJointEfforts*8.8507457916 # convert N*m to lbf-in
 
         def make_hull(pts):
-            for pts in uniqueForces, uniqueTorques:
-                try: return ConvexHull(np.array(pts))
-                except QhullError: return ConvexHull(np.array(pts), qhull_options='QJ')
+            try: return ConvexHull(np.array(pts))
+            except QhullError: return ConvexHull(np.array(pts), qhull_options='QJ')
 
-        hullForces, hullTorques = (make_hull(pts) for pts in (uniqueForces, uniqueTorques))
+        hullForces, hullTorques = (make_hull(pts) for pts in (uniqueTaskEfforts, uniqueJointEfforts))
         return hullForces, hullTorques
 
     # NOTE: plot2D and 3D are the plotting methods used in the old_convex_hull.py script.
-    def plot2D_ConvexHull(hull : ConvexHull, ax=None, labels=None, title=None, color='cyan', font=16):
+    def plot2D_ConvexHull(self, hull : ConvexHull, ax=None, labels=None, title=None, color='cyan', font=16):
+        # print('Plotting 2D Convex Hull') # FIXME bug check
         if ax is None:
             ax = plt.figure().add_subplot()
-        convex_hull_plot_2d(convexForces, ax=plt.gca())
+        convex_hull_plot_2d(hull, ax=plt.gca())
 
         if labels is not None:
             ax.set_xlabel(labels[0], fontsize=font); ax.set_ylabel(labels[1], fontsize=font)
         if title is not None:
             ax.set_title(title, fontsize=font)
+
+        # formatting stuff (draw "axes" through origin, etc.
+        xlim, ylim = ax.get_xlim(), ax.get_ylim()
+        ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1); ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
         return ax
     
-    def plot3D_ConvexHull(hull : ConvexHull, ax=None, labels=None, title=None, color='cyan', font=16):
+    def plot3D_ConvexHull(self, hull : ConvexHull, ax=None, labels=None, title=None, color='cyan', font=16):
+        # print('Plotting 3D Convex Hull') # FIXME bug check
         if ax is None:
             ax = plt.figure().add_subplot(projection='3d')
-        # pts = hull.points
-        # hull_surface = Poly3DCollection(pts[hull.simplices], alpha=0.3, facecolor=color, edgecolor='k', linewidths=0.3)
-        # ax.add_collection3d(hull_surface)
-        # ax.scatter(*pts[hull.vertices].T, color='red', s=10)
-        ax.scatter(uniqueTorques[:, 0], uniqueTorques[:, 1], uniqueTorques[:, 2], color='blue')
-        
-        for simplex in hull.simplices:
-            # units for plotting polytope
-            triangle = hull.points[simplex]
-            plt.gca().add_collection3d(Poly3DCollection([triangle]))
 
+        pts = hull.points
+        ax.scatter(*pts[hull.vertices].T, color='blue', s=10)
+        
         vertices = [hull.points[simplex] for simplex in hull.simplices]
-        hull_surface = Poly3DCollection(vertices, alpha=0.3, facecolor='cyan', edgecolor='red', linewidths=0.5)
-        plt.gca().add_collection3d(hull_surface)
-        plt.title(f"Feasible Torque Region for {name} pose")
+        hull_surface = Poly3DCollection(vertices, facecolor=(color, 0.3), edgecolor='red', linewidths=0.5)
+        ax.add_collection3d(hull_surface)
 
         if labels is not None:
             ax.set_xlabel(labels[0], fontsize=font); ax.set_ylabel(labels[1], fontsize=font); ax.set_zlabel(labels[2], fontsize=font)
         if title is not None:
             ax.set_title(title, fontsize=font)
+
+        # formatting stuff (draw "axes" through origin, etc.)
+        xlim, ylim, zlim = ax.get_xlim(), ax.get_ylim(), ax.get_zlim()
+        ax.plot(xlim, [0, 0], [0, 0], color='black', linewidth=1); ax.plot([0, 0], ylim, [0, 0], color='black', linewidth=1); ax.plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
+        return ax
+
+    def plot_Capability(self, convex_hull: ConvexHull, THETA, ax=None, f_max=None, constrained_dof=None, units='lbf', title=None, labels=None):
+        """
+        helper function to simplify task and joint capability plotting (utilizes plot2D and 3D convex hull)
+        """
+        _, num_efforts = (convex_hull.points).shape
+        if num_efforts not in (2,3):
+            raise ValueError(f'Hull values must only have two or three effort values. {num_efforts}) were inputted.')
+        elif num_efforts==3:
+            ax = self.plot3D_ConvexHull(convex_hull, ax, labels, title)
+        else: ax = self.plot2D_ConvexHull(convex_hull, ax, labels, title)
+        ax.figure.tight_layout(); ax.grid(True, alpha=0.8) # general formatting for ALL plots
         return ax
     
-    def plot_forceCapability(data, THETA, title=None):
-        try: ax = plot2D_ConvexHull()
-        except ValueError: # Convex hull is not 2-D
-            ax = plot3D_ConvexHull()
-        return ax
-    def plot_torqueCapability(data, title=None):
-        try: ax = plot2D_ConvexHull()
-        except ValueError: # Convex hull is not 2-D
-            ax = plot3D_ConvexHull()
-        return ax
+    def plot_taskCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, units='lbf', title=None, labels=None):
+        convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof, units)[0]
+        return self.plot_Capability(convex_hull, THETA, ax, f_max, constrained_dof, units, title, labels)
+    def plot_jointCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, units='lbf', title=None, labels=None):
+        convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof, units)[1]
+        return self.plot_Capability(convex_hull, THETA, ax, f_max, constrained_dof, units, title, labels)
 
 def planar_force_demo():
     # from strucMatrices import secondaryDev
@@ -489,17 +499,24 @@ if __name__=="__main__":
     valeroFinger, THETA = Finger(valero, [0, 50e-3, 31e-3, 16e-3 ]), np.radians(np.array([0,45,45,10])) #4DOF (metric units)
     valero_model_dict = valero.model
     J = valeroFinger.get_jacobian_at_pose(THETA)
-    Fo = valero.get_Fo(THETA)
+    Fo = valero.Fo(THETA)
+
+    valeroFinger.plot_taskCapability(THETA, constrained_dof=[0,3], units='N', f_max=Fo, 
+                                     title='Feasbile Joint Capabilities for Flexion', labels=['F_y', 'F_z']) # constrain F_x and τ_x
+    valeroFinger.plot_jointCapability(THETA, constrained_dof=[0], units='N', f_max=Fo, 
+                                      title='Feasbile Joint Capabilities for Flexion', labels=r'$\tau_{1}$') # only constrain F_x
+    plt.show()
+
     # print(valeroFinger.get_M(THETA, f_max=Fo))
 
-    # rows = np.array([[0,3], [0,2], [0,1]]) # (always constrain out of plane Force-Fx) constrain Tx, Fy, Fz
-    constraint = np.array([0])
-    # for constraint in rows:
-    convexForces, uniqueTorques = valeroFinger.get_convex_capability(THETA, f_max=Fo, units='N', constrained_rows=constraint)
-    plt.figure()
-    convex_hull_plot_2d(convexForces, ax=plt.gca())
-    name, font = 'Flexion', 16
-    plt.title(F"Feasible Force Region for {name} Pose (N)", fontsize=font); plt.xlabel("Fz", fontsize=font); plt.ylabel("Fy", fontsize=font)
+    # # rows = np.array([[0,3], [0,2], [0,1]]) # (always constrain out of plane Force-Fx) constrain Tx, Fy, Fz
+    # constraint = np.array([0])
+    # # for constraint in rows:
+    # convexForces, uniqueTorques = valeroFinger.get_convex_capability(THETA, f_max=Fo, units='N', constrained_dof=constraint)
+    # plt.figure()
+    # convex_hull_plot_2d(convexForces, ax=plt.gca())
+    # name, font = 'Flexion', 16
+    # plt.title(F"Feasible Force Region for {name} Pose (N)", fontsize=font); plt.xlabel("Fz", fontsize=font); plt.ylabel("Fy", fontsize=font)
     # plt.show()
 
     # M = np.linalg.inv(J).T @ S @ Fo
