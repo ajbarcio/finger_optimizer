@@ -1,14 +1,12 @@
 import numpy as np
 import warnings
 from strucMatrices import colors, VariableStrucMatrix, StrucMatrix, DiscreteStrucMatrix, secondaryDev, primaryDev, valero, canonB
-from utils import trans, jac, clean_array, hArray, generate_binary_lists, solve_for_feasible_excitations#, plot3D_ConvexHull, plot2D_ConvexHull#, get_jacobian
+from utils import trans, jac, clean_array, hArray, generate_binary_lists, solve_for_feasible_excitations, compare_hulls, plot3D_ConvexHull, plot2D_ConvexHull#, get_jacobian
 from scipy.optimize import nnls, lsq_linear, linprog
 from scipy.spatial import ConvexHull, convex_hull_plot_2d, QhullError
 import itertools as it
 
 from matplotlib import pyplot as plt
-from matplotlib.collections import PolyCollection
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3D
 import matplotlib.animation as animation
 
 class StructureKineMismatch(Warning):
@@ -48,7 +46,7 @@ class Finger():
         if units not in ('lbf', 'N'):
             raise ValueError("units must be 'lbf' or 'N'.")
         self.units = units
-        self.name = name if name is not None else getattr(structure, 'name', 'Finger') # FIXME: don't entirely understand what i did here or if its necessary
+        self.name = name if name is not None else getattr(structure, 'name')
 
     def S(self, THETA):
         """Structure matrix at THETA for any structure type (StrucMatrix is pose-independent)"""
@@ -76,6 +74,8 @@ class Finger():
 
         try: return np.linalg.inv(J).T @ S @ Fo
         except np.linalg.LinAlgError: raise ValueError(f"{self.name}: Jacobian is singular at THETA={THETA}")
+
+    # region Anthony functions
 
     def tip_wrench_at_pose_to_grip(self, THETA, F, lengths=None, frame="world"):
         '''
@@ -149,97 +149,7 @@ class Finger():
                 best = opt.fun
                 bestRes = opt.x
         return bestRes
-        # self.structure.controllability(THETA)
-        # controllability = self.structure.controllability
-        # S = self.structure(THETA)
-        # res = lsq_linear(S, Taus, bounds=(0,self.tensionLimit))
-        # T = res.x
-        # rnorm = np.linalg.norm(S @ res.x - Taus)
-        # print(rnorm)
-        # print("solution:", T)
-        # if 0 in clean_array(T):
-        #     max_biases = []
-        #     min_biases = []
-        #     for i in range(len(T)):
-        #         if controllability.biasForceSpace[i] > 0:
-        #             min_bias = (biasForce-T[i])/controllability.biasForceSpace[i]
-        #             max_bias = (self.tensionLimit - T[i])/controllability.biasForceSpace[i]
-        #         elif controllability.biasForceSpace[i] < 0:
-        #             min_bias = (self.tensionLimit - T[i])/controllability.biasForceSpace[i]
-        #             max_bias = (biasForce-T[i])/controllability.biasForceSpace[i]
-        #         else:
-        #             min_bias = biasForce
-        #             max_bias = self.tensionLimit
-        #         max_biases.append(max_bias)
-        #         min_biases.append(min_bias)
-        #     if np.max(min_biases) < np.min(max_biases):
-        #         biasScale = np.min(max_biases)
-        #     else:
-        #         biasScale = 0
-        #     # biasScale = np.min(max_biases)
-        #     print(f"used calculated scale {biasScale}")
-        #     T = T + (controllability.biasForceSpace*biasScale).flatten()
-        # else:
-        #     print("blind scale")
-        #     T = T + (controllability.biasForceSpace/np.max(controllability.biasForceSpace)*biasForce).flatten()
-        # # print("normalized bias:", controllability.biasForceSpace.flatten())
-        # # print("scaled bias", (controllability.biasForceSpace/np.max(controllability.biasForceSpace)*biasForce).flatten())
-        # print("solution with bias:", T)
-        # confirm = S @ T
-        # # print(confirm)
-        # # print(Taus)
-        # confirm = clean_array(confirm)
-        # Taus = clean_array(Taus)
-        # if  np.allclose(confirm, Taus):
-        #     return T, "exact", confirm
-        # else:
-        #     return T, "best-case", confirm
-
-    def get_planar_force_capability_at_pose(self, THETA, f_max=None):
-        J = self.get_jacobian_at_pose_2(THETA)
-        S = self.structure(THETA)
-        # Fo = self.tensionLimit
-        if f_max is None:
-            f_max = self.tensionLimit
-        Fo = np.diag([f_max]*self.numTendons)
-        try:
-            M = np.linalg.inv(J).T @ S @ Fo
-        except np.linalg.LinAlgError:
-            return False
-        # print(M.shape)
-        num_excitations = self.numTendons
-        num_constraints = 3 # For now, this works for 3 and 4 dof fingers in n+1
-                            # I think
-        unique_excitations = set()
-        unique_forces = []
-        for idx in it.combinations(np.arange(0,num_excitations), num_constraints):
-            # integers for slicing
-            # print(idx)
-            idx = np.array([int(idx_i) for idx_i in idx])
-            for edge in generate_binary_lists(num_constraints):
-                edge = np.array(edge)
-                # print(idx, edge)
-                b = edge
-                A = np.zeros([num_constraints,num_excitations])
-                for i in range(num_constraints):
-                    A[i, idx[i]]=1
-                b = np.concatenate([[0]*(num_excitations-num_constraints), b])
-                # THIS LINE ONLY WORKS FOR IN-PLANE FINGERS
-                A = np.vstack((M[-1:], A))
-                # print(A)
-                c = np.zeros(len(b))
-                res = linprog(c, A_eq = A, b_eq = b, bounds=(0,1))
-                if not res.success:
-                    pass
-                else:
-                    unique_excitations.add(tuple(res.x))
-                # unique_forces.add(tuple(M @ res.x))
-        for excitation in list(unique_excitations):
-            unique_forces.append((M @ excitation)[:2])
-        if self.units=='N':
-            unique_forces = np.array(unique_forces)/4.44822162 # convert unique forces from N to lbf
-        convex_forces = ConvexHull(np.array(unique_forces))
-        return convex_forces
+    # endregion
 
     def get_convex_capability(self, THETA, f_max=None, constrained_dof=None, space='task'):
         """
@@ -287,7 +197,6 @@ class Finger():
         num_unconstrained = num_excitations - num_constraints
         num_vertex_exts_for_pose = 0
         unique_vertex_exts_for_pose, uniqueEfforts = set(), []
-
         for idx in it.combinations(np.arange(0,num_excitations), num_unconstrained):
             idx = np.array([int(idx_i) for idx_i in idx])
             for edge in generate_binary_lists(num_unconstrained):
@@ -296,7 +205,7 @@ class Finger():
                 b = edge
                 A = np.zeros([num_unconstrained,num_excitations])
                 for i in range(num_unconstrained):
-                    A[i,idx[i]]=1 # NOTE: what this do
+                    A[i,idx[i]]=1
                 b = np.concatenate([[0]*(num_constraints), b])
 
                 A = np.vstack((effort_map[constrained_dof,:], A))
@@ -317,101 +226,6 @@ class Finger():
 
         try: return ConvexHull(uniqueEfforts)
         except QhullError: return ConvexHull(uniqueEfforts, qhull_options='QJ')
-
-    def plot2D_ConvexHull(self, hull : ConvexHull, ax=None, ax_labels=None, title=None, label=None, color='cyan', font=16):
-        """
-        Plot a 2D convex hull.
-
-        Parameters
-        ----------
-        hull : scipy.spatial.ConvexHull
-            2D hull to plot
-        ax : matplotlib axes (optional)
-            axes to draw on; new figure if None
-        ax_labels : list of str (optional)
-            [x label, y label]
-        title : str (optional)
-            axes title
-        label : str (optional)
-            legend entry
-        color : str
-            matplotlib color
-        font : int
-            font size
-
-        Returns
-        -------
-        ax : matplotlib axes
-            axes the hull was drawn on
-        """
-        # print('Plotting 2D Convex Hull') # FIXME bug check
-        if ax is None:
-            ax = plt.figure().add_subplot()
-
-        pts = hull.points
-        ax.scatter(*pts.T, color=color, s=10, label=label) # all points (incl. interior), label = legend entry
-
-        hull_surface = PolyCollection([pts[hull.vertices]], facecolor=(color, 0.05), edgecolor=color, linewidths=1.5) # 2D vertices are CCW-ordered
-        ax.add_collection(hull_surface)
-
-        if ax_labels is not None:
-            ax.set_xlabel(ax_labels[0], fontsize=font); ax.set_ylabel(ax_labels[1], fontsize=font)
-        if title is not None:
-            ax.set_title(title, fontsize=font)
-
-        # formatting stuff (draw "axes" through origin, etc.)
-        ax.axhline(0, color='black', linewidth=1, linestyle='--'); ax.axvline(0, color='black', linewidth=1, linestyle='--')
-        return ax
-    
-    def plot3D_ConvexHull(self, hull : ConvexHull, ax=None, ax_labels=None, title=None, label=None, color='cyan', font=16):
-        """
-        Plot a 3D convex hull.
-
-        Parameters
-        ----------
-        hull : scipy.spatial.ConvexHull
-            3D hull to plot
-        ax : matplotlib 3D axes (optional)
-            axes to draw on; new figure if None
-        ax_labels : list of str (optional)
-            [x label, y label, z label]
-        title : str (optional)
-            axes title
-        label : str (optional)
-            legend entry
-        color : str
-            matplotlib color
-        font : int
-            font size
-
-        Returns
-        -------
-        ax : matplotlib 3D axes
-            axes the hull was drawn on
-        """
-        if ax is None:
-            ax = plt.figure().add_subplot(projection='3d')
-
-        pts = hull.points
-        ax.scatter(*pts[hull.vertices].T, color=color, s=10, label=label) # label = legend entry; scatter autoscales the axes (Poly3DCollection doesn't)
-
-        vertices = [hull.points[simplex] for simplex in hull.simplices]
-        hull_surface = Poly3DCollection(vertices, facecolor=(color, 0.05), edgecolor=color, linewidths=0.3)
-        ax.add_collection3d(hull_surface)
-
-        if ax_labels is not None:
-            ax.set_xlabel(ax_labels[0], fontsize=font); ax.set_ylabel(ax_labels[1], fontsize=font); ax.set_zlabel(ax_labels[2], fontsize=font)
-        if title is not None:
-            ax.set_title(title, fontsize=font)
-
-        # formatting stuff (draw "axes" through origin, etc.), redrawn each call to span every hull on this ax
-        # add_artist (not ax.plot) so these lines don't count as data and push the limits out
-        for line in getattr(ax, '_origin_lines', []): line.remove()
-        xlim, ylim, zlim = ax.get_xlim(), ax.get_ylim(), ax.get_zlim()
-        ax._origin_lines = [ax.add_artist(Line3D(xlim, [0, 0], [0, 0], color='black', linewidth=1, linestyle='--')),
-                            ax.add_artist(Line3D([0, 0], ylim, [0, 0], color='black', linewidth=1, linestyle='--')),
-                            ax.add_artist(Line3D([0, 0], [0, 0], zlim, color='black', linewidth=1, linestyle='--'))]
-        return ax
 
     def plot_Capability(self, convex_hull: ConvexHull, ax=None, title=None, labels=None, label=None, color='cyan'):
         """
@@ -441,8 +255,8 @@ class Finger():
         if num_efforts not in (2,3):
             raise ValueError(f'Hull values must only have two or three effort values. {num_efforts}) were inputted.')
         elif num_efforts==3:
-            ax = self.plot3D_ConvexHull(convex_hull, ax, labels, title, label, color)
-        else: ax = self.plot2D_ConvexHull(convex_hull, ax, labels, title, label, color)
+            ax = plot3D_ConvexHull(convex_hull, ax, labels, title, label, color)
+        else: ax = plot2D_ConvexHull(convex_hull, ax, labels, title, label, color)
         ax.figure.tight_layout(); ax.grid(True, alpha=0.8) # general formatting for ALL plots
         return ax
     
@@ -554,27 +368,32 @@ def compare_capabilities(cases, title=None, task_labels=None, joint_labels=None)
         fig.suptitle(title, fontsize=18); fig.subplots_adjust(top=0.85) # leave room for the suptitle
     return axTask, axJoint
 
-if __name__=="__main__":
-    valeroFinger    = Finger(valero, [0, 50e-3, 31e-3, 16e-3], units='N', name='Valero (discrete)')
-    # valeroStatic    = Finger(StrucMatrix(S=valero.S(list(valero.poses.values())[0])), valeroFinger.lengths, units='N', name='Valero (static)')
-    primaryFinger   = Finger(primaryDev,   [0, 1.4, 1.4, 1.2], name='primaryDev (variable)') # 4DOF
-    secondaryFinger = Finger(secondaryDev, [1.4, 1.4, 1.2],    name='secondaryDev (variable)') # 3DOF
-    constantFinger =  Finger(canonB, [1.4, 1.4, 1.2], name='canonB (static)')
+# region Finger instances
+valeroFinger    = Finger(valero, [0, 50e-3, 31e-3, 16e-3], units='N', name='Valero (discrete)')
+# valeroStatic    = Finger(StrucMatrix(S=valero.S(list(valero.poses.values())[0])), valeroFinger.lengths, units='N', name='Valero (static)')
+primaryFinger   = Finger(primaryDev,   [0, 1.4, 1.4, 1.2], name='primaryDev (variable)') # 4DOF
+secondaryFinger = Finger(secondaryDev, [1.4, 1.4, 1.2],    name='secondaryDev (variable)') # 3DOF
+constantFinger =  Finger(canonB, [1.4, 1.4, 1.2], name='canonB (static)')
+# endregion
 
+if __name__=="__main__":
+    # define compare_capabilities parameters
     dof4, dof3 = dict(task_dof=[0,3], joint_dof=[0]), dict(task_dof=[2], joint_dof=[])
 
     THETA = np.radians(np.array([0,45,45,10])) # Flexion pose
     title = title='Flexion Pose'; task_labels=['$F_y$ (lbf)', '$F_z$ (lbf)']
     joint_labels = joint_labels=[r'$\tau_{1}$ (lbf-in)', r'$\tau_{2}$ (lbf-in)', r'$\tau_{3}$ (lbf-in)']
-    
-    compare_capabilities([
+
+    # define cases for comparison
+    cases = [
         dict(finger=valeroFinger,    THETA=THETA,     f_max=valero.Fo(THETA), **dof4, color=colors[1]),
         dict(finger=primaryFinger,   THETA=THETA,                             **dof4, color=colors[2]),
         dict(finger=secondaryFinger, THETA=THETA[1:],                         **dof3, color=colors[7]), # 3DOF: drop ad/ab angle
         dict(finger=constantFinger,  THETA=THETA[1:],                         **dof3, color=colors[0])
-    ], title=title, task_labels=task_labels, joint_labels=joint_labels)
+    ]
+    compare_capabilities(cases, title=title, task_labels=task_labels, joint_labels=joint_labels)
 
-    #-------------------- TESTING VALERO TASK AND JOINT PLOTTING --------------------
+    #-------------------- Valero Finger Single Plots (task and joint space) --------------------
     # valeroFinger.plot_taskCapability(THETA, constrained_dof=[0,3], f_max=Fo, 
     #                                  title='Feasible Joint Capabilities for Flexion', labels=['F_y', 'F_z']) # constrain F_x and τ_x
     # valeroFinger.plot_jointCapability(THETA, constrained_dof=[0], f_max=Fo, 

@@ -1,7 +1,3 @@
-# TODO: We now have 2-constraint plotting for feasible force and torque regions, need to make definition for 1-constraint
-# TODO: finish feasible force and torque polytopes
-# TODO: add 2D and 3D convex hull plots to utils.py
-
 import numpy as np
 import itertools as it
 import scipy.optimize as opt
@@ -12,6 +8,8 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from .ValeroCuervasModel import Mo_at_pos, q_flx, q_int, q_ext, R_at_pos, F_at_pos
 from utils import generate_binary_lists, solve_for_feasible_excitations
+
+# region ConvexHull (added to finger.py)
 
 pose = q_flx
 global M, R, F 
@@ -119,70 +117,8 @@ def plot2D_ConvexHull(hull: ConvexHull, ax=None, labels=None, title=None, color=
         ax.set_title(title, fontsize=font)
     return ax
 
-# def plot_ffr_at_pose(pose, name): # ffr: feasible force region (2d)
-#     font=16
-#     hullForces = get_convex_capability(pose, name, 5)[0]
-#     convex_hull_plot_2d(hullForces, ax=plt.gca())
-#     plt.title(F"Feasible Force Region for {name} Pose (N)", fontsize=font); plt.xlabel("Fz", fontsize=font); plt.ylabel("Fy", fontsize=font)
+# endregion
 
-# def plot_ftr_at_pose(pose, name): # ftr: feasible torque region (3d)
-#     font=16
-#     uniqueTorques = np.array(get_convex_capability(pose, name)[1])
-#     plt.axes(projection='3d')
-#     plt.gca().scatter(uniqueTorques[:, 0], uniqueTorques[:, 1], uniqueTorques[:, 2], color='blue')
-#     plt.title(f"Feasible Torque Region for {name} Pose", fontsize=font)
-#     plt.gca().set_xlabel('τ₁',fontsize=font); plt.gca().set_ylabel('τ₂',fontsize=font); plt.gca().set_zlabel('τ₃',fontsize=font)
-
-# def feasible_force_polytope(pose, name): # single constraint version of plot_ffr_at_pose
-#     return None
-# def feasible_torque_polytope(pose, name): # single constraint version of plot_ftr_at_pose
-#     return None
-
-#region
-# for name, pose in pose_dict.items():
-    # if name != "bah":
-    #     plt.figure()
-    #     plot_ffr_at_pose(pose, name)
-
-        ########### ONE CONSTRAINT MODEL ###############
-        # plt.figure() # FORCES
-        # plt.axes(projection='3d')
-        # vertices = [hullForces.points[simplex] for simplex in hullForces.simplices]
-        # hull_surface = Poly3DCollection(vertices, alpha=0.3, facecolor='cyan', edgecolor='red', linewidths=0.5)
-        # plt.gca().add_collection3d(hull_surface)
-        # plt.tight_layout()
-        # xlim = plt.gca().get_xlim()
-        # ylim = plt.gca().get_ylim()
-        # zlim = plt.gca().get_zlim()
-        # plt.gca().plot(xlim, [0, 0], [0, 0], color='black', linewidth=1)
-        # plt.gca().plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
-        # plt.gca().plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
-        # plt.gca().set_xlabel('Fy',fontsize=font)
-        # plt.gca().set_ylabel('Fz',fontsize=font)
-        # plt.gca().set_zlabel('τx',fontsize=font)
-        # plt.title(f"Feasible Force Region for {name} pose",fontsize=font)
-
-        # hullTorques = ConvexHull(np.array(uniqueTorques))
-        # plt.figure() # TORQUES
-        # plt.axes(projection='3d')
-        # uniqueTorques = np.array(uniqueTorques)
-
-        # vertices = [hullTorques.points[simplex] for simplex in hullTorques.simplices]
-        # hull_surface = Poly3DCollection(vertices, alpha=0.3, facecolor='cyan', edgecolor='red', linewidths=0.5)
-        # plt.gca().add_collection3d(hull_surface)
-        # plt.tight_layout()
-        # xlim = plt.gca().get_xlim()
-        # ylim = plt.gca().get_ylim()
-        # zlim = plt.gca().get_zlim()
-        # plt.gca().plot(xlim, [0, 0], [0, 0], color='black', linewidth=1)
-        # plt.gca().plot([0, 0], ylim, [0, 0], color='black', linewidth=1)
-        # plt.gca().plot([0, 0], [0, 0], zlim, color='black', linewidth=1)
-        # plt.gca().set_xlabel('τ₁',fontsize=font)
-        # plt.gca().set_ylabel('τ₂',fontsize=font)
-        # plt.gca().set_zlabel('τ₃',fontsize=font)
-        # plt.title(f"Feasible Torque Region for {name} pose",fontsize=font)
-# plt.show()
-#endregion
 def closest_in_subspace(subspace, vector):
     projector = subspace @ np.linalg.inv(subspace.T @ subspace) @ subspace.T
     closest = projector @ vector
