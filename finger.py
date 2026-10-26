@@ -57,7 +57,6 @@ class Finger():
         return self.structure(THETA)
 
     def get_jacobian_at_pose(self, THETA, lengths=None):
-        # F = trans(THETA, self.lengths)
         if lengths is None:
             lengths=self.lengths
         J = jac(THETA, lengths)
@@ -77,58 +76,6 @@ class Finger():
 
         try: return np.linalg.inv(J).T @ S @ Fo
         except np.linalg.LinAlgError: raise ValueError(f"{self.name}: Jacobian is singular at THETA={THETA}")
-
-    # def get_jacobian_at_pose(self, THETA, lengths=None):
-    #     if lengths is None:
-    #         lengths=self.lengths
-    #     J = get_jacobian(THETA, lengths)
-    #     return J
-
-    # region Jacobians
-    # def get_jacobian_at_pose_2(self, THETA, lengths=None):
-    #     if lengths==None:
-    #         lengths=self.lengths
-    #     ## This is a test 32x3 array for a 3-joint finger that is only being
-    #     ## used to test get_jacobian_at_pose to make
-    #     ## sure the frame used here matches the frame in the paper
-    #     J = np.array([
-    #         [-(lengths[0]*np.sin(THETA[0])+lengths[1]*np.sin(np.sum(THETA[0:2]))+lengths[2]*np.sin(np.sum(THETA))),
-    #          -(lengths[1]*np.sin(np.sum(THETA[0:2]))+lengths[2]*np.sin(np.sum(THETA))),
-    #           -lengths[2]*np.sin(np.sum(THETA))],
-    #         [  lengths[0]*np.cos(THETA[0])+lengths[1]*np.cos(np.sum(THETA[0:2]))+lengths[2]*np.cos(np.sum(THETA)),
-    #            lengths[1]*np.cos(np.sum(THETA[0:2]))+lengths[2]*np.cos(np.sum(THETA)),
-    #            lengths[2]*np.cos(np.sum(THETA))],
-    #         [  1,
-    #            1,
-    #            1]])
-    #     return J
-    #     # -
-    # def get_jacobian_at_pose_3(self, THETA, lengths=None):
-    #     if lengths==None:
-    #         lengths=self.lengths
-    #     J = np.array([
-    #         [
-    #             -1*np.cos(THETA[0])*(np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2]),
-    #             np.sin(THETA[0])*(self.lengths[0]*np.sin(THETA[1]) + self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
-    #             np.sin(THETA[0])*(self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
-    #             self.lengths[2]*np.sin(THETA[0])*np.sin(np.sum(THETA[1:4]))
-    #         ],
-    #         [
-    #             -1*(np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2])*np.sin(THETA[0]),
-    #             -1*np.cos(THETA[0])*(self.lengths[0]*np.sin(THETA[1]) + self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
-    #             -1*np.cos(THETA[0])*(self.lengths[1]*np.sin(np.sum(THETA[1:3])) + self.lengths[2]*np.sin(np.sum(THETA[1:4]))),
-    #             -1*np.cos(THETA[0])*self.lengths[2]*np.sin(np.sum(THETA[1:4]))
-    #         ],
-    #         [
-    #             0,
-    #             np.cos(THETA[1])*self.lengths[0] + np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2],
-    #             np.cos(np.sum(THETA[1:3]))*self.lengths[1] + np.cos(np.sum(THETA[1:4]))*self.lengths[2],
-    #             np.cos(np.sum(THETA[1:4]))*self.lengths[2]
-    #         ],
-    #         [0, 1, 1, 1]
-    #     ], dtype=float)
-    #     return J
-    # endregion
 
     def tip_wrench_at_pose_to_grip(self, THETA, F, lengths=None, frame="world"):
         '''
@@ -294,44 +241,52 @@ class Finger():
         convex_forces = ConvexHull(np.array(unique_forces))
         return convex_forces
 
-    def get_convex_capability(self, THETA, f_max=None, constrained_dof=None):
+    def get_convex_capability(self, THETA, f_max=None, constrained_dof=None, space='task'):
         """
-        FIXME: define what function does
-        
+        Feasible effort region at a pose, in task space or joint space, as a convex hull.
+
         Parameters
         ----------
-        variable : variable type
-            variable description
+        THETA : numpy array
+            joint angles [rad]
+        f_max : float, 1D numpy array, or 2D numpy array (optional)
+            max tendon tension(s); scalar -> same for all tendons, 1D -> diagonal of Fo, 2D -> Fo. Defaults to self.tensionLimit
+        constrained_dof : list or numpy array of int
+            rows of the effort map forced to zero and removed from the output
+        space : {'task', 'joint'}
+            'task' -> efforts are tip wrenches (M = J^-T*S*Fo); 'joint' -> efforts are joint torques (S*Fo)
 
         Returns
         -------
-        convexForces : numpy array
-            Data structure containing the parameters of the rover with updated telemetry data after simulation
-        uniqueTorques : numpy array #FIXME out of date.
+        hull : scipy.spatial.ConvexHull
+            hull of the unconstrained efforts, in lbf (task) or lbf-in (joint)
         """
-        
+
         if not isinstance(constrained_dof, (list, np.ndarray)):
-            raise ValueError("constrained_rows must be a list or numpy array of integers.")
+            raise ValueError("constrained_dof must be a list or numpy array of integers.")
+        if space not in ('task', 'joint'):
+            raise ValueError("space must be 'task' or 'joint'.")
 
         # initialize variables
         num_excitations = self.numTendons
 
         if f_max is None:
             f_max = self.tensionLimit
-        if isinstance(f_max, (np.ndarray,list)): # FIXME: convert to where()?
-            if (f_max).ndim>1:
-                Fo = f_max  # FIXME: does structmatrix or finger.py need the % change of F?
+        if isinstance(f_max, (np.ndarray, list)):
+            if np.asarray(f_max).ndim >1:
+                Fo = f_max
             else: Fo = np.diag(f_max)
         else: Fo = np.diag([f_max]*self.numTendons)
 
         S = self.S(THETA)
         M = self.M(THETA, f_max)
+        effort_map = M if space=='task' else S @ Fo # e -> tip wrench, or e -> joint torques
 
         constrained_dof = np.asarray(constrained_dof, dtype=int)
         num_constraints = len(constrained_dof)
         num_unconstrained = num_excitations - num_constraints
         num_vertex_exts_for_pose = 0
-        unique_vertex_exts_for_pose, uniqueTaskEfforts, uniqueJointEfforts = set(), [], []
+        unique_vertex_exts_for_pose, uniqueEfforts = set(), []
 
         for idx in it.combinations(np.arange(0,num_excitations), num_unconstrained):
             idx = np.array([int(idx_i) for idx_i in idx])
@@ -344,7 +299,7 @@ class Finger():
                     A[i,idx[i]]=1 # NOTE: what this do
                 b = np.concatenate([[0]*(num_constraints), b])
 
-                A = np.vstack((M[constrained_dof,:], A))
+                A = np.vstack((effort_map[constrained_dof,:], A))
                 excitation, success = solve_for_feasible_excitations(A, b)
 
                 if not success: pass
@@ -353,27 +308,42 @@ class Finger():
                     unique_vertex_exts_for_pose.add(tuple(excitation))
 
         for u_ext in list(unique_vertex_exts_for_pose): # unique excitations for pose
-            u_ext = np.array(u_ext)
-            taskEffort = M @ u_ext # J^-T*S*Fo * e
-            jointEffort = S @ Fo @ u_ext # S*Fo * e
+            effort = effort_map @ np.array(u_ext) # J^-T*S*Fo * e (task) or S*Fo * e (joint)
+            uniqueEfforts.append(np.delete(effort, constrained_dof)) # keep only the unconstrained rows
+        uniqueEfforts = np.array(uniqueEfforts)
 
-            # FIXME: not sure if forces and torques are indexed correctly
-            uniqueTaskEfforts.append(np.delete(taskEffort, constrained_dof)) # keep only the unconstrained rows
-            uniqueJointEfforts.append(np.delete(jointEffort, constrained_dof)) # FIXME: need to change index?? to what tho (currently only removes out of plane torques)
-        uniqueTaskEfforts, uniqueJointEfforts = np.array(uniqueTaskEfforts), np.array(uniqueJointEfforts)
-        
         if self.units=='N':
-            uniqueTaskEfforts = uniqueTaskEfforts/4.44822162 # convert N to lbf
-            uniqueJointEfforts = uniqueJointEfforts*8.8507457916 # convert N*m to lbf-in
+            uniqueEfforts = uniqueEfforts/4.44822162 if space=='task' else uniqueEfforts*8.8507457916 # N -> lbf, N*m -> lbf-in
 
-        def make_hull(pts):
-            try: return ConvexHull(np.array(pts))
-            except QhullError: return ConvexHull(np.array(pts), qhull_options='QJ')
-
-        hullForces, hullTorques = (make_hull(pts) for pts in (uniqueTaskEfforts, uniqueJointEfforts))
-        return hullForces, hullTorques
+        try: return ConvexHull(uniqueEfforts)
+        except QhullError: return ConvexHull(uniqueEfforts, qhull_options='QJ')
 
     def plot2D_ConvexHull(self, hull : ConvexHull, ax=None, ax_labels=None, title=None, label=None, color='cyan', font=16):
+        """
+        Plot a 2D convex hull.
+
+        Parameters
+        ----------
+        hull : scipy.spatial.ConvexHull
+            2D hull to plot
+        ax : matplotlib axes (optional)
+            axes to draw on; new figure if None
+        ax_labels : list of str (optional)
+            [x label, y label]
+        title : str (optional)
+            axes title
+        label : str (optional)
+            legend entry
+        color : str
+            matplotlib color
+        font : int
+            font size
+
+        Returns
+        -------
+        ax : matplotlib axes
+            axes the hull was drawn on
+        """
         # print('Plotting 2D Convex Hull') # FIXME bug check
         if ax is None:
             ax = plt.figure().add_subplot()
@@ -394,6 +364,31 @@ class Finger():
         return ax
     
     def plot3D_ConvexHull(self, hull : ConvexHull, ax=None, ax_labels=None, title=None, label=None, color='cyan', font=16):
+        """
+        Plot a 3D convex hull.
+
+        Parameters
+        ----------
+        hull : scipy.spatial.ConvexHull
+            3D hull to plot
+        ax : matplotlib 3D axes (optional)
+            axes to draw on; new figure if None
+        ax_labels : list of str (optional)
+            [x label, y label, z label]
+        title : str (optional)
+            axes title
+        label : str (optional)
+            legend entry
+        color : str
+            matplotlib color
+        font : int
+            font size
+
+        Returns
+        -------
+        ax : matplotlib 3D axes
+            axes the hull was drawn on
+        """
         if ax is None:
             ax = plt.figure().add_subplot(projection='3d')
 
@@ -418,9 +413,29 @@ class Finger():
                             ax.add_artist(Line3D([0, 0], [0, 0], zlim, color='black', linewidth=1, linestyle='--'))]
         return ax
 
-    def plot_Capability(self, convex_hull: ConvexHull, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None, label=None, color='cyan'):
+    def plot_Capability(self, convex_hull: ConvexHull, ax=None, title=None, labels=None, label=None, color='cyan'):
         """
-        helper function to simplify task and joint capability plotting (utilizes plot2D and 3D convex hull)
+        Helper function to simplify task and joint capability plotting (utilizes plot2D and 3D convex hull)
+
+        Parameters
+        ----------
+        convex_hull : scipy.spatial.ConvexHull
+            2D or 3D hull to plot
+        ax : matplotlib axes (optional)
+            axes to draw on; new figure if None
+        title : str (optional)
+            axes title
+        labels : list of str (optional)
+            axis labels
+        label : str (optional)
+            legend entry
+        color : str
+            matplotlib color
+
+        Returns
+        -------
+        ax : matplotlib axes
+            axes the hull was drawn on
         """
         _, num_efforts = (convex_hull.points).shape
         if num_efforts not in (2,3):
@@ -432,11 +447,11 @@ class Finger():
         return ax
     
     def plot_taskCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None, label=None, color='cyan'):
-        convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof)[0]
-        return self.plot_Capability(convex_hull, THETA, ax, f_max, constrained_dof, title, labels, label, color)
+        convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof, space='task')
+        return self.plot_Capability(convex_hull, ax, title, labels, label, color)
     def plot_jointCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None, label=None, color='cyan'):
-        convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof)[1]
-        return self.plot_Capability(convex_hull, THETA, ax, f_max, constrained_dof, title, labels, label, color)
+        convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof, space='joint')
+        return self.plot_Capability(convex_hull, ax, title, labels, label, color)
 
 def planar_force_demo():
     # from strucMatrices import secondaryDev
@@ -504,6 +519,25 @@ def planar_force_demo():
     plt.show()
 
 def compare_capabilities(cases, title=None, task_labels=None, joint_labels=None):
+    """
+    Plot the task (left) and joint (right) capabilities of several fingers on one figure.
+
+    Parameters
+    ----------
+    cases : list of dict
+        one per finger: finger, THETA, task_dof, joint_dof, f_max (optional), color (optional)
+    title : str (optional)
+        figure title
+    task_labels : list of str (optional)
+        task plot axis labels
+    joint_labels : list of str (optional)
+        joint plot axis labels
+
+    Returns
+    -------
+    axTask, axJoint : matplotlib axes
+        task and joint plot axes
+    """
     n, first = cases[0]['finger'].numJoints, cases[0]
     fig = plt.figure(figsize=(14, 6))
     axTask  = fig.add_subplot(1, 2, 1, projection='3d' if n-len(first['task_dof'])==3 else None) # 3 unconstrained efforts -> 3D, 2 -> 2D
@@ -519,10 +553,6 @@ def compare_capabilities(cases, title=None, task_labels=None, joint_labels=None)
     if title is not None:
         fig.suptitle(title, fontsize=18); fig.subplots_adjust(top=0.85) # leave room for the suptitle
     return axTask, axJoint
-# region Finger Instances
-# testbed
-# valero
-# endregion
 
 if __name__=="__main__":
     valeroFinger    = Finger(valero, [0, 50e-3, 31e-3, 16e-3], units='N', name='Valero (discrete)')
@@ -544,7 +574,7 @@ if __name__=="__main__":
         dict(finger=constantFinger,  THETA=THETA[1:],                         **dof3, color=colors[0])
     ], title=title, task_labels=task_labels, joint_labels=joint_labels)
 
-    #-------------------- TESTING TASK AND JOINT PLOTTING --------------------
+    #-------------------- TESTING VALERO TASK AND JOINT PLOTTING --------------------
     # valeroFinger.plot_taskCapability(THETA, constrained_dof=[0,3], f_max=Fo, 
     #                                  title='Feasible Joint Capabilities for Flexion', labels=['F_y', 'F_z']) # constrain F_x and τ_x
     # valeroFinger.plot_jointCapability(THETA, constrained_dof=[0], f_max=Fo, 

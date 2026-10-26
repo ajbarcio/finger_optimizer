@@ -946,6 +946,21 @@ class DiscreteStrucMatrix(): # FIXME: need to read parameter input
     figures_with_axes = set()
 
     def __init__(self, model, name='Placeholder'):
+        """
+        Structure matrix defined only at a set of calibrated poses (e.g. valero_model).
+
+        Parameters
+        ----------
+        model : dict
+            'poses' : dict of {pose name: joint angles [rad]}, in order; the first pose is the base pose
+            'R'     : numpy array (joints x tendons), unsigned moment arms at the base pose
+            'D'     : numpy array (joints x tendons), moment arm signs (-1, 0, 1)
+            'F'     : 1D or 2D numpy array, max tendon forces at the base pose (1D is diagonalized)
+            'dR'    : dict of {(pose_i, pose_f): {(row, col): % change}}, change in R between consecutive poses
+            'dF'    : dict of {(pose_i, pose_f): {(row, col): % change}}, change in F between consecutive poses
+        name : str (optional)
+            name used in plots and legends
+        """
         self.model = model
         self.dR = model['dR']
         self.dF = model['dF']
@@ -969,7 +984,20 @@ class DiscreteStrucMatrix(): # FIXME: need to read parameter input
         return self.name
 
     def R(self, THETA):
-        THETA = np.asarray(THETA, dtype=float)  
+        """
+        Moment arm matrix at a calibrated pose, built by applying each consecutive dR % change from the base pose.
+
+        Parameters
+        ----------
+        THETA : numpy array
+            joint angles [rad]; must match one of self.poses
+
+        Returns
+        -------
+        R : numpy array
+            unsigned moment arms (joints x tendons)
+        """
+        THETA = np.asarray(THETA, dtype=float)
         pose_names  = list(self.poses.keys()) 
         pose_values = list(self.poses.values())  
 
@@ -984,7 +1012,20 @@ class DiscreteStrucMatrix(): # FIXME: need to read parameter input
         return R
 
     def Fo(self, THETA):
-        THETA = np.asarray(THETA, dtype=float)  
+        """
+        Max tendon force matrix at a calibrated pose, built by applying each consecutive dF % change from the base pose.
+
+        Parameters
+        ----------
+        THETA : numpy array
+            joint angles [rad]; must match one of self.poses
+
+        Returns
+        -------
+        Fo : numpy array
+            diagonal max tendon forces (tendons x tendons)
+        """
+        THETA = np.asarray(THETA, dtype=float)
         pose_names  = list(self.poses.keys()) 
         pose_values = list(self.poses.values())  
 
