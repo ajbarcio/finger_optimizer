@@ -1,7 +1,7 @@
 import numpy as np
 import warnings
 from strucMatrices import colors, VariableStrucMatrix, StrucMatrix, DiscreteStrucMatrix, secondaryDev, primaryDev, valero, canonB
-from utils import trans, jac, clean_array, hArray, generate_binary_lists, solve_for_feasible_excitations, compare_hulls, plot3D_ConvexHull, plot2D_ConvexHull#, get_jacobian
+from utils import trans, jac, clean_array, hArray, generate_binary_lists, solve_for_feasible_excitations, hull_containment, hull_similarity, plot3D_ConvexHull, plot2D_ConvexHull
 from scipy.optimize import nnls, lsq_linear, linprog
 from scipy.spatial import ConvexHull, convex_hull_plot_2d, QhullError
 import itertools as it
@@ -332,7 +332,10 @@ def planar_force_demo():
 
     plt.show()
 
-def compare_capabilities(cases, title=None, task_labels=None, joint_labels=None):
+""" FIXME: added show_interior bool to 2D and 3D ConvexHull plotting, need to include the changes in the following functions:
+    * plot_Capability, plot_taskCapability, plot_jointCapability, and compare_capabilities"""
+
+def compare_capabilities(cases, title=None, task_labels=None, joint_labels=None): 
     """
     Plot the task (left) and joint (right) capabilities of several fingers on one figure.
 
@@ -387,9 +390,9 @@ if __name__=="__main__":
     # define cases for comparison
     cases = [
         dict(finger=valeroFinger,    THETA=THETA,     f_max=valero.Fo(THETA), **dof4, color=colors[1]),
-        dict(finger=primaryFinger,   THETA=THETA,                             **dof4, color=colors[2]),
+        # dict(finger=primaryFinger,   THETA=THETA,                             **dof4, color=colors[2]),
         dict(finger=secondaryFinger, THETA=THETA[1:],                         **dof3, color=colors[7]), # 3DOF: drop ad/ab angle
-        dict(finger=constantFinger,  THETA=THETA[1:],                         **dof3, color=colors[0])
+        # dict(finger=constantFinger,  THETA=THETA[1:],                         **dof3, color=colors[0])
     ]
     compare_capabilities(cases, title=title, task_labels=task_labels, joint_labels=joint_labels)
 
@@ -399,3 +402,17 @@ if __name__=="__main__":
     # valeroFinger.plot_jointCapability(THETA, constrained_dof=[0], f_max=Fo, 
     #                                   title='Feasible Joint Capabilities for Flexion', labels=r'$\tau_{1}$') # only constrain F_x
     plt.show()
+
+    #-------------------- Tests: Hull Containment and Hull Similarity --------------------
+    # compare task and joint capabilities between Valero and RAD Finger
+    for space in ['task', 'joint']:
+        hull = valeroFinger.get_convex_capability(THETA, valero.Fo(THETA), constrained_dof=dof4[f'{space}_dof'], space=space)
+        base = secondaryFinger.get_convex_capability(THETA[1:], f_max=None, constrained_dof=dof3[f'{space}_dof'], space=space)
+
+        relation = hull_containment(hull, base)
+        enclosed, volume_diff = hull_similarity(hull, base)
+
+        print(f"[{space.capitalize()} Space] Valero is {relation} {'in' if relation == 'contained' else 'with'} RAD Finger, with {enclosed:.0%} of its hull enclosed."
+          f"\nThe capability region of RAD Finger is {abs(volume_diff):.0%} {'bigger' if volume_diff >= 0 else 'smaller'}.")
+
+

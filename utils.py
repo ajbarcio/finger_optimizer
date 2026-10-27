@@ -292,7 +292,6 @@ def transform(Q,L): # transform the world frame to end effector frame given join
     else:
         return np.append(pos, np.sum(Q)) # [x, y, z, sum of angles] (4x4 jacobian)
 
-########### FINGER #############
 def jac(Q,L): # FIXME needs attribute joint type
     # if singularity is detected??? (maybe) collapse the jacobian matrix (aka remove a DOF) and return the new jacobian matrix
     # figure out how to get the function to work with 2d and 3d inputs (1x3 and 1x4 arrays)
@@ -763,40 +762,74 @@ def in_hull3(hull, x):
   tol = -1e-3
   return np.all(hull.equations @ np.append(x,1) <= tol)
 
-def compare_hulls(hull_a: ConvexHull, hull_b: ConvexHull, tol=1e-6):
+def _shared_hull(hull_a: ConvexHull, hull_b: ConvexHull, tol=1e-6): # FIXME: not sure if this is right
+    """Region shared by two hulls, as a ConvexHull; None if they share no volume (disjoint or only touching)."""
+    # a point p is inside both hulls only when a@p + b <= 0 for every row
+    halfspaces = np.vstack([hull_a.equations, hull_b.equations]) # [a₁, a₂, b] = A_ub + b_ub
+    n = hull_a.points.shape[1] # number of dimensions (2 or 3)
+
+    # linprog unknowns: x = [p, r] -> ball center p (n values) and radius r
+    c = np.zeros(n+1); c[-1] = -1 # c@x = -r; linprog only minimizes, so minimizing -r maximizes r
+    A_ub = np.hstack([halfspaces[:, :-1], np.ones((len(halfspaces), 1))]) # A_ub@x = [a₁, a₂, 1] @ [p₁, p₂, r] = a₁*p₁ + a₂*p₂ + 1*r = a@p + r
+
+    # linprog: minimize c@x such that A_ub@x <= b_ub
+    res = linprog(c, A_ub=A_ub, b_ub=-halfspaces[:, -1], bounds=[(None, None)]*n + [(0, None)]) # [(None, None)]*n: center undefined, [(0, None)]: r can't be negative
+    if not res.success or res.x[-1] <= tol:
+        return None
+
+    halfspaceIntersection = HalfspaceIntersection(halfspaces, res.x[:-1]).intersections # corners of the region inside every plane, using the ball's center (res.x[:-1] = p) as its starting point
+    return ConvexHull(halfspaceIntersection) # wraps the corners into a hull so the caller can use .volume (area in 2D)
+
+def hull_containment(hull: ConvexHull, base: ConvexHull, tol=1e-6):
     """
-    Where hull_a sits relative to hull_b, and how much they overlap.
+    Where hull sits relative to base.
 
     Parameters
     ----------
-    hull_a, hull_b : scipy.spatial.ConvexHull
-        hulls of the same dimension
+    hull : scipy.spatial.ConvexHull
+        hull being evaluated
+    base : scipy.spatial.ConvexHull
+        reference hull it is compared against (same dimension)
     tol : float (optional)
         distance tolerance, in the hulls' units
 
     Returns
     -------
     relation : str
-        'inside' (all of hull_a's vertices are in hull_b), 'outside' (no shared volume), or 'overlap'
-    iou : float
-        shared volume / combined volume; 1 -> identical, 0 -> no overlap
+        'contained' (every vertex of hull is in base), 'overlapping' (shared volume, but not contained), or 'disjoint' (no shared volume)
     """
-    halfspaces = np.vstack([hull_a.equations, hull_b.equations]) # rows [a, b] with a.x + b <= 0, a unit length
-    n = hull_a.points.shape[1]
+    V = hull.points[hull.vertices] # corners of hull
 
-    # deepest point of the shared region: maximize r s.t. a.x + r <= -b (no such point -> nothing shared)
-    c = np.zeros(n+1); c[-1] = -1
-    A_ub = np.hstack([halfspaces[:, :-1], np.ones((len(halfspaces), 1))])
-    res = linprog(c, A_ub=A_ub, b_ub=-halfspaces[:, -1], bounds=[(None, None)]*n + [(0, None)])
-    if not res.success or res.x[-1] <= tol:
-        return 'outside', 0.0
+    # checks a@x + b <= tol for every face plane (a, b) of base and every corner x of hull at once:
+    if np.all(base.equations[:, :-1] @ V.T + base.equations[:, -1:] <= tol): # hull's corners (V.T) are inside base only when they're on the inner side of all of base's planes
+        return 'contained'
 
-    v_shared = ConvexHull(HalfspaceIntersection(halfspaces, res.x[:-1]).intersections).volume # volume is area in 2D
-    iou = v_shared / (hull_a.volume + hull_b.volume - v_shared)
+    # some corner is outside, so hull is overlapping or disjoint
+    return 'disjoint' if _shared_hull(hull, base, tol) is None else 'overlapping' # check for shared volume (overlapping)
 
-    Va = hull_a.points[hull_a.vertices]
-    inside = np.all(hull_b.equations[:, :-1] @ Va.T + hull_b.equations[:, -1:] <= tol)
-    return ('inside' if inside else 'overlap'), iou
+def hull_similarity(hull: ConvexHull, base: ConvexHull):
+    """
+    How similar hull is to base.
+
+    Parameters
+    ----------
+    hull : scipy.spatial.ConvexHull
+        hull being evaluated
+    base : scipy.spatial.ConvexHull
+        reference hull it is compared against
+
+    Returns
+    -------
+    enclosed : float
+        fraction of hull's volume that lies inside base (1 = fully enclosed, 0 = none)
+    volume_diff : float
+        how much bigger base is than hull, as a fraction of hull's volume (0.5 = base is 50% bigger, -0.5 = base is 50% smaller)
+    """
+    shared = _shared_hull(hull, base)
+    v_shared = 0.0 if shared is None else shared.volume # volume is area in 2D
+    enclosed, volume_diff = v_shared/hull.volume, (base.volume - hull.volume)/hull.volume
+
+    return enclosed, volume_diff
 
 def find_axis_extent_lp(vertices, axis_direction):
     m, n = vertices.shape
@@ -887,12 +920,13 @@ def get_existing_axes():
             return axes[0]  # Return first existing Axes
     return None  # No axes found
 
-def plot2D_ConvexHull(hull : ConvexHull, ax=None, ax_labels=None, title=None, label=None, color='cyan', font=16):
+def plot2D_ConvexHull(hull : ConvexHull, ax=None, ax_labels=None, title=None, label=None, color='cyan', font=16, show_interior=True):
     if ax is None:
         ax = plt.figure().add_subplot()
 
     pts = hull.points
-    ax.scatter(*pts.T, color=color, s=10, label=label) # all points (incl. interior), label = legend entry
+    shown = pts if show_interior else pts[hull.vertices] # all points (incl. interior), or just the corners
+    ax.scatter(*shown.T, color=color, s=10, label=label) # label = legend entry
 
     hull_surface = PolyCollection([pts[hull.vertices]], facecolor=(color, 0.05), edgecolor=color, linewidths=1.5) # 2D vertices are CCW-ordered
     ax.add_collection(hull_surface)
@@ -906,14 +940,15 @@ def plot2D_ConvexHull(hull : ConvexHull, ax=None, ax_labels=None, title=None, la
     ax.axhline(0, color='black', linewidth=1, linestyle='--'); ax.axvline(0, color='black', linewidth=1, linestyle='--')
     return ax
 
-def plot3D_ConvexHull(hull : ConvexHull, ax=None, ax_labels=None, title=None, label=None, color='cyan', font=16):
+def plot3D_ConvexHull(hull : ConvexHull, ax=None, ax_labels=None, title=None, label=None, color='cyan', font=16, show_interior=False):
     if ax is None:
         ax = plt.figure().add_subplot(projection='3d')
 
     pts = hull.points
-    ax.scatter(*pts[hull.vertices].T, color=color, s=10, label=label)
+    shown = pts if show_interior else pts[hull.vertices] # all points (incl. interior), or just the corners (less clutter in 3D)
+    ax.scatter(*shown.T, color=color, s=10, label=label) # label = legend entry
 
-    vertices = [hull.points[simplex] for simplex in hull.simplices]
+    vertices = [pts[simplex] for simplex in hull.simplices]
     hull_surface = Poly3DCollection(vertices, facecolor=(color, 0.05), edgecolor=color, linewidths=0.3)
     ax.add_collection3d(hull_surface)
 
