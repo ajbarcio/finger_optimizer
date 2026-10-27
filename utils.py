@@ -31,6 +31,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
+def law_cos(a, b, gamma):
+    c = np.sqrt(a**2 + b**2 - 2*a*b*np.cos(gamma))
+    return c
+
+def law_cos_angle(a, b, c):
+    return np.arccos((a**2+b**2-c**2)/(2*a*b))
+
+def law_sin_angle(pair_side, pair_angle, angle_side):
+    return np.arcsin(angle_side/pair_side*np.sin(pair_angle))
 
 def animate_function_over_j23_grid(
     func,
@@ -361,7 +370,7 @@ def plot_function_over_pose_grid(
             p = poses[i]
             ax.scatter(*p, s=marker_size * 4, facecolors='none',
                        edgecolors=mcolor, linewidths=2, zorder=5)
-            label = (f'{tleag}: {vals[i]:.4g}\n'
+            label = (f'{tag}: {vals[i]:.4g}\n'
                      rf'$\theta$=({p[0]:.3f}, {p[1]:.3f}, {p[2]:.3f})')
             ax.text(p[0], p[1], p[2], '  ' + label, color=mcolor,
                     fontsize=8, zorder=6)
@@ -914,7 +923,7 @@ def remove_isomorphic(matrices):
     i = 1
     for mat in matrices:
         # print(mat)
-        print(f'checking for duplicates of matrix {i:3d} of {len(matrices)}, found {len(unique)} unique so far', 
+        print(f'checking for duplicates of matrix {i:3d} of {len(matrices)}, found {len(unique)} unique so far',
             #   end='\r'
               )
         canon = canonical_form_general(mat)

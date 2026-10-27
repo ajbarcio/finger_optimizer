@@ -14,6 +14,8 @@ from scipy.integrate import quad
 from utils import intersects_positive_orthant, special_minkowski, special_minkowski_with_mins, in_hull, get_existing_axes, get_existing_3d_axes, in_hull2, intersects_negative_orthant, intersection_with_orthant
 from utils import identify_strict_sign_central, identify_strict_central, sym_pinv, unique_piecewise_functions
 from utils import best_condition
+from utils import law_cos, law_sin_angle, law_cos_angle
+
 from scipy.optimize import minimize, NonlinearConstraint, OptimizeResult, dual_annealing, differential_evolution
 from types import SimpleNamespace
 
@@ -1164,7 +1166,7 @@ class VariableStrucMatrix():
 
         def u(self, theta):
             # Gain acces to unstrung length 'u'
-            return 2*self.r*(theta/2)
+            return [(2*self.r*(theta/2), self.r)]
 
         def sym(self):
             theta = sy.symbols(f'theta_{self.idx[0]+1}')
@@ -1196,7 +1198,8 @@ class VariableStrucMatrix():
 
         def u(self, theta):
             # Gain acces to unstrung length 'u'
-            return 2*self.r*(theta/2)
+            # (and associated radius of curvature)
+            return [(2*self.r*(theta/2), self.r)]
 
         def __call__(self, theta):
             return self.c*np.cos((np.pi/2-theta)/2)-self.r
@@ -1205,10 +1208,13 @@ class VariableStrucMatrix():
     # I lied actually but NOW it do
     class ideal_convergent_circles_joint_with_limit(convergent_circles_joint):
         """
-        Similar to convergent circles, but with a convex arc around
+        Similar to convergent circles, but with a convex arc around the joint
+        to limit the minimum moment arm
         """
         def __init__(self, min, max, minOverwrite, idx):
+            # Gather base geometry (r, c) from base class
             super().__init__(min, max, idx)
+            # caclulate special geometry (r1, angle threshold)
             if minOverwrite is None:
                 self.minOverwrite = 0
             else:
@@ -1217,50 +1223,145 @@ class VariableStrucMatrix():
             a = self.c*np.cos(np.pi/4)
             # r1 = max radius of upper surface
             self.r1 = (a**2+(a-self.minOverwrite)**2-self.r**2)/(2*(self.r-a+self.minOverwrite))
-            # self.r1=self.r
             # Spot check to make sure math is right
             assert np.isclose(super().__call__(np.pi/2), self.max)
             # Determine breakover angle between surfaces
             self.solve_for_angle_threshold()
 
         def solve_for_angle_threshold(self):
+            # There is a single, osculating intersection between the moment
+            # arm curves of the upper and lower surfaces
             try:
+                base_function = super().__call__
                 result = root_scalar(
-                            lambda t: super().__call__(t) - self.minim_function(t),
+                            lambda t: base_function(t) - self.minim_function(t),
                             x0=0)
                 self.angleThreshold = result.root
             except:
+                # IF YOU SEE THESE SOMETHING HAS GONE WRONG
+                # most designs should avoid this region, where the tendon either
+                # never touches or never comes off the inner surface
                 if super().__call__(0) <= self.minim_function(0):
                     self.angleThreshold = np.pi*1.2
                 elif super().__call__(0) > self.minim_function(0):
                     self.angleThreshold = -1
 
-        # def base_function(self, theta):
-        #     val = self.c*np.cos((np.pi/2-theta)/2)-self.r
-        #     return val
-
         def minim_function(self, theta):
+            """
+            This is the moment arm function for the inner surface
+            """
+
             # val = np.sqrt(self.r**2 +
             #               (self.r-self.minOverwrite)**2 * (1-np.cos(theta/2)**2) -
             #               2*self.r*(self.r-self.minOverwrite)*np.cos(theta/2))
+
             val = self.b(theta)*np.cos(self.g(theta))
             return val
 
         def b(self, theta):
-            return np.sqrt(self.r1**2 + (self.r1-self.minOverwrite)**2 -
-                           2*self.r1*(self.r1-self.minOverwrite)*np.cos(theta/2))
+            # A length used to calculate the minim enforcement at an angle
+            return law_cos(self.r1, (self.r1-self.minOverwrite), theta/2)
+            # return np.sqrt(self.r1**2 + (self.r1-self.minOverwrite)**2 -
+            #                2*self.r1*(self.r1-self.minOverwrite)*np.cos(theta/2))
 
         def g(self, theta):
-            return np.arcsin((self.r1-self.minOverwrite)/self.b(theta)*np.sin(theta/2))
+            # an angle used to calcualte the minim enforcement
+            return law_sin_angle(self.b(theta),theta/2,(self.r1-self.minOverwrite))
+            # return np.arcsin((self.r1-self.minOverwrite)/self.b(theta)*np.sin(theta/2))
+
+        def l(self, theta):
+            """
+            l is the uncurved length of tendon in the joint
+            """
+            # If we aren't hitting the inner surface it acts like a convergent
+            # circles joint without limits
+            if theta > self.angleThreshold:
+                return super().l(theta)
+            # Otherwise, we need a differet length. Find the common transverse
+            # tangent length
+            else:
+                gamma = theta+np.pi*3/4
+                d = law_cos((self.r1-self.minOverwrite),self.c,gamma)
+                # np.sqrt((self.r1-self.minOverwrite)**2 +
+                #             (self.c)**2 -
+                #             2*(self.r1-self.minOverwrite)*self.c*np.cos(gamma))
+                return np.sqrt(d**2-(self.r1+self.r)**2)
+
+        def u(self, theta):
+            """
+            u is the curved length of tendon in the joint
+            u is returned as a list of (length, radius of curvature) tuples
+            """
+            # If we aren't hitting the inner surface it acts like a convergent
+                        # circles joint without limits
+            if theta > self.angleThreshold:
+                return super().u(theta)
+            # Otherwise we need to do a whole bunch of fucking math
+            else:
+                l_base = super().l(theta)
+
+                # u_inner is the limiting surface arc length
+                gamma = theta+np.pi*3/4
+                d = law_cos((self.r1-self.minOverwrite),self.c,gamma)
+                alpha = np.arccos((self.r+self.r1)/d)
+                delta = law_cos_angle(d, (self.r1+self.r), l_base)
+                # delta - alpha is the overall arc of the tendon
+                # on the inner surface
+                u_inner = (delta-alpha)*self.r1
+                # We then add either side of the bent lengths on the
+                # 'outer' (convergent circle) surfaces
+
+                epsilon =  law_sin_angle(l_base, delta, d)
+
+                # u_outer +=
+                self._u_outer_distal = (np.pi/2+theta/2-epsilon)*self.r
+                # print(u_outer)
+                # ^^ Distal link
+                omega = np.arcsin((self.c*np.cos(np.pi/4)+
+                                  (self.r1-self.minOverwrite)*np.sin(theta))/d)
+
+                # u_outer +=
+                self._u_outer_proximal = (omega-alpha)*self.r
+                # print((omega-alpha)*self.r)
+                # print(f"omega {omega}")
+                # print(f"alpha {alpha}")
+                # print(f"opposite {(self.c*np.cos(np.pi/4), (self.r1)*np.sin(theta))}")
+                # ^^ Proximal link
+                u_outer = self._u_outer_distal+self._u_outer_proximal
+                return [(u_outer, self.r), (u_inner, self.r1)]
+
+        def joint_curvature(self, theta):
+            """
+            This function return (length, radius of curvature) tuples for each
+            length of tendon within the joint, from distal to proximal
+            """
+            if theta > self.angleThreshold:
+                return [(self.u(theta)/2, self.r),
+                        (self.l(theta),   np.inf),
+                        (self.u(theta)/2, self.r)]
+            else:
+                us = self.u(theta)
+                return [(self._u_outer_distal, self.r),
+                         us[-1],
+                        (self.l(theta), np.inf),
+                        (self._u_outer_proximal, self.r)]
 
         def __call__(self, theta):
+            """
+            Return the moment arm for a given joint angle
+            """
+            # if the moment arm is below the breakover threshold, use the 
+            # inner surface model
             if theta <= self.angleThreshold:
                 return self.minim_function(theta)
+            # otherwise use the outer surface model from the base class
             else:
                 return super().__call__(theta)
-            # return np.max([self.base_function(theta), self.minim_function(theta)])
 
         def sym(self):
+            """
+            deprecated
+            """
             theta = sy.symbols(f'theta_{self.idx[0]+1}')
             expr = self.c*sy.cos((np.pi/2-theta)/2)-self.r
             return sy.Piecewise((expr, expr > self.minOverwrite), (self.minOverwrite, True))
@@ -2048,7 +2149,7 @@ testbedFinger4 = VariableStrucMatrix(R, D, ranges = [es2[0]]+[fs2[0]]*3
 
 if __name__ == "__main__":
     S = testbedFinger4
-    theta = 90*np.pi/180
+    theta = 10*np.pi/180
     print(S.j0t0r.c, S.j0t0r.r)
     print(S.j0t0r(theta))
     print(S.j0t0r.l(theta))
@@ -2058,11 +2159,18 @@ if __name__ == "__main__":
     print(S.j0t1r(theta))
     print(S.j0t1r.l(theta))
     print(S.j0t1r.u(theta))
-    print(S.j0t1r.angleThreshold)
     thetas = np.linspace(0, np.pi/2, 100)
     arms = np.array([S.j0t1r(theta) for theta in thetas])
+    # farms = lambda ts: np.array([S.j0t1r(t) for t in ts])
     plt.plot(thetas, arms)
-    # plt.show()
+    # plt.plot(thetas, farms(thetas))
+    from scipy.differentiate import derivative
+    plt.plot(thetas, derivative(np.vectorize(S.j0t1r), thetas).df)
+    # plt.plot(thetas, derivative(derivative(np.vectorize(S.j0t1r), thetas).df, thetas).df)
+    plt.vlines([S.j0t1r.angleThreshold, theta],
+                S.j0t1r.min, S.j0t1r.max,
+                colors=['blue','red'])
+    plt.show()
     # sy.pprint(S.S_sym(), wrap_line=False)
     # Ss = S.S_sym()
     # theta1 = sy.symbols('theta_1')
