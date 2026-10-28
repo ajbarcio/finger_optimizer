@@ -5,6 +5,8 @@ import sympy as sy
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 import matplotlib.animation as animation
+import matplotlib.colors as mcolors
+
 import warnings
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.optimize import linprog, root_scalar
@@ -2157,14 +2159,66 @@ testbedFinger4 = VariableStrucMatrix(R, D, ranges = [es2[0]]+[fs2[0]]*3
 # endregion
 
 #region animations
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import numpy as np
+
 # ---------------------------------------------------------------------------
-# Curvature map (now returns tags)
+# Colors
+# ---------------------------------------------------------------------------
+
+_SEGMENT_COLORS = {
+    'static':    'black',
+    'extension': 'red',
+    'flexion':   'blue',
+}
+_VLINE_THETA_COLOR     = 'green'   # moving theta indicator
+_VLINE_THRESHOLD_COLOR = 'tab:blue'  # static breakover angle
+
+_COLOR_ANCHORS = {
+    'extension': ('#FF9999', '#8B0000'),   # light red  → dark red
+    'flexion':   ('#99CCFF', '#00008B'),   # light blue → dark blue
+    'static':    '#000000',                # always black, no gradient needed
+}
+_EXTENSION_COLORS = [
+    '#E63946',   # J0 — red
+    '#F4A261',   # J1 — orange
+    '#6B3A2A',   # J2 — brown
+    '#E9C46A',   # J3 — golden yellow (extra)
+    '#A4303F',   # J4 — crimson (extra)
+]
+
+_FLEXION_COLORS = [
+    '#457B9D',   # J0 — steel blue
+    '#9B5DE5',   # J1 — purple
+    '#2A9D8F',   # J2 — teal
+    '#48CAE4',   # J3 — sky blue (extra)
+    '#6A0572',   # J4 — deep violet (extra)
+]
+_STATIC_COLOR = '#000000'
+
+def _joint_color(joint_type: str, joint_idx: int) -> str:
+    """
+    Returns the color for a given joint type and joint index.
+
+    Parameters
+    ----------
+    joint_type : 'extension', 'flexion', or 'static'
+    joint_idx  : 0-based joint index
+    """
+    if joint_type == 'static':
+        return _STATIC_COLOR
+    palette = _EXTENSION_COLORS if joint_type == 'extension' else _FLEXION_COLORS
+    return palette[joint_idx % len(palette)]   # modulo guards against oversized structures
+
+# ---------------------------------------------------------------------------
+# Curvature map (with tags)
 # ---------------------------------------------------------------------------
 
 def curvature_map(structure, static_lengths, static_radii, THETA):
     """
-    Returns [all_tendon_lengths, all_tendon_curvatures, all_tendon_tags]
-    where tags are 'static' or 'dynamic' per segment.
+    Returns [all_tendon_lengths, all_tendon_curvatures, all_tendon_tags].
+    Tags are 'static', 'extension', or 'flexion'.
     """
     all_tendon_lengths    = []
     all_tendon_curvatures = []
@@ -2186,11 +2240,11 @@ def curvature_map(structure, static_lengths, static_radii, THETA):
             # --- static segments ---
             if isinstance(static_lengths[n][m], float):
                 lengths.append(static_lengths[n][m])
-                tags.append('static')
+                tags.append(('static', n))
             elif isinstance(static_lengths[n][m], tuple):
                 for length in static_lengths[n][m]:
                     lengths.append(length)
-                    tags.append('static')
+                    tags.append(('static', n))
 
             if isinstance(static_radii[n][m], float):
                 curvatures.append(static_radii[n][m])
@@ -2199,17 +2253,13 @@ def curvature_map(structure, static_lengths, static_radii, THETA):
                     curvatures.append(r)
 
             # --- dynamic segments ---
-            lcps = joint_function.joint_curvature(theta)
             if isinstance(joint_function,
                           VariableStrucMatrix.convergent_circles_extension_joint):
-                dynamic_tag = 'extension'
-            elif (isinstance(joint_function,
-                             VariableStrucMatrix.ideal_convergent_circles_joint_with_limit)
-                  or
-                  isinstance(joint_function,
-                             VariableStrucMatrix.convergent_circles_joint)):
-                dynamic_tag = 'flexion'
-            dynamic_tag = 'extension' if isinstance(joint_function, VariableStrucMatrix.convergent_circles_extension_joint) else 'flexion'
+                dynamic_tag = ('extension', n)
+            else:
+                dynamic_tag = ('flexion', n)
+
+            lcps = joint_function.joint_curvature(theta)
             for lcp in lcps:
                 lengths.append(lcp[0])
                 curvatures.append(lcp[1])
@@ -2223,14 +2273,10 @@ def curvature_map(structure, static_lengths, static_radii, THETA):
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Curvature figure helpers
 # ---------------------------------------------------------------------------
-_SEGMENT_COLORS = {
-    'static':    'black',
-    'extension': 'red',
-    'flexion':   'blue',
-}
-_SEGMENT_TAG = '_curvature_segment'   # attribute used to identify our lines
+
+_SEGMENT_TAG = '_curvature_segment'
 
 
 def _bounds_from_results(all_frames, num_tendons):
@@ -2253,10 +2299,6 @@ def _bounds_from_results(all_frames, num_tendons):
 
 
 def _build_curvature_figure(num_tendons, tendon_labels, x_maxs, y_mins, y_maxs):
-    """
-    Creates figure and axes with limits/labels set.
-    No line artists are pre-created — _draw_curvature_frame owns that.
-    """
     y_pads       = [0.1 * (y_maxs[i] - y_mins[i]) or 0.1 for i in range(num_tendons)]
     x_global_max = max(x_maxs) * 1.05 or 1.0
 
@@ -2282,20 +2324,12 @@ def _build_curvature_figure(num_tendons, tendon_labels, x_maxs, y_mins, y_maxs):
 
 
 def _draw_curvature_frame(curvature_map_result, axes):
-    """
-    Clears previous segment lines and redraws each segment individually,
-    coloring static segments black and dynamic (joint) segments red.
-    Vertical step connectors inherit the color of the departing segment.
-
-    Returns all newly drawn line artists.
-    """
     all_tendon_lengths, all_tendon_curvatures, all_tendon_tags = curvature_map_result
     all_artists = []
 
     for ax, lengths, radii, tags in zip(
         axes, all_tendon_lengths, all_tendon_curvatures, all_tendon_tags
     ):
-        # Remove only our tagged segment lines, leaving axhline/grid intact
         for line in ax.lines[:]:
             if getattr(line, _SEGMENT_TAG, False):
                 line.remove()
@@ -2307,16 +2341,15 @@ def _draw_curvature_frame(curvature_map_result, axes):
         cumulative_lengths = np.concatenate(([0.0], np.cumsum(lengths)))
 
         for j, (kappa, tag) in enumerate(zip(curvatures, tags)):
-            color = _SEGMENT_COLORS.get(tag, 'black')
+            joint_type, joint_idx = tag
+            # color = _SEGMENT_COLORS.get(tag, 'black')
+            color = _joint_color(joint_type, joint_idx)
             x0, x1 = cumulative_lengths[j], cumulative_lengths[j + 1]
 
-            # Horizontal segment
             (h,) = ax.plot([x0, x1], [kappa, kappa], color=color, linewidth=1.5)
             setattr(h, _SEGMENT_TAG, True)
             all_artists.append(h)
 
-            # Vertical connector to the next segment (step transition)
-            # Inherits the color of the departing (current) segment
             if j < len(curvatures) - 1:
                 (v,) = ax.plot(
                     [x1, x1], [kappa, curvatures[j + 1]],
@@ -2326,6 +2359,112 @@ def _draw_curvature_frame(curvature_map_result, axes):
                 all_artists.append(v)
 
     return all_artists
+
+
+# ---------------------------------------------------------------------------
+# Moment arm figure helpers
+# ---------------------------------------------------------------------------
+
+def _build_moment_arm_figure(structure, theta_range=None):
+    """
+    Builds a figure with one subplot per joint. For each joint, plots the
+    moment arm vs theta for all extension tendons (red) and flexion tendons
+    (blue) as static series. Draws a static orange vline at angleThreshold
+    for each flexion function. Returns the figure, axes, and a list of the
+    moving green vlines (one per joint).
+
+    Parameters
+    ----------
+    structure : VariableStrucMatrix
+    theta_range : tuple (min, max), optional
+        Range of theta values to plot over. Defaults to (0, pi/2).
+    """
+    if theta_range is None:
+        theta_range = (0, np.pi / 2)
+
+    num_joints   = structure.numJoints
+    theta_plot   = np.linspace(theta_range[0], theta_range[1], 300)
+
+    fig, axes = plt.subplots(
+        num_joints, 1,
+        figsize=(8, 3 * num_joints),
+        sharex=True,
+    )
+    if num_joints == 1:
+        axes = [axes]
+
+    moving_vlines = []   # one per joint, updated each frame
+
+    for n, ax in enumerate(axes):
+        ext_plotted = False
+        flex_plotted = False
+
+        for m in range(structure.numTendons):
+            idx = (n, m)
+            if idx not in structure.indexed_effort_functions:
+                continue
+
+            joint_function = structure.indexed_effort_functions[idx]
+
+            is_extension = isinstance(
+                joint_function,
+                VariableStrucMatrix.convergent_circles_extension_joint,
+            )
+            joint_type = 'extension' if is_extension else 'flexion'
+            # color  = 'red'  if is_extension else 'blue'
+            color = _joint_color(joint_type, n)
+            label  = ('Extension' if (is_extension and not ext_plotted)
+                      else 'Flexion' if (not is_extension and not flex_plotted)
+                      else None)
+
+            # Vectorise the moment arm call over theta_plot
+            moment_arms = np.array([joint_function(t) for t in theta_plot])
+            ax.plot(theta_plot, moment_arms, color=color, linewidth=1.5,
+                    label=label, alpha=0.85)
+
+            if is_extension:
+                ext_plotted = True
+            else:
+
+                # Static vline at breakover angle (once per joint)
+                if hasattr(joint_function, 'angleThreshold') and not flex_plotted:
+                    ax.axvline(
+                        joint_function.angleThreshold,
+                        color=_VLINE_THRESHOLD_COLOR,
+                        linewidth=1.2,
+                        linestyle='--',
+                        label='Breakover angle',
+                        zorder=3,
+                    )
+                flex_plotted = True
+
+        # Moving theta vline — starts at left edge
+        vline = ax.axvline(
+            theta_range[0],
+            color=_VLINE_THETA_COLOR,
+            linewidth=1.5,
+            linestyle='-',
+            label='θ',
+            zorder=4,
+        )
+        moving_vlines.append(vline)
+
+        ax.set_title(f"Joint {n} — Moment Arms")
+        ax.set_ylabel("Moment arm (in)")
+        ax.grid(True, linestyle=':', alpha=0.6)
+        ax.legend(fontsize=8, loc='best')
+
+    axes[-1].set_xlabel("Joint angle θ (rad)")
+    fig.tight_layout()
+    return fig, axes, moving_vlines
+
+
+def _draw_moment_arm_frame(THETA, moving_vlines):
+    """
+    Updates each joint's moving vline to the current theta for that joint.
+    """
+    for n, vline in enumerate(moving_vlines):
+        vline.set_xdata([THETA[n], THETA[n]])
 
 
 # ---------------------------------------------------------------------------
@@ -2345,7 +2484,7 @@ def plot_curvature_maps(curvature_map_result, tendon_labels=None):
     return fig, axes
 
 
-def animate_curvature_maps(
+def animate_combined(
     structure,
     static_lengths,
     static_radii,
@@ -2353,33 +2492,74 @@ def animate_curvature_maps(
     tendon_labels=None,
     interval=50,
     repeat=True,
+    theta_range=None,
 ):
+    """
+    Animates both the curvature map and moment arm figures in sync over
+    a joint angle trajectory.
+
+    Parameters
+    ----------
+    structure : VariableStrucMatrix
+    static_lengths, static_radii : array-like
+    theta_trajectory : list[list[float]]
+        theta_trajectory[frame][joint]
+    tendon_labels : list[str], optional
+    interval : int, optional
+        Milliseconds between frames (default: 50).
+    repeat : bool, optional
+    theta_range : tuple (min, max), optional
+        Theta range for the moment arm plots. Defaults to (min, max) across
+        the trajectory.
+
+    Returns
+    -------
+    fig_curv, fig_ma, anim
+        The two figures and the single FuncAnimation driving both.
+    """
     num_tendons = structure.numTendons
     num_frames  = len(theta_trajectory)
 
     if tendon_labels is None:
         tendon_labels = [f"Tendon {i}" for i in range(num_tendons)]
 
+    if theta_range is None:
+        flat = np.array(theta_trajectory).flatten()
+        theta_range = (flat.min(), flat.max())
+
+    # --- pre-compute curvature frames ---
     all_frames = [
         curvature_map(structure, static_lengths, static_radii, THETA)
         for THETA in theta_trajectory
     ]
 
+    # --- build curvature figure ---
     x_maxs, y_mins, y_maxs = _bounds_from_results(all_frames, num_tendons)
-    fig, axes = _build_curvature_figure(num_tendons, tendon_labels, x_maxs, y_mins, y_maxs)
-
-    frame_label = fig.text(
+    fig_curv, axes_curv = _build_curvature_figure(
+        num_tendons, tendon_labels, x_maxs, y_mins, y_maxs
+    )
+    frame_label = fig_curv.text(
         0.5, 1.0, "",
         ha="center", va="top",
-        fontsize=10, transform=fig.transFigure,
+        fontsize=10, transform=fig_curv.transFigure,
     )
 
-    def update(frame_idx):
-        _draw_curvature_frame(all_frames[frame_idx], axes)
-        frame_label.set_text(f"Frame {frame_idx + 1} / {num_frames}")
+    # --- build moment arm figure ---
+    fig_ma, axes_ma, moving_vlines = _build_moment_arm_figure(structure, theta_range)
 
+    # --- shared update ---
+    def update(frame_idx):
+        THETA = theta_trajectory[frame_idx]
+        _draw_curvature_frame(all_frames[frame_idx], axes_curv)
+        _draw_moment_arm_frame(THETA, moving_vlines)
+        frame_label.set_text(f"Frame {frame_idx + 1} / {num_frames}")
+        # Redraw both canvases manually (blit=False)
+        fig_curv.canvas.draw_idle()
+        fig_ma.canvas.draw_idle()
+
+    # Drive animation from fig_curv; fig_ma redraws via canvas calls above
     anim = animation.FuncAnimation(
-        fig,
+        fig_curv,
         update,
         frames=num_frames,
         interval=interval,
@@ -2388,7 +2568,7 @@ def animate_curvature_maps(
     )
 
     plt.show()
-    return fig, anim
+    return fig_curv, fig_ma, anim
 #endregion
 
 #region main
@@ -2421,17 +2601,17 @@ if __name__ == "__main__":
                                           static_radii,
                                           [theta,2*theta,3*theta])
 
-    thetas = np.linspace(0, np.pi/2, 100)
-    arms = np.array([S.j0t1r(theta) for theta in thetas])
-    # # farms = lambda ts: np.array([S.j0t1r(t) for t in ts])
-    plt.plot(thetas, arms)
-    # # plt.plot(thetas, farms(thetas))
-    # from scipy.differentiate import derivative
-    # plt.plot(thetas, derivative(np.vectorize(S.j0t1r), thetas).df)
-    # # plt.plot(thetas, derivative(derivative(np.vectorize(S.j0t1r), thetas).df, thetas).df)
-    plt.vlines([S.j0t1r.angleThreshold, theta],
-                S.j0t1r.min, S.j0t1r.max,
-                colors=['blue','red'])
+    # thetas = np.linspace(0, np.pi/2, 100)
+    # arms = np.array([S.j0t1r(theta) for theta in thetas])
+    # # # farms = lambda ts: np.array([S.j0t1r(t) for t in ts])
+    # plt.plot(thetas, arms)
+    # # # plt.plot(thetas, farms(thetas))
+    # # from scipy.differentiate import derivative
+    # # plt.plot(thetas, derivative(np.vectorize(S.j0t1r), thetas).df)
+    # # # plt.plot(thetas, derivative(derivative(np.vectorize(S.j0t1r), thetas).df, thetas).df)
+    # plt.vlines([S.j0t1r.angleThreshold, theta],
+    #             S.j0t1r.min, S.j0t1r.max,
+    #             colors=['blue','red'])
     # plot_curvature_maps(full_curvature_map, tendon_labels=["E", "FE", "FFE", "FFF"])
     # plt.show()
     num_frames = 100
@@ -2445,9 +2625,12 @@ if __name__ == "__main__":
         ]
         theta_trajectory.append(THETA)
 
-    # print(theta_trajectory)
-    animate_curvature_maps(S, static_lengths, static_radii, theta_trajectory,
+    animate_combined(S, static_lengths, static_radii, theta_trajectory,
                            tendon_labels=["E", "EF", "EFF", "FFF"])
+
+    # print(theta_trajectory)
+    # animate_curvature_maps(S, static_lengths, static_radii, theta_trajectory,
+    #                        tendon_labels=["E", "EF", "EFF", "FFF"])
     # plt.show()
 
     # sy.pprint(S.S_sym(), wrap_line=False)
