@@ -4,6 +4,7 @@ import sympy as sy
 
 from matplotlib import pyplot as plt
 from matplotlib import ticker
+import matplotlib.animation as animation
 import warnings
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.optimize import linprog, root_scalar
@@ -1168,6 +1169,11 @@ class VariableStrucMatrix():
             # Gain acces to unstrung length 'u'
             return [(2*self.r*(theta/2), self.r)]
 
+        def joint_curvature(self, theta):
+            return [(self.u(theta)[0][0]/2, self.r),
+                    (self.l(theta), np.inf),
+                    (self.u(theta)[0][0]/2, self.r)]
+
         def sym(self):
             theta = sy.symbols(f'theta_{self.idx[0]+1}')
             return self.r+(self.c-self.r)*sy.sin(np.pi/4+theta/2)
@@ -1200,6 +1206,11 @@ class VariableStrucMatrix():
             # Gain acces to unstrung length 'u'
             # (and associated radius of curvature)
             return [(2*self.r*(theta/2), self.r)]
+
+        def joint_curvature(self, theta):
+            return [(self.u(theta)[0][0]/2, self.r),
+                    (self.l(theta), np.inf),
+                    (self.u(theta)[0][0]/2, self.r)]
 
         def __call__(self, theta):
             return self.c*np.cos((np.pi/2-theta)/2)-self.r
@@ -1336,9 +1347,7 @@ class VariableStrucMatrix():
             length of tendon within the joint, from distal to proximal
             """
             if theta > self.angleThreshold:
-                return [(self.u(theta)/2, self.r),
-                        (self.l(theta),   np.inf),
-                        (self.u(theta)/2, self.r)]
+                return super().joint_curvature(theta)
             else:
                 us = self.u(theta)
                 return [(self._u_outer_distal, self.r),
@@ -1350,7 +1359,7 @@ class VariableStrucMatrix():
             """
             Return the moment arm for a given joint angle
             """
-            # if the moment arm is below the breakover threshold, use the 
+            # if the moment arm is below the breakover threshold, use the
             # inner surface model
             if theta <= self.angleThreshold:
                 return self.minim_function(theta)
@@ -2147,9 +2156,278 @@ testbedFinger4 = VariableStrucMatrix(R, D, ranges = [es2[0]]+[fs2[0]]*3
 #                                            name = "Sdev")
 # endregion
 
+# region Curvature Maps
+def curvature_map(structure: VariableStrucMatrix | StrucMatrix,
+                    static_lengths,
+                    static_radii,
+                    THETA):
+    all_tendon_lengths = []
+    all_tendon_curvatures = []
+    # for each tendon
+    for m in range(structure.numTendons):
+        # build alist of lengths and associated curvatures for each tendon
+        lengths = []
+        curvatures = []
+        # iterating across the joints, distal to proximal
+        for n in reversed(range(structure.numJoints)):
+            # prepare index and function
+            theta = THETA[n]
+            idx = (n, m)
+            if not idx in structure.indexed_effort_functions.keys():
+                continue
+            else:
+                joint_function = structure.indexed_effort_functions[idx]
+                # append the distal static length of each tendon
+                if isinstance(static_lengths[n][m], float):
+                    lengths.append(static_lengths[n][m])
+                elif isinstance(static_lengths[n][m], tuple):
+                    for length in static_lengths[n][m]:
+                        lengths.append(length)
+                if isinstance(static_radii[n][m], float):
+                    curvatures.append(static_radii[n][m])
+                elif isinstance(static_radii[n][m], tuple):
+                    for radii in static_radii[n][m]:
+                        curvatures.append(radii)
+                # append the dynamic lengths for each tendon
+                # length-curvature pairs:
+                try:
+                    lcps = joint_function.joint_curvature(theta)
+                    for i in range(len(lcps)):
+                        lengths.append(lcps[i][0])
+                        curvatures.append(lcps[i][1])
+                except TypeError:
+                    print("AYOOOOOOOOOO")
+                    print(n, m)
+                    print(joint_function.idx)
+                    print(theta)
+                    print(lcps)
+                    raise TypeError
+        all_tendon_lengths.append(lengths)
+        all_tendon_curvatures.append(curvatures)
+    return [all_tendon_lengths, all_tendon_curvatures]
+
+
+def _build_curvature_figure(num_tendons, tendon_labels, x_maxs, y_mins, y_maxs):
+    """
+    Creates the figure, axes, and empty line artists for curvature plots.
+    Returns the figure, axes, step lines, and trailing hlines.
+    All limits are set from the provided bounds.
+
+    Parameters
+    ----------
+    num_tendons : int
+    tendon_labels : list[str]
+    x_maxs : list[float]   per-tendon max cumulative length
+    y_mins : list[float]   per-tendon min curvature
+    y_maxs : list[float]   per-tendon max curvature
+    """
+    y_pads = [0.1 * (y_maxs[i] - y_mins[i]) or 0.1 for i in range(num_tendons)]
+    x_global_max = max(x_maxs) *1.05 or 1.0
+
+    fig, axes = plt.subplots(
+        num_tendons, 1,
+        figsize=(8, 3 * num_tendons),
+        sharex=True,
+    )
+    if num_tendons == 1:
+        axes = [axes]
+
+    step_lines = []
+    hlines     = []
+
+    for i, ax in enumerate(axes):
+        (line,)  = ax.step([], [], where="post", linewidth=1.5)
+        (hline,) = ax.plot([], [], linewidth=1.5, color=line.get_color())
+        step_lines.append(line)
+        hlines.append(hline)
+
+        ax.set_xlim(0, x_global_max)
+        ax.set_ylim(y_mins[i] - y_pads[i], y_maxs[i] + y_pads[i])
+        ax.set_title(tendon_labels[i])
+        ax.set_xlabel("Length along tendon (in)")
+        ax.set_ylabel("Curvature κ = 1/r (in⁻¹)")
+        ax.axhline(0, color="gray", linewidth=0.8, linestyle="--")
+        ax.grid(True, linestyle=":", alpha=0.6)
+
+    fig.tight_layout()
+    return fig, axes, step_lines, hlines
+
+
+def _draw_curvature_frame(curvature_map_result, step_lines, hlines):
+    """
+    Populates existing line artists with data from one curvature_map result.
+    Returns the list of updated artists (safe for blit).
+
+    Parameters
+    ----------
+    curvature_map_result : list
+        [all_tendon_lengths, all_tendon_curvatures] from curvature_map().
+    step_lines : list[Line2D]
+    hlines     : list[Line2D]
+    """
+    all_tendon_lengths, all_tendon_curvatures = curvature_map_result
+    artists = []
+
+    for i, (lengths, radii) in enumerate(zip(all_tendon_lengths, all_tendon_curvatures)):
+        if not lengths or not radii:
+            step_lines[i].set_data([], [])
+            hlines[i].set_data([], [])
+            artists += [step_lines[i], hlines[i]]
+            continue
+
+        curvatures         = [1.0 / r if r != 0 else 0.0 for r in radii]
+        cumulative_lengths = np.concatenate(([0.0], np.cumsum(lengths)))
+
+        step_lines[i].set_data(cumulative_lengths[:-1], curvatures)
+        hlines[i].set_data(
+            [cumulative_lengths[-2], cumulative_lengths[-1]],
+            [curvatures[-1],         curvatures[-1]],
+        )
+        artists += [step_lines[i], hlines[i]]
+
+    return artists
+
+
+def _bounds_from_results(all_frames, num_tendons):
+    """
+    Scans a list of curvature_map results and returns per-tendon
+    (x_maxs, y_mins, y_maxs) suitable for axis limits.
+    """
+    y_mins = [+np.inf] * num_tendons
+    y_maxs = [-np.inf] * num_tendons
+    x_maxs = [0.0]     * num_tendons
+
+    for lengths_frame, radii_frame in all_frames:
+        for i in range(num_tendons):
+            lengths = lengths_frame[i]
+            radii   = radii_frame[i]
+            if not lengths or not radii:
+                continue
+            curvatures = [1.0 / r if r != 0 else 0.0 for r in radii]
+            x_maxs[i] = max(x_maxs[i], float(np.sum(lengths)))
+            y_mins[i] = min(y_mins[i], min(curvatures))
+            y_maxs[i] = max(y_maxs[i], max(curvatures))
+
+    return x_maxs, y_mins, y_maxs
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def plot_curvature_maps(curvature_map_result, tendon_labels=None):
+    """
+    Plots curvature (1/rc) vs. length along tendon for each tendon.
+
+    Parameters
+    ----------
+    curvature_map_result : list
+        The [all_tendon_lengths, all_tendon_curvatures] output of curvature_map().
+    tendon_labels : list[str], optional
+        Names for each tendon subplot. Defaults to "Tendon 0", "Tendon 1", etc.
+
+    Returns
+    -------
+    fig, axes
+    """
+    num_tendons = len(curvature_map_result[0])
+
+    if tendon_labels is None:
+        tendon_labels = [f"Tendon {i}" for i in range(num_tendons)]
+
+    x_maxs, y_mins, y_maxs = _bounds_from_results([curvature_map_result], num_tendons)
+    fig, axes, step_lines, hlines = _build_curvature_figure(
+        num_tendons, tendon_labels, x_maxs, y_mins, y_maxs
+    )
+    _draw_curvature_frame(curvature_map_result, step_lines, hlines)
+
+    return fig, axes
+
+
+def animate_curvature_maps(
+    structure,
+    static_lengths,
+    static_radii,
+    theta_trajectory,
+    tendon_labels=None,
+    interval=50,
+    repeat=True,
+):
+    """
+    Animates curvature (1/rc) vs. length along tendon for each tendon
+    over a trajectory of joint angle vectors.
+
+    Parameters
+    ----------
+    structure : VariableStrucMatrix | StrucMatrix
+    static_lengths : array-like
+    static_radii : array-like
+    theta_trajectory : list[list[float]]
+        theta_trajectory[frame][joint]
+    tendon_labels : list[str], optional
+    interval : int, optional
+        Milliseconds between frames (default: 50).
+    repeat : bool, optional
+
+    Returns
+    -------
+    fig, anim
+    """
+    num_tendons = structure.numTendons
+    num_frames  = len(theta_trajectory)
+
+    if tendon_labels is None:
+        tendon_labels = [f"Tendon {i}" for i in range(num_tendons)]
+
+    # Pre-compute all frames
+    all_frames = [
+        curvature_map(structure, static_lengths, static_radii, THETA)
+        for THETA in theta_trajectory
+    ]
+
+    x_maxs, y_mins, y_maxs = _bounds_from_results(all_frames, num_tendons)
+    fig, axes, step_lines, hlines = _build_curvature_figure(
+        num_tendons, tendon_labels, x_maxs, y_mins, y_maxs
+    )
+
+    frame_label = fig.text(
+        0.5, 1.0, "",
+        ha="center", va="top",
+        fontsize=10, transform=fig.transFigure,
+    )
+
+    def update(frame_idx):
+        artists = _draw_curvature_frame(all_frames[frame_idx], step_lines, hlines)
+        frame_label.set_text(f"Frame {frame_idx + 1} / {num_frames}")
+        return artists  # frame_label intentionally excluded — fig-level artist crashes blit
+
+    anim = animation.FuncAnimation(
+        fig,
+        update,
+        frames=num_frames,
+        interval=interval,
+        blit=False,
+        repeat=repeat,
+    )
+
+    plt.show()
+    return fig, anim
+#endregion
+
+#region main
 if __name__ == "__main__":
+
+    static_lengths = [[(.2192, .3327), .8374, .0822, .0822],
+                          [ 0,             .6880, (.06824, .1070), (.06824, .1070)],
+                          [ 0,             0,     .5484,           .3789]]
+    static_radii = [[(np.inf, .5209), .5217, np.inf, np.inf],
+                    [ 0, 1.1623, (.5198, np.inf), (.5198, np.inf)],
+                    [ 0, 0,      .5220,           89.0663]]
+
+
     S = testbedFinger4
-    theta = 10*np.pi/180
+    theta = 0*np.pi/180
+    # theta = 0.3217095618999032
     print(S.j0t0r.c, S.j0t0r.r)
     print(S.j0t0r(theta))
     print(S.j0t0r.l(theta))
@@ -2159,18 +2437,42 @@ if __name__ == "__main__":
     print(S.j0t1r(theta))
     print(S.j0t1r.l(theta))
     print(S.j0t1r.u(theta))
-    thetas = np.linspace(0, np.pi/2, 100)
-    arms = np.array([S.j0t1r(theta) for theta in thetas])
-    # farms = lambda ts: np.array([S.j0t1r(t) for t in ts])
-    plt.plot(thetas, arms)
-    # plt.plot(thetas, farms(thetas))
-    from scipy.differentiate import derivative
-    plt.plot(thetas, derivative(np.vectorize(S.j0t1r), thetas).df)
-    # plt.plot(thetas, derivative(derivative(np.vectorize(S.j0t1r), thetas).df, thetas).df)
-    plt.vlines([S.j0t1r.angleThreshold, theta],
-                S.j0t1r.min, S.j0t1r.max,
-                colors=['blue','red'])
-    plt.show()
+    print(S.j0t1r.joint_curvature(theta))
+
+    # print(curvature_map(S, static_lengths, static_radii, theta))
+    full_curvature_map = curvature_map(S, static_lengths,
+                                          static_radii,
+                                          [theta,2*theta,3*theta])
+
+    # thetas = np.linspace(0, np.pi/2, 100)
+    # arms = np.array([S.j0t1r(theta) for theta in thetas])
+    # # farms = lambda ts: np.array([S.j0t1r(t) for t in ts])
+    # plt.plot(thetas, arms)
+    # # plt.plot(thetas, farms(thetas))
+    # from scipy.differentiate import derivative
+    # plt.plot(thetas, derivative(np.vectorize(S.j0t1r), thetas).df)
+    # # plt.plot(thetas, derivative(derivative(np.vectorize(S.j0t1r), thetas).df, thetas).df)
+    # plt.vlines([S.j0t1r.angleThreshold, theta],
+    #             S.j0t1r.min, S.j0t1r.max,
+    #             colors=['blue','red'])
+    # plot_curvature_maps(full_curvature_map, tendon_labels=["E", "FE", "FFE", "FFF"])
+    # plt.show()
+    num_frames = 100
+    t = np.linspace(0, np.pi / 2, num_frames)
+    joint_angles = np.sin(t) * (np.pi / 2)  # shape: (num_frames,)
+    theta_trajectory = []
+    for frame in range(num_frames):
+        THETA = [
+            np.sin(t[frame]) * (np.pi / 2)
+            for n in range(3)
+        ]
+        theta_trajectory.append(THETA)
+
+    # print(theta_trajectory)
+    animate_curvature_maps(S, static_lengths, static_radii, theta_trajectory,
+                           tendon_labels=["E", "FE", "FFE", "FFF"])
+    # plt.show()
+
     # sy.pprint(S.S_sym(), wrap_line=False)
     # Ss = S.S_sym()
     # theta1 = sy.symbols('theta_1')
