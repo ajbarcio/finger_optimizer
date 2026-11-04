@@ -2364,6 +2364,10 @@ def _draw_curvature_frame(curvature_map_result, axes):
 # ---------------------------------------------------------------------------
 # Moment arm figure helpers
 # ---------------------------------------------------------------------------
+def plot_static_moment_arm_figure(structure, THETA=[0,0,0]):
+    fig, ax, vlines = _build_moment_arm_figure(structure)
+    _draw_moment_arm_frame(THETA, vlines)
+    plt.show()
 
 def _build_moment_arm_figure(structure, theta_range=None):
     """
@@ -2419,7 +2423,7 @@ def _build_moment_arm_figure(structure, theta_range=None):
 
             # Vectorise the moment arm call over theta_plot
             moment_arms = np.array([joint_function(t) for t in theta_plot])
-            ax.plot(theta_plot, moment_arms, color=color, linewidth=1.5,
+            ax.plot(theta_plot, moment_arms, color=color, linewidth=2.75,
                     label=label, alpha=0.85)
 
             if is_extension:
@@ -2596,6 +2600,8 @@ if __name__ == "__main__":
     print(S.j0t1r.u(theta))
     print(S.j0t1r.joint_curvature(theta))
 
+    # plot_static_moment_arm_figure(S, [np.pi/4,np.pi/4,np.pi/4])
+
     # print(curvature_map(S, static_lengths, static_radii, theta))
     full_curvature_map = curvature_map(S, static_lengths,
                                           static_radii,
@@ -2614,6 +2620,7 @@ if __name__ == "__main__":
     #             colors=['blue','red'])
     # plot_curvature_maps(full_curvature_map, tendon_labels=["E", "FE", "FFE", "FFF"])
     # plt.show()
+
     num_frames = 100
     t = np.linspace(0, np.pi / 2, num_frames)
     joint_angles = np.sin(t) * (np.pi / 2)  # shape: (num_frames,)
