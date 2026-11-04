@@ -5,7 +5,8 @@ from scipy.spatial import ConvexHull, QhullError, HalfspaceIntersection
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3D
+from matplotlib.collections import PolyCollection
 from scipy.differentiate import jacobian
 from itertools import combinations
 from math import comb
@@ -405,11 +406,6 @@ def best_condition(subspace):
         # return success and best condition of vector in null space
         return includes_c, np.max(closest)/np.min(closest)
 
-def generate_binary_lists(length):
-    # Generates a cartesian product of [0, 1] repeated 'length' times
-    for combo in itertools.product([0, 1], repeat=length):
-        yield list(combo)
-
 def unique_piecewise_functions(S: sy.Matrix):
     """
     Returns a set of unique Piecewise expressions in a sympy Matrix S
@@ -436,9 +432,6 @@ def sym_pinv(S: sy.Matrix):
     else:
         print('wtf is wrong with you')
         return None
-
-def hArray(M: ndarray, strn):
-   return strn+" "+str(M).replace('\n', '\n'+' '*(len(strn)+1))
 
 def identify_strict_sign_central(S: ndarray):
     success = True
@@ -494,7 +487,179 @@ def identify_strict_central(S: ndarray, boundsOverride=False):
     # print(res.x)
     return res.success, res.x
 
+def signings_of_order(m, strict=False):
+   if strict:
+    vals = [1,-1]
+   else:
+    vals = [0,1,-1]
+   n = len(vals)
+   signings = np.zeros([n**m, m, m])
+   combs = list(itertools.product(vals, repeat=m))
+   for i in range(n**m):
+      signings[i,:,:] = np.diag(combs[i])
+   if not strict:
+      signings = np.delete(signings, 0, axis=0)
+   return signings
 
+def strict_signings_of_order(m):
+   return signings_of_order(m, strict=True)
+
+def nullity(basis):
+  return null_space(basis).shape[1]
+
+def intersects_negative_orthant(basis): #basis is a d x N matrix where the ith row is v_i
+  # print(basis)
+  # print(basis.shape)
+  basis = np.atleast_2d(basis)
+  (d, N) = basis.shape
+  M = basis.T
+
+  if matrix_rank(basis) == N: #if basis spans R^N
+    return True
+
+  A = M #negative sign for >=
+  # print(A)
+  b = np.zeros(N)
+  for i in range(N):
+    c = M[i,:] #negative sign to maximize
+    # print("c", c)
+    opt = linprog(c, A, b)
+    # print(opt.status)
+    # print(opt.fun)
+    # print(opt.x)
+    if opt.status == 2: #infeasible
+      return False
+    elif opt.status == 3: #unbounded
+      continue
+    elif opt.fun >= 0: #optimal value is not positive
+      return False
+
+  return True
+
+def intersects_positive_orthant(basis): #basis is a d x N matrix where the ith row is v_i
+  # print(basis)
+  # print(basis.shape)
+  basis = np.atleast_2d(basis)
+  (d, N) = basis.shape
+  M = basis.T
+
+  if matrix_rank(basis) == N: #if basis spans R^N
+    return True
+
+  A = -M #negative sign for >=
+  # print(A)
+  b = np.zeros(N)
+  for i in range(N):
+    c = -M[i,:] #negative sign to maximize
+    # print("c", c)
+    opt = linprog(c, A, b)
+    # print(opt.status)
+    # print(opt.fun)
+    # print(opt.x)
+    if opt.status == 2: #infeasible
+      return False
+    elif opt.status == 3: #unbounded
+      continue
+    elif opt.fun <= 0: #optimal value is not positive
+      return False
+
+  return True
+# endregion
+
+# region General helpers
+def hArray(M: ndarray, strn):
+   return strn+" "+str(M).replace('\n', '\n'+' '*(len(strn)+1))
+
+def clean_array(arr, tol=1e-8):
+    arr_np = np.asarray(arr, dtype=float)  # ensures vectorized ops
+    arr_np[np.isclose(arr_np, 0, atol=tol)] = 0
+
+    # return same type as input
+    if isinstance(arr, np.ndarray):
+        return arr_np
+    elif isinstance(arr, tuple):
+        return tuple(arr_np.tolist())
+    elif isinstance(arr, list):
+        return arr_np.tolist()
+    else:
+        return arr_np
+# endregion
+
+# region Kinematics
+def rot(q,l):
+    return np.array([[np.cos(q), -np.sin(q), l],
+                     [np.sin(q),  np.cos(q), 0],
+                     [0,                 0,  1]])
+
+def trans(dx,dy,dz): # 3D translation matrix
+    trans=np.eye(4) # create identity matrix
+    trans[:,3] = np.array([dx,dy,dz,1]) # add translation vector to last column
+    return trans
+
+"""[WARNING] The coordinate frame for RAD finger differs from Valero Cuevas where RAD: (adab=Ry, fe=Rz) and Cuevas: (adab=Rz, fe=Rx). Comments and descriptions are relative to RAD 
+        coordinate frame but current code is for Valero Cuevas.
+    When switching between RAD and Cuevas coordinate frames, you must also reflect the length change in dx, dy, and dz where RAD: (dx,dy,dz=L,0,0) and Cuevas: (dx,dy,dz=0,L,0)"""
+
+def fe_trans(Q,L): # rotation and translation matrix about y-axis (ad-abduction angle) 
+    c=np.cos(Q); s=np.sin(Q)
+    dx,dy,dz=0,L,0 # translation vector across length of phalange (x)
+    Rx=np.array([  # rotation matrix about y-axis
+        [1,0,0,0], 
+        [0,c,-s,0],
+        [0,s,c,0],
+        [0,0,0,1]], dtype=float)
+    return Rx @ trans(dx,dy,dz) # returns transformation matrix
+def adab_trans(Q,L): # rotation and translation matrix about z-axis (flexion-extension angle)
+    c=np.cos(Q); s=np.sin(Q)
+    dx,dy,dz=0,L,0 # translation vector across length of phalange (x)
+    Rz=np.array([  # rotation matrix about z-axis
+        [c,-s,0,0], 
+        [s, c,0,0],
+        [0, 0,1,0],
+        [0, 0,0,1]], dtype=float)
+    return Rz @ trans(dx,dy,dz) # returns transformation matrix
+def transform(Q,L): # transform the world frame to end effector frame given joint angles and link lengths
+    # pass num_joints? check if number of link lengths are equal to number of joints?
+    Q = np.asarray(Q)
+    if len(Q) != len(L):
+        raise ValueError("Each input Q must have a respective length L for all joints")
+    origin = np.transpose(np.array([0,0,0,1])) # world/global coordinate (x,y,z,1)=(0,0,0,1)
+    trans = np.eye(4) # identity matrix to compile all matrix transformations
+    has_adab = len(Q) == 4 # check before Q and L are sliced below
+
+    if has_adab: # if there are more DOF than phalange lengths, assume first joint is ad-abduction and remaining are flexion-extension
+        T = adab_trans(Q[0],0) # MCP ad-abduction transformation matrix (0 length relative to origin) 
+        Q = Q[1:]; L = L[1:] # remove first element of Q and L
+        trans = trans @ T # transform origin to new coordinate frame
+
+    for idx in range(len(Q)): # for each joint angle and length, find the transformation matrix
+        T = fe_trans(Q[idx],L[idx]) # rotation and translation matrix
+        
+        trans = trans @ T
+    pos = (trans @ origin)[:3] # apply full transform to origin
+
+    if not has_adab: # 3 DOF: no ad-adbuction
+        return np.append(pos[1:],np.sum(Q)) # [y, z, sum of angles] (3x3 jacobian)
+    else:
+        return np.append(pos, np.sum(Q)) # [x, y, z, sum of angles] (4x4 jacobian)
+
+def jac(Q,L): # FIXME needs attribute joint type
+    # if singularity is detected??? (maybe) collapse the jacobian matrix (aka remove a DOF) and return the new jacobian matrix
+    # figure out how to get the function to work with 2d and 3d inputs (1x3 and 1x4 arrays)
+    # attribute of joint type....? this seems like a good idea, input joint type when inputting angles so transformation is correct
+    def end_effector(Q): # input to scipy jacobian must ALWAYS be a function
+        Q = np.asarray(Q)
+
+        if Q.ndim > 1: # scipy jacobian reshapes Q and is very evil, code below uses witchcraft to fix the issue ¯\_ (ツ)_/¯
+            Q_flat = Q.reshape(Q.shape[0], -1)  # collapse all batch dims → (4, k)
+            return np.stack([transform(Q_flat[:, i], L) for i in range(Q_flat.shape[1])], axis=1)
+        
+        return transform(Q, L) # get the end effector position [x,y,z] without trailing 1
+    J = jacobian(end_effector,Q) # get the jacobian matrix of the end effector position with respect to the joint angles
+    return J.df # return the jacobian matrix
+# endregion
+
+# region Structure matrix enumeration and canonical forms
 def worker_chunk(D, signs, positions, chunk_start, chunk_end,
                  counter, counter_lock, return_dict, worker_id):
 
@@ -562,172 +727,6 @@ def worker_chunk(D, signs, positions, chunk_start, chunk_end,
 
     # store results
     return_dict[worker_id] = seen
-
-def signings_of_order(m, strict=False):
-   if strict:
-    vals = [1,-1]
-   else:
-    vals = [0,1,-1]
-   n = len(vals)
-   signings = np.zeros([n**m, m, m])
-   combs = list(itertools.product(vals, repeat=m))
-   for i in range(n**m):
-      signings[i,:,:] = np.diag(combs[i])
-   if not strict:
-      signings = np.delete(signings, 0, axis=0)
-   return signings
-
-def strict_signings_of_order(m):
-   return signings_of_order(m, strict=True)
-
-def clean_array(arr, tol=1e-8):
-    arr_np = np.asarray(arr, dtype=float)  # ensures vectorized ops
-    arr_np[np.isclose(arr_np, 0, atol=tol)] = 0
-
-    # return same type as input
-    if isinstance(arr, np.ndarray):
-        return arr_np
-    elif isinstance(arr, tuple):
-        return tuple(arr_np.tolist())
-    elif isinstance(arr, list):
-        return arr_np.tolist()
-    else:
-        return arr_np
-
-def rot(q,l):
-    return np.array([[np.cos(q), -np.sin(q), l],
-                     [np.sin(q),  np.cos(q), 0],
-                     [0,                 0,  1]])
-
-# def f_for_jac(Q, L):
-#     # Q = np.asarray(Q).reshape(-1)
-#     return trans(Q, L) @ np.array([0, 0, 1])
-
-# def ee_func(x, l):
-#     x = np.asarray(x)
-#     # If jacobian passes shape (m, k) with k==1, reduce to (m,)
-#     if x.ndim > 1:
-#         # collapse trailing axes -> shape (m, k)
-#         x = x.reshape(x.shape[0], -1)
-#         if x.shape[1] == 1:
-#             # single point: use 1D vector
-#             qvec = x[:, 0]
-#             out = (trans(qvec, l) @ np.array([0, 0, 1]))
-#         else:
-#             # batch of k points: compute each column
-#             k = x.shape[1]
-#             out = np.empty((3, k))
-#             for col in range(k):
-#                 out[:, col] = trans(x[:, col], l) @ np.array([0, 0, 1])
-#     else:
-#         print("wrong way")
-#         # already 1-D
-#         out = trans(x, l) @ np.array([0, 0, 1])
-#     if out.ndim==1:
-#        out = np.atleast_2d(out).T
-#     return out
-
-def ee_func(x, l): # 'ee' meaning 'end effector
-    x = np.asarray(x)
-    # If jacobian passes shape (m, k) with k==1, reduce to (m,)
-    if x.ndim > 1:
-        # collapse trailing axes -> shape (m, k)
-        x = x.reshape(x.shape[0], -1)
-        if x.shape[1] == 1:
-            # single point: use 1D vector
-            qvec = x[:, 0]
-            out = (trans(qvec, l) @ np.array([0, 0, 1]))
-        else:
-            # batch of k points: compute each column
-            k = x.shape[1]
-            out = np.empty((3, k))
-            for col in range(k):
-                out[:, col] = trans(x[:, col], l) @ np.array([0, 0, 1])
-    else:
-        out = trans(x, l) @ np.array([0, 0, 1])
-    if out.ndim==1:
-       out = np.atleast_2d(out).T
-    return out
-
-def trans(Q, L):
-    # print('trans call')
-    if Q.ndim == 2:
-        Q = Q[:,0]
-    trans = np.eye(3)
-    # print(Q)
-    # print(L)
-    for i in range(len(Q)+1):
-        # print(Q[i] if 0<=i<len(Q) else 0)
-        # print(L[i-1] if 0<=i-1<len(Q) else 0)
-        trans = trans @ rot(Q[i] if 0<=i<len(Q) else 0, L[i-1] if 0<=i-1<len(Q) else 0)
-    # print(trans)
-    return(trans)
-
-def jac(Q, L):
-    if len(Q) == 1:
-        if not len(L) == 1:
-           print("EXPECT ISSUES, SIZE MISMATCH")
-    # print(Q,L)
-    # x = trans(Q, L) @ np.array([0,0,1])
-    def w_ee_func(Q):
-       return ee_func(Q,L)
-    J = jacobian(w_ee_func, Q)
-    return J.df
-
-def volume_centroid(points):
-    hull = ConvexHull(points)
-    total_volume = 0
-    weighted_centroid = np.zeros(3)
-    origin = np.mean(points[hull.vertices], axis=0)
-
-    for simplex in hull.simplices:
-        # Each simplex is a triangle (face); use it to form a tetrahedron with the origin
-        p0 = origin
-        p1, p2, p3 = points[simplex]
-
-        tetra = np.array([p0, p1, p2, p3])
-        centroid = np.mean(tetra, axis=0)
-
-        # Volume of tetrahedron
-        v = np.abs(np.dot(np.cross(p1 - p0, p2 - p0), p3 - p0)) / 6
-
-        weighted_centroid += centroid * v
-        total_volume += v
-
-    return weighted_centroid / total_volume
-
-class DegenerateHull():
-   def __init__(self) -> None:
-      self.volume = 0
-
-def intersection_with_orthant(hull: ConvexHull, orthant):
-  orthant = orthant-1
-  intersection_with_orthant.signs = [(-1)**int(bit) for bit in format(orthant, f'03b')]
-  orthVectors = np.vstack([np.diag(intersection_with_orthant.signs), [0,0,0]])*1000 # make it arbitrarily large to fit any torque capability
-  Orthant = ConvexHull(orthVectors)
-  # print(Orthant.equations)
-  halfspace = (np.vstack([Orthant.equations, hull.equations]))
-  try:
-    for point in hull.points:
-      if in_hull3(Orthant, point):
-        centroid  = volume_centroid(hull.points)
-        direction = centroid - point
-        direction = direction/np.linalg.norm(direction)
-        epsilon   = 1e-3
-        intersection_with_orthant.interiorPoint = point+epsilon*direction
-        break
-      else:
-        intersection_with_orthant.interiorPoint = np.diag([1e-6]*len(intersection_with_orthant.signs)) @ intersection_with_orthant.signs
-    # print('calculating intersection')
-    hs = HalfspaceIntersection(halfspace, intersection_with_orthant.interiorPoint)
-    # print(hs)
-    vertices = hs.intersections
-    intersection = ConvexHull(vertices)
-    # print('worked')
-  except QhullError:
-    # print('excepted')
-    intersection = DegenerateHull()
-  return intersection
 
 def generate_structure_matrix_variants(A):
     m, n = A.shape
@@ -798,7 +797,6 @@ def canonical_form_stream(mat):
    search((), set(range(mat.shape[1])))
    return best
 
-# WE ARE DONE DOING CHAT SHIT
 
 def generate_matrices_from_pattern(D, value_set={-1, 0, 1}):
     D = np.array(D)
@@ -977,107 +975,75 @@ def remove_isomorphic_QUTSM(matrices):
             unique.append(np.array(canon))
 
     return unique
+# endregion
 
+# region Convex hulls
+def generate_binary_lists(length):
+    # Generates a cartesian product of [0, 1] repeated 'length' times
+    for combo in itertools.product([0, 1], repeat=length):
+        yield list(combo)
 
-def hsv_to_rgb(h, s, v):
-   # Assume h, s, v are all given on [0,1]
-   c = v*s
-   x = c*(1-abs(h/(1/6) % 2 - 1))
-   m = v - c
-   if h<1/6:
-      return [c,x,0]
-   elif h<2/6:
-      return [x,c,0]
-   elif h<3/6:
-      return [0,c,x]
-   elif h<4/6:
-      return [0,x,c]
-   elif h<5/6:
-      return [x,0,c]
-   elif h<6/6:
-      return [c,0,x]
+def solve_for_feasible_excitations(A, b):
+    c = np.zeros(len(b))
+    res = linprog(c, A_eq=A, b_eq=b, bounds=(0,1))
+    # if res.success:
+    #     print(np.linalg.norm(res.con))
+    return res.x, res.success
 
-def get_existing_3d_axes():
-    for num in plt.get_fignums():
-        fig = plt.figure(num)
-        for ax in fig.get_axes():
-            if isinstance(ax, Axes3D):
-                return ax
-    return None
+def volume_centroid(points):
+    hull = ConvexHull(points)
+    total_volume = 0
+    weighted_centroid = np.zeros(3)
+    origin = np.mean(points[hull.vertices], axis=0)
 
-def get_existing_axes():
-    # Get the current figure manager, if any figures exist
-    if not plt.get_fignums():
-        return None  # No figures exist at all
+    for simplex in hull.simplices:
+        # Each simplex is a triangle (face); use it to form a tetrahedron with the origin
+        p0 = origin
+        p1, p2, p3 = points[simplex]
 
-    # Loop through existing figures to find one with axes
-    for num in plt.get_fignums():
-        fig = plt.figure(num)
-        axes = fig.get_axes()
-        if axes:
-            return axes[0]  # Return first existing Axes
-    return None  # No axes found
+        tetra = np.array([p0, p1, p2, p3])
+        centroid = np.mean(tetra, axis=0)
 
-def nullity(basis):
-  return null_space(basis).shape[1]
+        # Volume of tetrahedron
+        v = np.abs(np.dot(np.cross(p1 - p0, p2 - p0), p3 - p0)) / 6
 
-def intersects_negative_orthant(basis): #basis is a d x N matrix where the ith row is v_i
-  # print(basis)
-  # print(basis.shape)
-  basis = np.atleast_2d(basis)
-  (d, N) = basis.shape
-  M = basis.T
+        weighted_centroid += centroid * v
+        total_volume += v
 
-  if matrix_rank(basis) == N: #if basis spans R^N
-    return True
+    return weighted_centroid / total_volume
 
-  A = M #negative sign for >=
-  # print(A)
-  b = np.zeros(N)
-  for i in range(N):
-    c = M[i,:] #negative sign to maximize
-    # print("c", c)
-    opt = linprog(c, A, b)
-    # print(opt.status)
-    # print(opt.fun)
-    # print(opt.x)
-    if opt.status == 2: #infeasible
-      return False
-    elif opt.status == 3: #unbounded
-      continue
-    elif opt.fun >= 0: #optimal value is not positive
-      return False
+class DegenerateHull():
+   def __init__(self) -> None:
+      self.volume = 0
 
-  return True
-
-def intersects_positive_orthant(basis): #basis is a d x N matrix where the ith row is v_i
-  # print(basis)
-  # print(basis.shape)
-  basis = np.atleast_2d(basis)
-  (d, N) = basis.shape
-  M = basis.T
-
-  if matrix_rank(basis) == N: #if basis spans R^N
-    return True
-
-  A = -M #negative sign for >=
-  # print(A)
-  b = np.zeros(N)
-  for i in range(N):
-    c = -M[i,:] #negative sign to maximize
-    # print("c", c)
-    opt = linprog(c, A, b)
-    # print(opt.status)
-    # print(opt.fun)
-    # print(opt.x)
-    if opt.status == 2: #infeasible
-      return False
-    elif opt.status == 3: #unbounded
-      continue
-    elif opt.fun <= 0: #optimal value is not positive
-      return False
-
-  return True
+def intersection_with_orthant(hull: ConvexHull, orthant):
+  orthant = orthant-1
+  intersection_with_orthant.signs = [(-1)**int(bit) for bit in format(orthant, f'03b')]
+  orthVectors = np.vstack([np.diag(intersection_with_orthant.signs), [0,0,0]])*1000 # make it arbitrarily large to fit any torque capability
+  Orthant = ConvexHull(orthVectors)
+  # print(Orthant.equations)
+  halfspace = (np.vstack([Orthant.equations, hull.equations]))
+  try:
+    for point in hull.points:
+      if in_hull3(Orthant, point):
+        centroid  = volume_centroid(hull.points)
+        direction = centroid - point
+        direction = direction/np.linalg.norm(direction)
+        epsilon   = 1e-3
+        intersection_with_orthant.interiorPoint = point+epsilon*direction
+        break
+      else:
+        intersection_with_orthant.interiorPoint = np.diag([1e-6]*len(intersection_with_orthant.signs)) @ intersection_with_orthant.signs
+    # print('calculating intersection')
+    hs = HalfspaceIntersection(halfspace, intersection_with_orthant.interiorPoint)
+    # print(hs)
+    vertices = hs.intersections
+    intersection = ConvexHull(vertices)
+    # print('worked')
+  except QhullError:
+    # print('excepted')
+    intersection = DegenerateHull()
+  return intersection
 
 def special_minkowski(points):
   width = len(points)+2
@@ -1099,7 +1065,6 @@ def special_minkowski(points):
   return hull, boundaryPoints
 
 def special_minkowski_with_mins(points, minCoeffs):
-
   # this is apparently the amount of digits in the binary value 2**len(points)
   width = len(points)+2
   # vertexes for convex hull
@@ -1150,6 +1115,75 @@ def in_hull3(hull, x):
   tol = -1e-3
   return np.all(hull.equations @ np.append(x,1) <= tol)
 
+def _shared_hull(hull_a: ConvexHull, hull_b: ConvexHull, tol=1e-6): # FIXME: not sure if this is right
+    """Region shared by two hulls, as a ConvexHull; None if they share no volume (disjoint or only touching)."""
+    # a point p is inside both hulls only when a@p + b <= 0 for every row
+    halfspaces = np.vstack([hull_a.equations, hull_b.equations]) # [a₁, a₂, b] = A_ub + b_ub
+    n = hull_a.points.shape[1] # number of dimensions (2 or 3)
+
+    # linprog unknowns: x = [p, r] -> ball center p (n values) and radius r
+    c = np.zeros(n+1); c[-1] = -1 # c@x = -r; linprog only minimizes, so minimizing -r maximizes r
+    A_ub = np.hstack([halfspaces[:, :-1], np.ones((len(halfspaces), 1))]) # A_ub@x = [a₁, a₂, 1] @ [p₁, p₂, r] = a₁*p₁ + a₂*p₂ + 1*r = a@p + r
+
+    # linprog: minimize c@x such that A_ub@x <= b_ub
+    res = linprog(c, A_ub=A_ub, b_ub=-halfspaces[:, -1], bounds=[(None, None)]*n + [(0, None)]) # [(None, None)]*n: center undefined, [(0, None)]: r can't be negative
+    if not res.success or res.x[-1] <= tol:
+        return None
+
+    halfspaceIntersection = HalfspaceIntersection(halfspaces, res.x[:-1]).intersections # corners of the region inside every plane, using the ball's center (res.x[:-1] = p) as its starting point
+    return ConvexHull(halfspaceIntersection) # wraps the corners into a hull so the caller can use .volume (area in 2D)
+
+def hull_containment(hull: ConvexHull, base: ConvexHull, tol=1e-6):
+    """
+    Where hull sits relative to base.
+
+    Parameters
+    ----------
+    hull : scipy.spatial.ConvexHull
+        hull being evaluated
+    base : scipy.spatial.ConvexHull
+        reference hull it is compared against (same dimension)
+    tol : float (optional)
+        distance tolerance, in the hulls' units
+
+    Returns
+    -------
+    relation : str
+        'contained' (every vertex of hull is in base), 'overlapping' (shared volume, but not contained), or 'disjoint' (no shared volume)
+    """
+    V = hull.points[hull.vertices] # corners of hull
+
+    # checks a@x + b <= tol for every face plane (a, b) of base and every corner x of hull at once:
+    if np.all(base.equations[:, :-1] @ V.T + base.equations[:, -1:] <= tol): # hull's corners (V.T) are inside base only when they're on the inner side of all of base's planes
+        return 'contained'
+
+    # some corner is outside, so hull is overlapping or disjoint
+    return 'disjoint' if _shared_hull(hull, base, tol) is None else 'overlapping' # check for shared volume (overlapping)
+
+def hull_similarity(hull: ConvexHull, base: ConvexHull):
+    """
+    How similar hull is to base.
+
+    Parameters
+    ----------
+    hull : scipy.spatial.ConvexHull
+        hull being evaluated
+    base : scipy.spatial.ConvexHull
+        reference hull it is compared against
+
+    Returns
+    -------
+    enclosed : float
+        fraction of hull's volume that lies inside base (1 = fully enclosed, 0 = none)
+    volume_diff : float
+        how much bigger base is than hull, as a fraction of hull's volume (0.5 = base is 50% bigger, -0.5 = base is 50% smaller)
+    """
+    shared = _shared_hull(hull, base)
+    v_shared = 0.0 if shared is None else shared.volume # volume is area in 2D
+    enclosed, volume_diff = v_shared/hull.volume, (base.volume - hull.volume)/hull.volume
+
+    return enclosed, volume_diff
+
 def find_axis_extent_lp(vertices, axis_direction):
     m, n = vertices.shape
     d = axis_direction / np.linalg.norm(axis_direction)  # unit vector
@@ -1197,6 +1231,94 @@ def find_axis_extent_lp(vertices, axis_direction):
     p_min = t_min * d
     p_max = t_max * d
     return p_min, p_max
+# endregion
+
+# region Plotting
+def hsv_to_rgb(h, s, v):
+   # Assume h, s, v are all given on [0,1]
+   c = v*s
+   x = c*(1-abs(h/(1/6) % 2 - 1))
+   m = v - c
+   if h<1/6:
+      return [c,x,0]
+   elif h<2/6:
+      return [x,c,0]
+   elif h<3/6:
+      return [0,c,x]
+   elif h<4/6:
+      return [0,x,c]
+   elif h<5/6:
+      return [x,0,c]
+   elif h<6/6:
+      return [c,0,x]
+
+def get_existing_3d_axes():
+    for num in plt.get_fignums():
+        fig = plt.figure(num)
+        for ax in fig.get_axes():
+            if isinstance(ax, Axes3D):
+                return ax
+    return None
+
+def get_existing_axes():
+    # Get the current figure manager, if any figures exist
+    if not plt.get_fignums():
+        return None  # No figures exist at all
+
+    # Loop through existing figures to find one with axes
+    for num in plt.get_fignums():
+        fig = plt.figure(num)
+        axes = fig.get_axes()
+        if axes:
+            return axes[0]  # Return first existing Axes
+    return None  # No axes found
+
+def plot2D_ConvexHull(hull : ConvexHull, ax=None, ax_labels=None, title=None, label=None, color='cyan', font=16, show_interior=True):
+    if ax is None:
+        ax = plt.figure().add_subplot()
+
+    pts = hull.points
+    shown = pts if show_interior else pts[hull.vertices] # all points (incl. interior), or just the corners
+    ax.scatter(*shown.T, color=color, s=10, label=label) # label = legend entry
+
+    hull_surface = PolyCollection([pts[hull.vertices]], facecolor=(color, 0.05), edgecolor=color, linewidths=1.5) # 2D vertices are CCW-ordered
+    ax.add_collection(hull_surface)
+
+    if ax_labels is not None:
+        ax.set_xlabel(ax_labels[0], fontsize=font); ax.set_ylabel(ax_labels[1], fontsize=font)
+    if title is not None:
+        ax.set_title(title, fontsize=font)
+
+    # formatting stuff (draw "axes" through origin, etc.)
+    ax.axhline(0, color='black', linewidth=1, linestyle='--'); ax.axvline(0, color='black', linewidth=1, linestyle='--')
+    return ax
+
+def plot3D_ConvexHull(hull : ConvexHull, ax=None, ax_labels=None, title=None, label=None, color='cyan', font=16, show_interior=False):
+    if ax is None:
+        ax = plt.figure().add_subplot(projection='3d')
+
+    pts = hull.points
+    shown = pts if show_interior else pts[hull.vertices] # all points (incl. interior), or just the corners (less clutter in 3D)
+    ax.scatter(*shown.T, color=color, s=10, label=label) # label = legend entry
+
+    vertices = [pts[simplex] for simplex in hull.simplices]
+    hull_surface = Poly3DCollection(vertices, facecolor=(color, 0.05), edgecolor=color, linewidths=0.3)
+    ax.add_collection3d(hull_surface)
+
+    if ax_labels is not None:
+        ax.set_xlabel(ax_labels[0], fontsize=font); ax.set_ylabel(ax_labels[1], fontsize=font); ax.set_zlabel(ax_labels[2], fontsize=font)
+    if title is not None:
+        ax.set_title(title, fontsize=font)
+
+    # formatting stuff (draw "axes" through origin, etc.), redrawn each call to span every hull on this ax
+    # add_artist (not ax.plot) so these lines don't count as data and push the limits out
+    for line in getattr(ax, '_origin_lines', []): line.remove()
+    xlim, ylim, zlim = ax.get_xlim(), ax.get_ylim(), ax.get_zlim()
+    ax._origin_lines = [ax.add_artist(Line3D(xlim, [0, 0], [0, 0], color='black', linewidth=1, linestyle='--')),
+                        ax.add_artist(Line3D([0, 0], ylim, [0, 0], color='black', linewidth=1, linestyle='--')),
+                        ax.add_artist(Line3D([0, 0], [0, 0], zlim, color='black', linewidth=1, linestyle='--'))]
+    return ax
+# endregion
 
 if __name__ == '__main__':
    print(signings_of_order(3)[0])
