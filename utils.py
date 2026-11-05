@@ -1,16 +1,22 @@
 from scipy.optimize import linprog
-from numpy.linalg import matrix_rank
 from scipy.linalg import null_space
 from scipy.spatial import ConvexHull, QhullError, HalfspaceIntersection
+from scipy.differentiate import jacobian
+
 import numpy as np
+from numpy import ndarray
+from numpy.linalg import matrix_rank
+
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3D
 from matplotlib.collections import PolyCollection
-from scipy.differentiate import jacobian
+from matplotlib.animation import FuncAnimation
+
+import itertools
 from itertools import combinations
+
 from math import comb
-from numpy import ndarray
 
 import sympy as sy
 
@@ -26,11 +32,7 @@ colors = [
     'xkcd:bright red',     # #ff000d – warning-light red
     'xkcd:bright turquoise' # #0ffef9 – glowing aqua
 ]
-import itertools
 
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 
 def law_cos(a, b, gamma):
     c = np.sqrt(a**2 + b**2 - 2*a*b*np.cos(gamma))

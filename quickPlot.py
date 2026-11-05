@@ -15,24 +15,29 @@ import itertools
 #     [  1, -1, -1,  1,  0],
 #     [ -1, -1, -1, -1,  1],
 #     [  0,  0,  0,  0,  0],
-D = np.array([
-    [  0,  0,  0,  0],
-    [ -1,  1, -1,  1],
-    [  1,  1, -1, -1]
-    ])
-
-test = StrucMatrix(S=D)
-test.plotCapability(showBool=True)
-
-D = np.array([
-    [-1,  1,  1,  1, -1],  # Row 4
-    [-1,  1,  1,  1,  0],  # Row 1: Element (1,5) is 0
-    [ 0, -1,  1,  1,  0],  # Row 2: Element (2,5) is 0
-    [ 0,  0, -1,  1,  0],  # Row 3
-    ])
+D =np.array([[-1, 0, 0, 1],
+             [ 0,-1, 0, 1],
+             [ 0, 0,-1, 1]])
 print(D)
-print(identify_sign_central(D))
 print(identify_strict_sign_central(D))
+# D = np.array([
+#     [  0,  0,  0,  0],
+#     [ -1,  1, -1,  1],
+#     [  1,  1, -1, -1]
+#     ])
+
+# test = StrucMatrix(S=D)
+# test.plotCapability(showBool=True)
+
+# D = np.array([
+#     [-1,  1,  1,  1, -1],  # Row 4
+#     [-1,  1,  1,  1,  0],  # Row 1: Element (1,5) is 0
+#     [ 0, -1,  1,  1,  0],  # Row 2: Element (2,5) is 0
+#     [ 0,  0, -1,  1,  0],  # Row 3
+#     ])
+# print(D)
+# print(identify_sign_central(D))
+# print(identify_strict_sign_central(D))
 # elements = [-1, 0, 1]
 # arrays = []
 # for a in range(3**5):
