@@ -831,8 +831,8 @@ if __name__ == "__main__":
             plt.grid(True)
 
     else:
-        v_result = np.loadtxt("global_attempt.smx")
-        np.savetxt("result_without_distal_forces")
+        v_result = np.loadtxt("optimizer_smx/global_attempt.smx")
+        np.savetxt("optimizer_smx/result_without_distal_forces")
 
     # ─── Post-processing ─────────────────────────────────────────────────────────
     for i in range(5):
