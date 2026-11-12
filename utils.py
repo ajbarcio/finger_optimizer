@@ -644,7 +644,7 @@ def transform(Q,L): # transform the world frame to end effector frame given join
     origin = np.transpose(np.array([0,0,0,1])) # world/global coordinate (x,y,z,1)=(0,0,0,1)
     has_adab = len(Q) == 4 # check before Q and L are sliced below
     pos = (trans @ origin)[:3] # apply full transform to origin
-
+    pos[1] *= -1
     if not has_adab: # 3 DOF: no ad-adbuction
         return np.append(pos[1:],np.sum(Q)) # [y, z, sum of angles] (3x3 jacobian)
     else:
