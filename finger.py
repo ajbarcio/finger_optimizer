@@ -15,7 +15,7 @@ import itertools as it
 
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
-
+import matplotlib.colors as mcolors
 # Optional importgit
 # try:
 #     import i3ipc
@@ -290,9 +290,17 @@ class Finger():
         convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof, space='task')
         return self.plot_Capability(convex_hull, ax, title, labels, label, color)
 
-    def plot_links(self, THETA, ax=None):
+    def plot_links(self, THETA, ax=None, color=None):
         if ax is None:
             ax = plt.figure().add_subplot()
+        if color is None:
+            color = 'black'
+        else:
+            color = mcolors.to_hex(color)
+            color_val = (color.lstrip('#'))
+            channel_vals = np.array([int(color_val[i:j],16) for i, j in zip([0,2,4],[2,4,6])], dtype=int)
+            channel_vals = channel_vals // 2 # darken
+            color = f'#{int(channel_vals[0]):02x}{int(channel_vals[1]):02x}{int(channel_vals[2]):02x}'
         cum_THETA = np.cumsum(THETA)
         lengths = np.array(self.lengths)/.0254 if self.units=='N' else self.lengths
         steps = np.column_stack((
@@ -305,10 +313,11 @@ class Finger():
         coords = np.cumsum(steps, axis=0)
         # print(coords)
         coords = np.vstack([[0,0],coords])
-        ax.plot(coords[:,0], coords[:,1], marker='o', linestyle='-', linewidth=3, color='black')
+        ax.plot(coords[:,0], coords[:,1], marker='o', linestyle='-', linewidth=3, color=color)
         ax.set_aspect('equal')
 
     def plot_taskCapabilityOnFinger(self, THETA, hull_scale=0.1, ax=None, f_max=None, constrained_dof=None, title=None, labels=None, label=None, color='cyan'):
+        # print(constrained_dof)
         convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof, space='task')
         dim = convex_hull.points.shape[-1]+1
 
@@ -321,9 +330,8 @@ class Finger():
         scaled_hull = transform_ConvexHull(convex_hull, scale_transform)
 
         ax = self.plot_Capability(transformed_hull, ax, title, labels, label, color)
-        ax = self.plot_Capability(scaled_hull, ax, title, labels, label, color)
-        return self.plot_links(THETA, ax)
-
+        # ax = self.plot_Capability(scaled_hull, ax, title, labels, label, color)
+        return self.plot_links(THETA, ax, color)
 
     def plot_jointCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None, label=None, color='cyan'):
         convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof, space='joint')
@@ -419,14 +427,24 @@ def compare_capabilities(cases, title=None, task_labels=None, joint_labels=None)
     """
     n, first = cases[0]['finger'].numJoints, cases[0]
     fig = plt.figure(figsize=(14, 6))
-    axTask  = fig.add_subplot(1, 2, 1, projection='3d' if n-len(first['task_dof'])==3 else None) # 3 unconstrained efforts -> 3D, 2 -> 2D
-    axJoint = fig.add_subplot(1, 2, 2, projection='3d' if n-len(first['joint_dof'])==3 else None)
+    gs  = fig.add_gridspec(2, 2, figure=fig)
+    axTask  = fig.add_subplot(gs[:,0], projection='3d' if n-len(first['task_dof'])==3 else None) # 3 unconstrained efforts -> 3D, 2 -> 2D
+    axJoint = fig.add_subplot(gs[0,1], projection='3d' if n-len(first['joint_dof'])==3 else None)
+    axFing  = fig.add_subplot(gs[1,1], projection='3d' if n-len(first['task_dof'])==3 else None)
 
     finger: Finger
 
     for i, case in enumerate(cases):
         color = case.get('color', colors[i % len(colors)]) # optional per-case override, else cycle (wraps if more fingers than colors)
         finger, THETA, f_max = case['finger'], case['THETA'], case.get('f_max')
+        finger.plot_taskCapabilityOnFinger(THETA, ax=axFing,
+                                                  f_max=f_max,
+                                                  constrained_dof=case['task_dof'],
+                                                  title='Feasible Task Capabilities',
+                                                  labels=None,
+                                                  label=finger.name,
+                                                  color=color)
+        # Add a finger.plot_taskCapability call here
         finger.plot_taskCapability(THETA, axTask, f_max, case['task_dof'], 'Feasible Task Capabilities', task_labels, finger.name, color)
         finger.plot_jointCapability(THETA, axJoint, f_max, case['joint_dof'], 'Feasible Joint Capabilities', joint_labels, finger.name, color)
 
@@ -456,14 +474,14 @@ from time import perf_counter
 if __name__=="__main__":
     print("figuring out jacobian sign")
 
-    print("--")
+    # print("--")
 
-    THETA  = np.radians(np.array([0,45,45,10]))
-    finger = valeroFinger
-    # finger.plot_links(THETA)
-    finger.plot_taskCapabilityOnFinger(THETA, f_max=valero.Fo(THETA), constrained_dof=[0,3])
-    # plt.show()
-    print("--")
+    # THETA  = np.radians(np.array([0,45,45,10]))
+    # finger = valeroFinger
+    # # finger.plot_links(THETA)
+    # finger.plot_taskCapabilityOnFinger(THETA, f_max=valero.Fo(THETA), constrained_dof=[0,3])
+    # # plt.show()
+    # print("--")
 
     finger = testbedFinger4
     THETA = np.radians(np.array([0,0,30]))
