@@ -461,7 +461,7 @@ if __name__=="__main__":
     THETA  = np.radians(np.array([0,45,45,10]))
     finger = valeroFinger
     # finger.plot_links(THETA)
-    finger.plot_taskCapabilityOnFinger(THETA, constrained_dof=[0,3])
+    finger.plot_taskCapabilityOnFinger(THETA, f_max=valero.Fo(THETA), constrained_dof=[0,3])
     # plt.show()
     print("--")
 
@@ -471,7 +471,7 @@ if __name__=="__main__":
     print(wrench)
     print("--")
     print(finger.get_jacobian_at_pose(THETA) @ np.array([1,0,0]))
-    print("Order is clearly [Distal, Palmar, Torque] with + oriented INTO the finger"
+    print("Order is clearly [Distal, Palmar, Torque] with + oriented OUT OF the finger"
           "and towards the palm")
 
     THETA = np.radians(np.array([0,0,0,30]))
@@ -480,7 +480,7 @@ if __name__=="__main__":
     # print(wrench)
     # print("--")
     print(finger.get_jacobian_at_pose(THETA) @ np.array([0,1,0,0]))
-    print("Order matches [Distal, Palmar, Torque] with + oriented INTO the finger"
+    print("Order matches [Distal, Palmar, Torque] with + oriented OUT OF the finger"
               "and towards the palm")
 
     # print("Actually Starting math")
@@ -493,8 +493,10 @@ if __name__=="__main__":
 
     joint_labels = joint_labels=[r'$\tau_{1}$ (lbf-in)', r'$\tau_{2}$ (lbf-in)', r'$\tau_{3}$ (lbf-in)']
     task_labels=['Distal (lbf)', 'Palmar (lbf)']
-    titles = ['Flexion Pose', 'Intermediate Pose', 'Extension Pose']
-    THETAS = [THETA_f, THETA_i, THETA_e]
+    # titles = ['Flexion Pose', 'Intermediate Pose', 'Extension Pose']
+    # THETAS = [THETA_f, THETA_i, THETA_e]
+    titles = ['Flexion Pose']
+    THETAS = [THETA_f]
     for THETA, title in zip(THETAS, titles):
         # define cases for comparison
         cases = [
