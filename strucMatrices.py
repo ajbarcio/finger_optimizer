@@ -79,6 +79,7 @@ class StrucMatrix():
             self.F = np.ones(self.numTendons)
         else:
             self.F = F
+        assert (np.isscalar(self.F) or len(self.F)==self.numTendons)
         self.minFactor = minFactor
         self.constraints = constraints
         # print("constraints passed to object,", self.constraints)
@@ -1847,6 +1848,8 @@ inherentFixed = StrucMatrix(R,D,name='inherent fixed')
 D = np.array([[-1,1,1,1],
               [0,-1,1,1],
               [0,0,-1,1]])
+
+D_ICS = D
 # r=0.25
 # R = r*np.absolute(D)
 R = np.array([[10,7.5,7.5,7.5],
@@ -1928,7 +1931,7 @@ D = np.array([[1/3,1,1,-1/3],
 LED = StrucMatrix(R,D,name='LED')
 
 # Diagonal Design
-r = 1
+r = 0.375
 R = np.array([[r,r,r,r/3],
               [r,r,r,r/3],
               [r,r,r,r/3]])
@@ -2022,6 +2025,8 @@ skinnyLegend = VariableStrucMatrix(R, D, ranges=[(c_1*np.sqrt(2)/2-r_1,c_1-r_1),
                                          types=[VariableStrucMatrix.convergent_circles_joint]*np.sum(np.isnan(R)),
                                          F = np.array([50]*4),
                                          name='Skinny Legend')
+
+# D_ICS = 
 
 D = np.array([[1,1,1,-1],
               [0,1,1,-1],
@@ -2343,11 +2348,11 @@ def _draw_curvature_frame(curvature_map_result, axes):
 # Moment arm figure helpers
 # ---------------------------------------------------------------------------
 def plot_static_moment_arm_figure(structure, THETA=[0,0,0]):
-    fig, ax, vlines = _build_moment_arm_figure(structure)
-    _draw_moment_arm_frame(THETA, vlines)
+    fig, ax, vlines = build_moment_arm_figure(structure)
+    draw_moment_arm_frame(THETA, vlines)
     plt.show()
 
-def _build_moment_arm_figure(structure, theta_range=None):
+def build_moment_arm_figure(structure, theta_range=None):
     """
     Builds a figure with one subplot per joint. For each joint, plots the
     moment arm vs theta for all extension tendons (red) and flexion tendons
@@ -2441,7 +2446,7 @@ def _build_moment_arm_figure(structure, theta_range=None):
     return fig, axes, moving_vlines
 
 
-def _draw_moment_arm_frame(THETA, moving_vlines):
+def draw_moment_arm_frame(THETA, moving_vlines):
     """
     Updates each joint's moving vline to the current theta for that joint.
     """
@@ -2527,13 +2532,13 @@ def animate_combined(
     )
 
     # --- build moment arm figure ---
-    fig_ma, axes_ma, moving_vlines = _build_moment_arm_figure(structure, theta_range)
+    fig_ma, axes_ma, moving_vlines = build_moment_arm_figure(structure, theta_range)
 
     # --- shared update ---
     def update(frame_idx):
         THETA = theta_trajectory[frame_idx]
         _draw_curvature_frame(all_frames[frame_idx], axes_curv)
-        _draw_moment_arm_frame(THETA, moving_vlines)
+        draw_moment_arm_frame(THETA, moving_vlines)
         frame_label.set_text(f"Frame {frame_idx + 1} / {num_frames}")
         # Redraw both canvases manually (blit=False)
         fig_curv.canvas.draw_idle()

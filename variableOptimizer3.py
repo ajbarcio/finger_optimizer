@@ -217,6 +217,9 @@ def check_valid(x):
         caller = inspect.stack()[1][3]
         print(f"BAD VALUE in {caller}")
 
+numFlexs = 3
+numExts = 3
+
 if __name__=="__main__":
     numJoints = 3
     numTendons = numJoints+1

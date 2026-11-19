@@ -5,14 +5,16 @@ from scipy import optimize
 from scipy.optimize import NonlinearConstraint, LinearConstraint, OptimizeResult
 import statistics
 import time
+import sys
 
 from multiprocessing import Pool
+
+from finger import valeroFinger, dof_constraints
 
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning,
                         #  message="Derivative was zero."
                         )
-
 
 def z_score_from_percentile(percentile):
     """
@@ -308,6 +310,31 @@ class FingerEvaluator:
                                                                 np.cos(np.pi/4))
         return exceedances
 
+    def envelopes_human(self, v):
+        # Acquire latest finger data for given design vector
+        Fing = self._get_finger(v)
+        # Check whether valero is inside the designed finger
+        # Here, hull_containment returns 'contained' if hull is contained in base
+        # so we make a list with the status of each pose
+        containment = []
+        for name in valeroFinger.structure.poses.keys():
+            humanCapability = valeroFinger.inPlaneCapabilities[name]
+            designCapability = Fing.get_convex_capability(
+                    valeroFinger.structure.poses[name][:-1],
+                    constrained_dof=dof_constraints[Fing.numJoints]['task_dof'],
+                    space='task')
+            # print(humanCapability, designCapability)
+            assert ((isinstance(humanCapability, ConvexHull)) and
+                    (isinstance(designCapability, ConvexHull)))
+            # We want, for every hull, humanCapability INSIDE designCapability
+            # containment.append(hull_containment_vector(humanCapability, designCapability))
+            # print(containment)
+            # print(hull_containment_vector(humanCapability, designCapability))
+            containment.append(hull_containment_scalar(humanCapability, designCapability))
+        # print(len(containment))
+        return containment
+        # relation = hull_containment(Fing.get_convex_capability())
+
 def find_feasible_point(evaluator, bounds, constraints_objects, v0):
     """
     Solve a feasibility problem: minimize constraint violation.
@@ -464,7 +491,10 @@ VC_Dir_Grasps = [
 # Choose your objective here:
 #   FingerEvaluator.OBJECTIVE_WORST_CASE_OVL
 #   FingerEvaluator.OBJECTIVE_WORST_CASE_TENSION
-OBJECTIVE_MODE = FingerEvaluator.OBJECTIVE_STRENGTH_INCREASE
+#   FingerEvaluator.OPBECTIVE_THICKNESS ## USE ONLY IF RELAX_THICKNESS
+#   FingerEvaluator.OBJECTIVE_STRENGTH_INCREASE
+
+OBJECTIVE_MODE = FingerEvaluator.OBJECTIVE_THICKNESS
 
 # Global optimizer settings
 GLOBAL_METHOD = "differential_evolution"  # options: "differential_evolution", "dual_annealing", "shgo"
@@ -478,6 +508,7 @@ STALL_STEP_THRESHOLD = 0.001  # 1 thou — max change in any design variable
 STALL_LIMIT = 50              # Stop after this many generations without movement
 RELAX_THICKNESS = True       # Set true to allow the finger to get thicker to acheive tension requirements
 DESIGN_LENGTHS = False        # Set true to allow the finger links to change lengths
+CONTAIN_HUMAN = True         # Set true to add constraint to contain human capability at known poses
 
 numJoints = 3
 numTendons = numJoints + 1
@@ -628,7 +659,15 @@ def nonlinear_constraints():
         lb=0,
         ub=np.inf,
     )
+    contain_human = NonlinearConstraint(
+        fun=evaluator.envelopes_human,
+        lb = -np.inf,
+        ub = 0
+    )
+
     # Add to constraints
+    if CONTAIN_HUMAN:
+        constraints_objects.append(contain_human)
     constraints_objects.append(tension_limit)
     constraints_objects.append(bend_radius_limit)
     constraints_objects.append(c_limit)

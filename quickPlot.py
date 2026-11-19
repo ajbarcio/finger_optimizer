@@ -2,8 +2,10 @@ from strucMatrices import *
 from finger import *
 from utils import *
 from combinatorics import *
-from variableOptimizer import createFingerFromVector
+from variableOptimizerGlobal import createFingerFromVector
 import itertools
+
+from BRANCH_human_finger_dev.ValeroCuervasModel import pose_dict
 
 # D = np.array([
 #     [  0,  0,  0,  1, -1],
@@ -15,16 +17,40 @@ import itertools
 #     [  1, -1, -1,  1,  0],
 #     [ -1, -1, -1, -1,  1],
 #     [  0,  0,  0,  0,  0],
-D =np.array([[-1, 0, 0, 1],
-             [ 0,-1, 0, 1],
-             [ 0, 0,-1, 1]])
-print(D)
-print(identify_strict_sign_central(D))
+# D =np.array([[-1, 0, 0, 1],
+#              [ 0,-1, 0, 1],
+#              [ 0, 0,-1, 1]])
+# print(D)
+# print(identify_strict_sign_central(D))
 # D = np.array([
 #     [  0,  0,  0,  0],
 #     [ -1,  1, -1,  1],
 #     [  1,  1, -1, -1]
 #     ])
+
+task_labels=['Distal (lbf)', 'Palmar (lbf)']
+
+v = np.loadtxt('VCSAC_flx_distRT.smx')
+numFlexs = 3
+numExts = 3
+
+newFinger = createFingerFromVector(v)
+newStructure = newFinger.structure
+fig_ma, axes_ma, vlines = build_moment_arm_figure(newStructure, [0,np.pi/2])
+THETA = [np.pi/4]*3
+draw_moment_arm_frame(THETA, vlines)
+
+cases = [
+    dict(finger=valeroFinger,
+         THETA = pose_dict['Flexion'],
+         f_max=valero.Fo(pose_dict['Flexion']),
+         **dof_constraints[4]),
+    dict(finger=newFinger,
+         THETA = pose_dict['Flexion'][1:],
+         **dof_constraints[3])
+]
+compare_capabilities(cases, task_labels=task_labels)
+plt.show()
 
 # test = StrucMatrix(S=D)
 # test.plotCapability(showBool=True)

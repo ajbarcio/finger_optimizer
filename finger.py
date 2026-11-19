@@ -16,6 +16,9 @@ import itertools as it
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.colors as mcolors
+
+from BRANCH_human_finger_dev.ValeroCuervasModel import pose_dict
+
 # Optional importgit
 # try:
 #     import i3ipc
@@ -176,7 +179,9 @@ class Finger():
         return bestRes
     # endregion
 
-    def get_convex_capability(self, THETA, f_max=None, constrained_dof=None, space='task'):
+    def get_convex_capability(self, THETA, f_max=None,
+                              constrained_dof=None, output_dim=None,
+                              space='task'):
         """
         Feasible effort region at a pose, in task space or joint space, as a convex hull.
 
@@ -188,6 +193,8 @@ class Finger():
             max tendon tension(s); scalar -> same for all tendons, 1D -> diagonal of Fo, 2D -> Fo. Defaults to self.tensionLimit
         constrained_dof : list or numpy array of int
             rows of the effort map forced to zero and removed from the output
+        output_dim : int
+            override for when we want to project higher level hulls into a smaller space
         space : {'task', 'joint'}
             'task' -> efforts are tip wrenches (M = J^-T*S*Fo); 'joint' -> efforts are joint torques (S*Fo)
 
@@ -245,6 +252,9 @@ class Finger():
             effort = effort_map @ np.array(u_ext) # J^-T*S*Fo * e (task) or S*Fo * e (joint)
             uniqueEfforts.append(np.delete(effort, constrained_dof)) # keep only the unconstrained rows, in order
         uniqueEfforts = np.array(uniqueEfforts)
+        if output_dim is not None and output_dim < uniqueEfforts.shape[-1]:
+            uniqueEfforts = uniqueEfforts[:,:output_dim]
+        # uniqueEfforts = uniqueEfforts
 
         if self.units=='N':
             uniqueEfforts = uniqueEfforts/4.44822162 if space=='task' else uniqueEfforts*8.8507457916 # N -> lbf, N*m -> lbf-in
@@ -286,8 +296,15 @@ class Finger():
         ax.set_aspect('equal')
         return ax
 
-    def plot_taskCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, title=None, labels=None, label=None, color='cyan'):
+    def plot_taskCapability(self, THETA, ax=None, f_max=None, constrained_dof=None, plot_dim=None, title=None, labels=None, label=None, color='cyan'):
         convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof, space='task')
+        points = convex_hull.points
+        dim = convex_hull.points.shape[-1]+1
+        print(plot_dim)
+        if plot_dim is not None and plot_dim+1 < dim:
+            points = points[:,:plot_dim]
+            convex_hull = ConvexHull(points)
+            dim = convex_hull.points.shape[-1]+1
         return self.plot_Capability(convex_hull, ax, title, labels, label, color)
 
     def plot_links(self, THETA, ax=None, color=None):
@@ -316,10 +333,19 @@ class Finger():
         ax.plot(coords[:,0], coords[:,1], marker='o', linestyle='-', linewidth=3, color=color)
         ax.set_aspect('equal')
 
-    def plot_taskCapabilityOnFinger(self, THETA, hull_scale=0.1, ax=None, f_max=None, constrained_dof=None, title=None, labels=None, label=None, color='cyan'):
+    def plot_taskCapabilityOnFinger(self, THETA, hull_scale=0.1,
+                                    ax=None,
+                                    f_max=None, constrained_dof=None, plot_dim=None,
+                                    title=None, labels=None, label=None, color='cyan'):
         # print(constrained_dof)
         convex_hull = self.get_convex_capability(THETA, f_max, constrained_dof, space='task')
+        points = convex_hull.points
         dim = convex_hull.points.shape[-1]+1
+
+        if plot_dim is not None and plot_dim+1 < dim:
+            points = points[:,:plot_dim]
+            convex_hull = ConvexHull(points)
+            dim = convex_hull.points.shape[-1]+1
 
         transform = self.EE_transform(THETA, dim=dim)
         scale_transform = np.diag([hull_scale]*(transform.shape[0]-1)+[1.0])
@@ -426,7 +452,8 @@ def compare_capabilities(cases, title=None, task_labels=None, joint_labels=None)
         task and joint plot axes
     """
     n, first = cases[0]['finger'].numJoints, cases[0]
-    fig = plt.figure(figsize=(14, 6))
+    # figsize=(14, 6)
+    fig = plt.figure()
     gs  = fig.add_gridspec(2, 2, figure=fig)
     axTask  = fig.add_subplot(gs[:,0], projection='3d' if n-len(first['task_dof'])==3 else None) # 3 unconstrained efforts -> 3D, 2 -> 2D
     axJoint = fig.add_subplot(gs[0,1], projection='3d' if n-len(first['joint_dof'])==3 else None)
@@ -445,8 +472,10 @@ def compare_capabilities(cases, title=None, task_labels=None, joint_labels=None)
                                                   label=finger.name,
                                                   color=color)
         # Add a finger.plot_taskCapability call here
-        finger.plot_taskCapability(THETA, axTask, f_max, case['task_dof'], 'Feasible Task Capabilities', task_labels, finger.name, color)
-        finger.plot_jointCapability(THETA, axJoint, f_max, case['joint_dof'], 'Feasible Joint Capabilities', joint_labels, finger.name, color)
+        finger.plot_taskCapability(THETA, axTask, f_max, case['task_dof'], title='Feasible Task Capabilities',
+                                                labels=task_labels, label=finger.name, color=color)
+        finger.plot_jointCapability(THETA, axJoint, f_max, case['joint_dof'], title='Feasible Joint Capabilities',
+                                                labels=joint_labels, label=finger.name, color=color)
 
     axTask.legend(); axJoint.legend()
     if title is not None:
@@ -456,12 +485,29 @@ def compare_capabilities(cases, title=None, task_labels=None, joint_labels=None)
 # region Finger instances
 # Why are these lengths so short? its because they're in meters
 valeroFinger    = Finger(valero, [0, 50e-3, 31e-3, 16e-3], units='N', name='Valero (discrete)')
+
+# I'm gonna preload valeroFinger with its capabilities
+valeroFinger.inPlaneCapabilities = {
+    name: valeroFinger.get_convex_capability(valeroFinger.structure.poses[name],
+                  valeroFinger.structure.Fo(valeroFinger.structure.poses[name]),
+                                            constrained_dof=[0,3], space='task')
+    for name in valeroFinger.structure.poses.keys()
+}
+
 # valeroStatic    = Finger(StrucMatrix(S=valero.S(list(valero.poses.values())[0])), valeroFinger.lengths, units='N', name='Valero (static)')
 primaryFinger   = Finger(primaryDev,   [0, 1.4, 1.4, 1.2], name='primaryDev (variable)') # 4DOF
 secondaryFinger = Finger(secondaryDev, [1.4, 1.4, 1.2],    name='secondaryDev (variable)') # 3DOF
 constantFinger =  Finger(canonB, [1.4, 1.4, 1.2], name='canonB (static)')
 
 testbedFinger4 = Finger(testbedFinger4, [1.4, 1.4, 1.2], name='Testbed Finger 4')
+
+# dict of constrained degrees of freedom indexed by finger dof.
+dof_constraints = {
+                    1: dict(task_dof=[], joint_dof=[]),     #1-dof
+                    2: dict(task_dof=[], joint_dof=[]),     #2-dof
+                    3: dict(task_dof=[2], joint_dof=[]),    #3-dof
+                    4: dict(task_dof=[0,3], joint_dof=[0]), #4-dof
+                  }
 
 # endregion
 # region Main
@@ -470,8 +516,27 @@ testbedFinger4 = Finger(testbedFinger4, [1.4, 1.4, 1.2], name='Testbed Finger 4'
 #     i3 = i3ipc.Connection()
 
 from time import perf_counter
+from strucMatrices import diagonal
 
 if __name__=="__main__":
+    print("Figuring out static finger capability handling")
+
+    staticFinger = Finger(diagonal, [1.4,1.4,1.2], name="testStatic")
+    # a_hull = staticFinger.get_convex_capability([0.1,0.1,0.1], constrained_dof=dof_constraints[3]['task_dof'])
+    # print(a_hull.points)
+    compare_ax = staticFinger.plot_taskCapability([np.pi/4]*staticFinger.numJoints,
+                                             constrained_dof=
+                                             [],
+                                            #  dof_constraints[3]['task_dof']
+                                             plot_dim=2
+                                             )
+    valeroFinger.plot_taskCapability(pose_dict['Flexion'], ax=compare_ax,
+                                     constrained_dof=dof_constraints[4]['task_dof'],
+                                     )
+    plt.show()
+    # print(valeroFinger.inPlaneCapabilities)
+    # quit
+
     print("figuring out jacobian sign")
 
     # print("--")
@@ -511,10 +576,10 @@ if __name__=="__main__":
 
     joint_labels = joint_labels=[r'$\tau_{1}$ (lbf-in)', r'$\tau_{2}$ (lbf-in)', r'$\tau_{3}$ (lbf-in)']
     task_labels=['Distal (lbf)', 'Palmar (lbf)']
-    # titles = ['Flexion Pose', 'Intermediate Pose', 'Extension Pose']
-    # THETAS = [THETA_f, THETA_i, THETA_e]
-    titles = ['Flexion Pose']
-    THETAS = [THETA_f]
+    titles = ['Flexion Pose', 'Intermediate Pose', 'Extension Pose']
+    THETAS = [THETA_f, THETA_i, THETA_e]
+    # titles = ['Flexion Pose']
+    # THETAS = [THETA_f]
     for THETA, title in zip(THETAS, titles):
         # define cases for comparison
         cases = [
@@ -522,9 +587,9 @@ if __name__=="__main__":
             dict(finger=testbedFinger4, THETA=THETA[1:],                         **dof3, color=colors[7]), # 3DOF: drop ad/ab angle
         ]
         compare_capabilities(cases, title=title, task_labels=task_labels, joint_labels=joint_labels)
-        if title == 'Extension Pose':
-            print(valeroFinger.get_jacobian_at_pose(THETA))
-            print(testbedFinger4.get_jacobian_at_pose(THETA[1:]))
+        # if title == 'Extension Pose':
+        #     print(valeroFinger.get_jacobian_at_pose(THETA))
+        #     print(testbedFinger4.get_jacobian_at_pose(THETA[1:]))
         # plt.gca().set_aspect('equal')
         # ipc_conn.command(f'[id="{window.window_id}"] move to workspace 1')
 
@@ -545,7 +610,7 @@ if __name__=="__main__":
     #     # print(dof3[f'{space}_dof'])
     #     end = perf_counter()
 
-    #     relation = hull_containment(hull, base)
+        # relation = hull_containment(hull, base)
     #     enclosed, volume_diff = hull_similarity(hull, base)
 
 

@@ -1,6 +1,29 @@
 import numpy as np
 from scipy.spatial import ConvexHull
 from scipy.optimize import linprog
+from utils import transform_ConvexHull, hull_containment_vector
+
+class dumb:
+    pass
+
+dumb.shit = 'piss'
+
+dumbass = dumb()
+dumbbss = dumb()
+
+dumbbss.shit = 'waow'
+
+print(dumbass.shit)
+print(dumbbss.shit)
+
+hullA = ConvexHull(((0,1), (1,0), (0,-1), (-1,0)))
+hullB = transform_ConvexHull(hullA, np.diag([0.5,0.5,1]))
+
+print(hullA, hullB)
+print(hullA.points)
+print(hullB.points)
+
+print(hull_containment_vector(hullA, hullB))
 
 points = np.array([
     [-0.1496, -0.1496, -0.1496],

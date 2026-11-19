@@ -1,0 +1,11 @@
+{
+    "Flexion": {
+        "opt_result": {
+            "nit": 63,
+            "nfev": 680,
+            "njev": 68,
+            "nhev": 0,
+            "cg_niter": 62,
+            "cg_stop_cond": 2,
+            "fun": 1.0924695354165924e-22,
+            "grad": 

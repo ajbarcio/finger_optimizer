@@ -17,9 +17,9 @@ l1=50e-3; l2=31e-3; l3=16e-3    # phalange lengths (m)
 # MCP ad-abduction, MCP Flexion, PIP, DIP (stays 10° for all poses)
 q_flx = np.radians(np.array([0,45,45,10])); q_int = np.radians(np.array([0,45,10,10])); q_ext = np.radians(np.array([0,10,10,10]))
 
-pose_dict = {'Flexion (45.0°, 45.0°, 10.0°)': q_flx,
-             'Intermediate (45.0°, 10.0°, 10.0°)': q_int,
-             'Extension (10.0°, 10.0°, 10.0°)': q_ext}
+pose_dict = {'Flexion': q_flx,
+             'Intermediate': q_int,
+             'Extension': q_ext}
 
 e = np.array([
     # Extension

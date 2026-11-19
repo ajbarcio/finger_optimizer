@@ -1,0 +1,29 @@
+[
+  {
+    "joint_idx": 0,
+    "e_max": 0.38,
+    "e_min": 0.28,
+    "f_max": 0.38,
+    "f_min": 0.12,
+    "f_min_inner": 0.34,
+    "length": 1.4
+  },
+  {
+    "joint_idx": 1,
+    "e_max": 0.37,
+    "e_min": 0.24,
+    "f_max": 0.38,
+    "f_min": 0.1,
+    "f_min_inner": 0.295,
+    "length": 1.4
+  },
+  {
+    "joint_idx": 2,
+    "e_max": 0.365,
+    "e_min": 0.17,
+    "f_max": 0.34,
+    "f_min": 0.1,
+    "f_min_inner": 0.28,
+    "length": 1.0
+  }
+]

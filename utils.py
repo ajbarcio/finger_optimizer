@@ -33,7 +33,6 @@ colors = [
     'xkcd:bright turquoise' # #0ffef9 – glowing aqua
 ]
 
-
 def law_cos(a, b, gamma):
     c = np.sqrt(a**2 + b**2 - 2*a*b*np.cos(gamma))
     return c
@@ -1241,6 +1240,38 @@ def find_axis_extent_lp(vertices, axis_direction):
     p_min = t_min * d
     p_max = t_max * d
     return p_min, p_max
+
+def transform_ConvexHull(hull: ConvexHull, transform):
+    n_points, dim = (hull.points).shape
+    assert transform.shape == (dim + 1, dim + 1), (
+    f"Expected transform of shape ({dim + 1}, {dim + 1}), got {transform.shape}"
+    )
+    ones = np.ones((n_points, 1))
+    homogenous_points = np.hstack([hull.points, ones])
+    transformed_points = (transform @ homogenous_points.T).T[:,:dim]
+
+    return ConvexHull(transformed_points)
+
+def hull_containment_vector(hullA: ConvexHull, hullB: ConvexHull):
+    """
+
+    Returns distance from points in hull A to edges in hull B signed by whether
+    they're inside or outside.
+
+    If a hullA point is INSIDE hullB, return negative value
+
+    if a hullA point is OUTSIDE hullB, return positive value
+
+    """
+    vertsA = hullA.points[hullA.vertices]
+    normalsB = hullB.equations[:,:-1]
+    offsetsB = hullB.equations[:,-1]
+    signed_distances = vertsA @ normalsB.T + offsetsB
+    return signed_distances.ravel()
+
+def hull_containment_scalar(hullA: ConvexHull, hullB: ConvexHull):
+    return np.max(hull_containment_vector(hullA, hullB))
+
 # endregion
 
 # region Plotting
@@ -1282,17 +1313,6 @@ def get_existing_axes():
         if axes:
             return axes[0]  # Return first existing Axes
     return None  # No axes found
-
-def transform_ConvexHull(hull: ConvexHull, transform):
-    n_points, dim = (hull.points).shape
-    assert transform.shape == (dim + 1, dim + 1), (
-    f"Expected transform of shape ({dim + 1}, {dim + 1}), got {transform.shape}"
-    )
-    ones = np.ones((n_points, 1))
-    homogenous_points = np.hstack([hull.points, ones])
-    transformed_points = (transform @ homogenous_points.T).T[:,:dim]
-
-    return ConvexHull(transformed_points)
 
 def plot2D_ConvexHull(hull : ConvexHull, ax=None, ax_labels=None, title=None, label=None, color='cyan', font=16, show_interior=True):
     if ax is None:
