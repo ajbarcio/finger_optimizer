@@ -959,23 +959,7 @@ class FingerDesigner(QMainWindow):
                 self._clear_design_curves()
                 return
 
-            # ── Compute overall thickness ─────────────────────────────────────────
-
-            thicknesses = [
-                jp.f_max + jp.e_min
-                for jp in self._joint_params
-            ]
-            thicknesses += [
-                jp.e_max + jp.f_min + np.sqrt(2)/2*
-        (finger.structure.indexed_effort_functions[jp.joint_idx, jp.joint_idx+1].c -
-        finger.structure.indexed_effort_functions[jp.joint_idx, jp.joint_idx+1].r)
-                for jp in self._joint_params
-            ]
-            # print(len(thicknesses))
-            overall_thicknesses = np.vstack((np.array(thicknesses[:numJoints]),
-                                             np.array(thicknesses[numJoints:])))
-            overall_thicknesses = np.max(overall_thicknesses, axis=0)
-            overall_thickness = max(overall_thicknesses)
+            overall_thickness, overall_thicknesses = _compute_rich_thickness(self._joint_params, finger)
 
             # Update thickness readout
             self._thickness_label.setText(
@@ -1089,6 +1073,27 @@ class FingerDesigner(QMainWindow):
     def _set_all_constraints_error(self, msg: str):
         for ind in self._constraint_indicators.values():
             ind.set_state(False, f"Error: {msg[:60]}")
+
+def _compute_rich_thickness(jps: list[JointParams], finger: Finger):
+    # ── Compute overall thickness ─────────────────────────────────────────
+
+    thicknesses = [
+        jp.f_max + jp.e_min
+        for jp in jps
+    ]
+    thicknesses += [
+        jp.e_max + jp.f_min + np.sqrt(2)/2*
+(finger.structure.indexed_effort_functions[jp.joint_idx, jp.joint_idx+1].c -
+finger.structure.indexed_effort_functions[jp.joint_idx, jp.joint_idx+1].r)
+        for jp in jps
+    ]
+    # print(len(thicknesses))
+    overall_thicknesses = np.vstack((np.array(thicknesses[:numJoints]),
+                                        np.array(thicknesses[numJoints:])))
+    overall_thicknesses = np.max(overall_thicknesses, axis=0)
+    overall_thickness = max(overall_thicknesses)
+
+    return overall_thickness, overall_thicknesses
 
 # ─── Pose Explorer window ─────────────────────────────────────────────────────
 
