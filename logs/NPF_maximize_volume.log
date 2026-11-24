@@ -1,0 +1,242 @@
+
+═══════════════════════════════════════════════════════
+  Batch Optimizer
+  Seeds:      ['finger_designs/NPFWORKS_design_3dof_npf_20261119-1350.json', 'finger_designs/NPFWORKS_THIN_design_3dof_npf_20261119-1641.json', 'finger_designs/PFWORKS_design_3dof_pf_20261124-1410.json']
+  Objective:  maximize_volume
+  Method:     trust-constr
+  Workers:    3
+  Lengths:    designed
+  Human env:  True, with Enforce pf: False
+  Tension:    50.0
+═══════════════════════════════════════════════════════
+
+  3 seeds × 1 inner workers = 3/3 cores
+  [NPFWORKS_design_3dof_npf_20261119-1350] inner pool started (1 workers), loading seed...  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] inner pool started (1 workers), loading seed...
+
+  [PFWORKS_design_3dof_pf_20261124-1410] inner pool started (1 workers), loading seed...
+  [NPFWORKS_design_3dof_npf_20261119-1350] Loaded joint params
+  [NPFWORKS_design_3dof_npf_20261119-1350] Initial vector loaded: [0.12000 0.20000 0.40000 0.10000 0.20000 0.38000 0.10000 0.20000 0.34000
+ 0.30000 0.16500 0.30000 0.13000 0.30000 0.13000 1.40000 1.40000]
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] Loaded joint params  [PFWORKS_design_3dof_pf_20261124-1410] Loaded joint params  [NPFWORKS_design_3dof_npf_20261119-1350] starting trust-constr optimization, n=17 vars, 9 constraints
+
+
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] Initial vector loaded: [0.00000 0.19000 0.28500 0.00000 0.12500 0.22500 0.00000 0.12500 0.20000
+ 0.28000 0.16000 0.26000 0.17000 0.26500 0.13000 1.80000 1.28000]  [PFWORKS_design_3dof_pf_20261124-1410] Initial vector loaded: [0.01000 0.31000 0.38000 0.09000 0.28000 0.33000 0.07500 0.26500 0.37000
+ 0.39000 0.28500 0.34500 0.24000 0.29500 0.20000 1.84000 1.24000]
+
+  [PFWORKS_design_3dof_pf_20261124-1410] starting trust-constr optimization, n=17 vars, 9 constraints  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] starting trust-constr optimization, n=17 vars, 9 constraints
+
+    [PFWORKS_design_3dof_pf_20261124-1410] OPTIMIZATION FAILED because: 'float' object cannot be interpreted as an integer
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+                    ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/multiprocessing/pool.py", line 48, in mapstar
+    return list(map(*args))
+           ^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/parallel_evaluator.py", line 98, in eval_all
+    bend_radius = _worst_case_bend_radius(Fing)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/parallel_evaluator.py", line 50, in _worst_case_bend_radius
+    rs = [np.min(fn.r, (fn.r1 if hasattr(fn, 'r1') else np.inf))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/numpy/_core/fromnumeric.py", line 3299, in min
+    return _wrapreduction(a, np.minimum, 'min', axis, None, out,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/numpy/_core/fromnumeric.py", line 81, in _wrapreduction
+    return reduction(axis=axis, out=out, **passkwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/numpy/_core/_methods.py", line 45, in _amin
+    return umr_minimum(a, axis, None, out, keepdims, initial, where)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'float' object cannot be interpreted as an integer
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 580, in _run_seed_process
+    result = minimize(lambda v: vec_obj(v.reshape(-1,1))[0], v0,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_minimize.py", line 799, in minimize
+    res = _minimize_trustregion_constr(fun, x0, args, jac, hess, hessp,
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_trustregion_constr/minimize_trustregion_constr.py", line 354, in _minimize_trustregion_constr
+    objective = ScalarFunction(fun, x0, args, grad, hess,
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_differentiable_functions.py", line 283, in __init__
+    self._update_fun()
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_differentiable_functions.py", line 362, in _update_fun
+    fx = self._wrapped_fun(self.x)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/_lib/_util.py", line 545, in __call__
+    fx = self.f(np.copy(x), *self.args)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 580, in <lambda>
+    result = minimize(lambda v: vec_obj(v.reshape(-1,1))[0], v0,
+                                ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 467, in vec_obj
+    res = eval_pop(pop)
+          ^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 456, in eval_pop
+    _cr[0]  = inner_pool.map(parallel_evaluator.eval_all, vectors)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/multiprocessing/pool.py", line 367, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/multiprocessing/pool.py", line 774, in get
+    raise self._value
+TypeError: 'float' object cannot be interpreted as an integer
+  [PFWORKS_design_3dof_pf_20261124-1410] inner pool shut down.
+
+  [PFWORKS_design_3dof_pf_20261124-1410] done — fun=inf success=False
+    [NPFWORKS_THIN_design_3dof_npf_20261119-1641] OPTIMIZATION FAILED because: 'float' object cannot be interpreted as an integer
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+                    ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/multiprocessing/pool.py", line 48, in mapstar
+    return list(map(*args))
+           ^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/parallel_evaluator.py", line 98, in eval_all
+    bend_radius = _worst_case_bend_radius(Fing)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/parallel_evaluator.py", line 50, in _worst_case_bend_radius
+    rs = [np.min(fn.r, (fn.r1 if hasattr(fn, 'r1') else np.inf))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/numpy/_core/fromnumeric.py", line 3299, in min
+    return _wrapreduction(a, np.minimum, 'min', axis, None, out,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/numpy/_core/fromnumeric.py", line 81, in _wrapreduction
+    return reduction(axis=axis, out=out, **passkwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/numpy/_core/_methods.py", line 45, in _amin
+    return umr_minimum(a, axis, None, out, keepdims, initial, where)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'float' object cannot be interpreted as an integer
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 580, in _run_seed_process
+    result = minimize(lambda v: vec_obj(v.reshape(-1,1))[0], v0,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_minimize.py", line 799, in minimize
+    res = _minimize_trustregion_constr(fun, x0, args, jac, hess, hessp,
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_trustregion_constr/minimize_trustregion_constr.py", line 354, in _minimize_trustregion_constr
+    objective = ScalarFunction(fun, x0, args, grad, hess,
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_differentiable_functions.py", line 283, in __init__
+    self._update_fun()
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_differentiable_functions.py", line 362, in _update_fun
+    fx = self._wrapped_fun(self.x)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/_lib/_util.py", line 545, in __call__
+    fx = self.f(np.copy(x), *self.args)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 580, in <lambda>
+    result = minimize(lambda v: vec_obj(v.reshape(-1,1))[0], v0,
+                                ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 467, in vec_obj
+    res = eval_pop(pop)
+          ^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 456, in eval_pop
+    _cr[0]  = inner_pool.map(parallel_evaluator.eval_all, vectors)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/multiprocessing/pool.py", line 367, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/multiprocessing/pool.py", line 774, in get
+    raise self._value
+TypeError: 'float' object cannot be interpreted as an integer
+    [NPFWORKS_design_3dof_npf_20261119-1350] OPTIMIZATION FAILED because: 'float' object cannot be interpreted as an integer
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+                    ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/multiprocessing/pool.py", line 48, in mapstar
+    return list(map(*args))
+           ^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/parallel_evaluator.py", line 98, in eval_all
+    bend_radius = _worst_case_bend_radius(Fing)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/parallel_evaluator.py", line 50, in _worst_case_bend_radius
+    rs = [np.min(fn.r, (fn.r1 if hasattr(fn, 'r1') else np.inf))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/numpy/_core/fromnumeric.py", line 3299, in min
+    return _wrapreduction(a, np.minimum, 'min', axis, None, out,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/numpy/_core/fromnumeric.py", line 81, in _wrapreduction
+    return reduction(axis=axis, out=out, **passkwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/numpy/_core/_methods.py", line 45, in _amin
+    return umr_minimum(a, axis, None, out, keepdims, initial, where)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'float' object cannot be interpreted as an integer
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 580, in _run_seed_process
+    result = minimize(lambda v: vec_obj(v.reshape(-1,1))[0], v0,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_minimize.py", line 799, in minimize
+    res = _minimize_trustregion_constr(fun, x0, args, jac, hess, hessp,
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_trustregion_constr/minimize_trustregion_constr.py", line 354, in _minimize_trustregion_constr
+    objective = ScalarFunction(fun, x0, args, grad, hess,
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_differentiable_functions.py", line 283, in __init__
+    self._update_fun()
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_differentiable_functions.py", line 362, in _update_fun
+    fx = self._wrapped_fun(self.x)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/_lib/_util.py", line 545, in __call__
+    fx = self.f(np.copy(x), *self.args)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 580, in <lambda>
+    result = minimize(lambda v: vec_obj(v.reshape(-1,1))[0], v0,
+                                ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 467, in vec_obj
+    res = eval_pop(pop)
+          ^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 456, in eval_pop
+    _cr[0]  = inner_pool.map(parallel_evaluator.eval_all, vectors)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/multiprocessing/pool.py", line 367, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/multiprocessing/pool.py", line 774, in get
+    raise self._value
+TypeError: 'float' object cannot be interpreted as an integer
+  [NPFWORKS_design_3dof_npf_20261119-1350] inner pool shut down.  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] inner pool shut down.
+
+
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] done — fun=inf success=False
+
+  [NPFWORKS_design_3dof_npf_20261119-1350] done — fun=inf success=False
+
+═══════════════════════════════════════════════════════
+  BATCH COMPLETE — 3 runs
+═══════════════════════════════════════════════════════
+  label                                 obj  success
+  ------------------------------------------------
+  PFWORKS_design_3dof_pf_20261124-1410        inf    False
+  NPFWORKS_THIN_design_3dof_npf_20261119-1641        inf    False
+  NPFWORKS_design_3dof_npf_20261119-1350        inf    False
+═══════════════════════════════════════════════════════
+
+  Best: PFWORKS_design_3dof_pf_20261124-1410  obj=inf
+    joint 0: f=(0.0100, 0.3100, 0.3800)  e=(0.2850, 0.3900)  l=1.8400
+    joint 1: f=(0.0900, 0.2800, 0.3300)  e=(0.2400, 0.3450)  l=1.2400
+    joint 2: f=(0.0750, 0.2650, 0.3700)  e=(0.2000, 0.2950)  l=0.9200
+  Done.

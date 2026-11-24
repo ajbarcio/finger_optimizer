@@ -181,7 +181,7 @@ class Finger():
 
     def get_convex_capability(self, THETA, f_max=None,
                               constrained_dof=None, output_dim=None,
-                              space='task'):
+                              space='task') -> ConvexHull:
         """
         Feasible effort region at a pose, in task space or joint space, as a convex hull.
 

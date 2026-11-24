@@ -1,0 +1,46 @@
+
+═══════════════════════════════════════════════════════
+  Batch Optimizer
+  Seeds:      ['finger_designs/NPFWORKS_design_3dof_npf_20261119-1350.json', 'finger_designs/NPFWORKS_THIN_design_3dof_npf_20261119-1641.json', 'finger_designs/PFWORKS_design_3dof_pf_20261124-1410.json']
+  Objective:  maximize_volume
+  Method:     trust-constr
+  Workers:    3
+  Lengths:    designed
+  Human env:  True, with Enforce pf: True
+  Tension:    50.0
+═══════════════════════════════════════════════════════
+
+  3 seeds × 1 inner workers = 3/3 cores
+  [NPFWORKS_design_3dof_npf_20261119-1350] inner pool started (1 workers), loading seed...
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] inner pool started (1 workers), loading seed...
+  [PFWORKS_design_3dof_pf_20261124-1410] inner pool started (1 workers), loading seed...
+  [NPFWORKS_design_3dof_npf_20261119-1350] Loaded joint params
+  [NPFWORKS_design_3dof_npf_20261119-1350] Initial vector loaded: [0.12000 0.20000 0.40000 0.10000 0.20000 0.38000 0.10000 0.20000 0.34000
+ 0.30000 0.16500 0.30000 0.13000 0.30000 0.13000 1.40000 1.40000]
+  [NPFWORKS_design_3dof_npf_20261119-1350] starting trust-constr optimization, n=17 vars, 9 constraints
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] Loaded joint params
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] Initial vector loaded: [0.00000 0.19000 0.28500 0.00000 0.12500 0.22500 0.00000 0.12500 0.20000
+ 0.28000 0.16000 0.26000 0.17000 0.26500 0.13000 1.80000 1.28000]
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] starting trust-constr optimization, n=17 vars, 9 constraints
+  [PFWORKS_design_3dof_pf_20261124-1410] Loaded joint params
+  [PFWORKS_design_3dof_pf_20261124-1410] Initial vector loaded: [0.01000 0.31000 0.38000 0.09000 0.28000 0.33000 0.07500 0.26500 0.37000
+ 0.39000 0.28500 0.34500 0.24000 0.29500 0.20000 1.84000 1.24000]
+  [PFWORKS_design_3dof_pf_20261124-1410] starting trust-constr optimization, n=17 vars, 9 constraints
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] iter=1 t=64.8 obj=-623.223315 bend_r=0.477279  thickness=-0.238475  c_limit=0.096802  envelope=4.636328 x=[0.00000,0.19000,0.28500,0.00000,0.12500,0.22500,0.00000,0.12500,0.20000,
+ 0.28000,0.16000,0.26000,0.17000,0.26500,0.13000,1.80000,1.28000]
+  [PFWORKS_design_3dof_pf_20261124-1410] iter=1 t=65.3 obj=-1548.448901 bend_r=0.489056  thickness=-0.051299  c_limit=0.026741  envelope=0.499667 x=[0.01000,0.31000,0.38000,0.09000,0.28000,0.33000,0.07500,0.26500,0.37000,
+ 0.39000,0.28500,0.34500,0.24000,0.29500,0.20000,1.84000,1.24000]
+  [NPFWORKS_design_3dof_npf_20261119-1350] iter=1 t=70.2 obj=-941.270522 bend_r=0.479411  thickness=-0.017157  c_limit=0.024020  envelope=2.608348 x=[0.12000,0.20000,0.40000,0.10000,0.20000,0.38000,0.10000,0.20000,0.34000,
+ 0.30000,0.16500,0.30000,0.13000,0.30000,0.13000,1.40000,1.40000]
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] iter=2 t=131.2 obj=-623.223315 bend_r=0.477279  thickness=-0.238475  c_limit=0.096802  envelope=4.636328 x=[0.00000,0.19000,0.28500,0.00000,0.12500,0.22500,0.00000,0.12500,0.20000,
+ 0.28000,0.16000,0.26000,0.17000,0.26500,0.13000,1.80000,1.28000]
+  [NPFWORKS_design_3dof_npf_20261119-1350] iter=2 t=147.2 obj=-941.270522 bend_r=0.479411  thickness=-0.017157  c_limit=0.024020  envelope=2.608348 x=[0.12000,0.20000,0.40000,0.10000,0.20000,0.38000,0.10000,0.20000,0.34000,
+ 0.30000,0.16500,0.30000,0.13000,0.30000,0.13000,1.40000,1.40000]
+  [PFWORKS_design_3dof_pf_20261124-1410] iter=2 t=156.2 obj=-1548.448901 bend_r=0.489056  thickness=-0.051299  c_limit=0.026741  envelope=0.499667 x=[0.01000,0.31000,0.38000,0.09000,0.28000,0.33000,0.07500,0.26500,0.37000,
+ 0.39000,0.28500,0.34500,0.24000,0.29500,0.20000,1.84000,1.24000]
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] iter=3 t=218.7 obj=-791.592861 bend_r=0.276314  thickness=-0.214578  c_limit=0.084942  envelope=3.249126 x=[0.00550,0.23374,0.30605,-0.00476,0.15379,0.22536,0.00612,0.18156,0.20633,
+ 0.28352,0.16336,0.26850,0.17970,0.24622,0.12433,1.79600,1.28096]
+  [NPFWORKS_design_3dof_npf_20261119-1350] iter=3 t=233.8 obj=-1136.726010 bend_r=0.487986  thickness=0.007009  c_limit=0.018915  envelope=1.376663 x=[0.13289,0.23538,0.41541,0.10246,0.24243,0.37732,0.09876,0.25492,0.34180,
+ 0.30038,0.16885,0.30255,0.13870,0.29281,0.13356,1.40195,1.41248]
+  [PFWORKS_design_3dof_pf_20261124-1410] iter=3 t=233.9 obj=-1859.512026 bend_r=0.406919  thickness=-0.025719  c_limit=-0.022499  envelope=0.223005 x=[0.00943,0.34197,0.40003,0.08075,0.29248,0.32239,0.07981,0.32235,0.36871,
+ 0.40199,0.28955,0.36899,0.26234,0.28334,0.19980,1.84097,1.25940]

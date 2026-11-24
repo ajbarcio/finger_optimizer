@@ -22,11 +22,15 @@ from strucMatrices import VariableStrucMatrix, secondaryDev
 from finger import Finger, valeroFinger, valero, dof_constraints
 from utils import hull_containment_scalar
 
+from finger_config import compute_rich_thickness
+
 import argparse
 
 import traceback
 
 import time
+
+import copy
 
 import warnings
 
@@ -186,10 +190,19 @@ def compute_constraints(finger: Finger,
     """
     results = {}
 
+    satisfied_thickness = overall_thickness <= THICKNESS_LIMIT
+    results['Thickness'] = (overall_thickness, THICKNESS_LIMIT,
+                            satisfied_thickness,
+                            f"Overall thickness: {overall_thickness:.4f}")
+
     #region Bend radius
     # print(f"  [constraints] finger={finger}, effortFunctions={getattr(finger.structure, 'effortFunctions', 'MISSING')}")
     try:
-        rs = [fn.r for fn in finger.structure.effortFunctions]
+        # rs = [fn.r for fn in finger.structure.effortFunctions] + \
+        #      [fn.r1 for fn in finger.structure.effortFunctions if hasattr(fn, 'r1')]
+        # rs = [np.min((fn.r, fr.r1)) for fn in finger.structure.effortFunctions if hasattr(fn, 'r1') else fn.r]
+        rs = [np.min((fn.r, (fn.r1 if hasattr(fn, 'r1') else np.inf)))
+                                     for fn in finger.structure.effortFunctions]
         min_r = np.min(rs)
         min_r_idx = np.argmin(rs)
         jtp_of_interest = finger.structure.effortFunctions[min_r_idx].idx
@@ -238,19 +251,19 @@ def compute_constraints(finger: Finger,
 
     #endregion
 
-    #region Overall thickness (just display the computed value)
-    # print(f"  [constraints] overall_thickness={overall_thickness}")
-    try:
-        results['Thickness'] = (
-            overall_thickness, 0.65,
-            True,
-            f"thickness = {overall_thickness:.4f}"
-        )
-    except Exception as e:
-        print(f"  [constraints] THICKNESS FAILED: {e}")
-        traceback.print_exc()
-        results['Thickness'] = (None, 0.65, False, str(e))
-    #endregion
+    # #region Overall thickness (just display the computed value)
+    # # print(f"  [constraints] overall_thickness={overall_thickness}")
+    # try:
+    #     results['Thickness'] = (
+    #         overall_thickness, 0.65,
+    #         True,
+    #         f"thickness = {overall_thickness:.4f}"
+    #     )
+    # except Exception as e:
+    #     print(f"  [constraints] THICKNESS FAILED: {e}")
+    #     traceback.print_exc()
+    #     results['Thickness'] = (None, 0.65, False, str(e))
+    # #endregion
 
     #region Fits in Length constraint
     exceedances=[]
@@ -699,7 +712,7 @@ class FingerDesigner(QMainWindow):
             ]
         else:
             self._default_joint_params = default_params
-        self._joint_params = self._default_joint_params
+        self._joint_params = copy.deepcopy(self._default_joint_params)
 
         self._build_ui()
 
@@ -959,7 +972,7 @@ class FingerDesigner(QMainWindow):
                 self._clear_design_curves()
                 return
 
-            overall_thickness, overall_thicknesses = _compute_rich_thickness(self._joint_params, finger)
+            overall_thickness, overall_thicknesses = compute_rich_thickness(self._joint_params, finger)
 
             # Update thickness readout
             self._thickness_label.setText(
@@ -1056,14 +1069,14 @@ class FingerDesigner(QMainWindow):
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _reset_to_defaults(self):
-        import copy
         self._joint_params = copy.deepcopy(self._default_joint_params)
         for panel_w, jp in zip(self._joint_panels, self._joint_params):
-            panel_w.params = jp
+            panel_w._params = jp
             panel_w._e_range.set_values(jp.e_min, jp.e_max)
             panel_w._f_range.set_values(jp.f_min, jp.f_max)
             panel_w._f_min_inner.set_value(jp.f_min_inner)
             panel_w._length.set_value(jp.length)
+        self._recompute()
         self._on_param_changed()
 
     def _clear_design_curves(self):
@@ -1073,27 +1086,6 @@ class FingerDesigner(QMainWindow):
     def _set_all_constraints_error(self, msg: str):
         for ind in self._constraint_indicators.values():
             ind.set_state(False, f"Error: {msg[:60]}")
-
-def _compute_rich_thickness(jps: list[JointParams], finger: Finger):
-    # ── Compute overall thickness ─────────────────────────────────────────
-
-    thicknesses = [
-        jp.f_max + jp.e_min
-        for jp in jps
-    ]
-    thicknesses += [
-        jp.e_max + jp.f_min + np.sqrt(2)/2*
-(finger.structure.indexed_effort_functions[jp.joint_idx, jp.joint_idx+1].c -
-finger.structure.indexed_effort_functions[jp.joint_idx, jp.joint_idx+1].r)
-        for jp in jps
-    ]
-    # print(len(thicknesses))
-    overall_thicknesses = np.vstack((np.array(thicknesses[:numJoints]),
-                                        np.array(thicknesses[numJoints:])))
-    overall_thicknesses = np.max(overall_thicknesses, axis=0)
-    overall_thickness = max(overall_thicknesses)
-
-    return overall_thickness, overall_thicknesses
 
 # ─── Pose Explorer window ─────────────────────────────────────────────────────
 
@@ -1266,7 +1258,10 @@ def parse_args():
                         default=False)
     parser.add_argument('-t', '--tension-limit', type=float, default=50.0)
     parser.add_argument('--min-bend-radius', type=float, default=0.472)
+    parser.add_argument('-th', '--thickness-limit', type=float, default=0.72)
     parser.add_argument('-f', '--input-file', type=str, default="default")
+    parser.add_argument('-ck', '--check-constraints', action='store_true',
+                        default=False)
     return parser.parse_known_args()
 
 # ─── Entry point ─────────────────────────────────────────────────────────────
@@ -1275,40 +1270,82 @@ def main():
     warnings.filterwarnings("ignore")
 
     args, _ = parse_args()
-    global ENFORCE_POINT_FORCES, TENSION_LIMIT, MIN_BEND_RADIUS
+
+    global ENFORCE_POINT_FORCES, TENSION_LIMIT, MIN_BEND_RADIUS, THICKNESS_LIMIT
     ENFORCE_POINT_FORCES = args.enforce_point_forces
     TENSION_LIMIT        = args.tension_limit
     MIN_BEND_RADIUS      = args.min_bend_radius
+    THICKNESS_LIMIT      = args.thickness_limit
     if ENFORCE_POINT_FORCES:
         print ("Enforcing point forces on designed finger")
     if args.input_file != "default":
         print(f"Loading default design vector from {args.input_file}")
         default_parameters = load_joint_params(args.input_file)
     print(f"Tension Limit: {TENSION_LIMIT}lbf. Min Bend Radius: {MIN_BEND_RADIUS}in.")
-    # Use a PURPLE :) theme throughout
-    pg.setConfigOption('background', '#280137')
-    pg.setConfigOption('foreground', '#dddddd')
 
-    app = QApplication(sys.argv)
-    app.setStyle('Fusion')
+    if args.check_constraints:
+        jps = load_joint_params(args.input_file)
+        finger = build_finger(jps)
+        overall_thickness, _ = compute_rich_thickness(jps, finger)
+        design_hulls=[]
+        valero_hulls=[]
+        for i, pose_name in enumerate(POSES_TO_SHOW):
+            # TODO: Make this more robust later
+            pose = pose_dict[pose_name]
+            design_pose = pose[1:] if numJoints == 3 else pose
+            # print(len(pose))
+            design_hull = finger.get_convex_capability(
+                design_pose,
+                constrained_dof=
+                    dof_constraints[finger.numJoints]['task_dof']
+                    if ENFORCE_POINT_FORCES else [],
+                output_dim=2,
+                space='task'
+            )
+            valero_hull  = valeroFinger.get_convex_capability(
+                            pose_dict[pose_name],
+                            f_max=valero.Fo(pose_dict[pose_name]),
+                            constrained_dof=
+                            dof_constraints[valeroFinger.numJoints]['task_dof'],
+                            space='task'
+                        )
+            design_hulls.append(design_hull)
+            valero_hulls.append(valero_hull)
+        results = compute_constraints(finger,
+                                        design_hulls, valero_hulls,
+                                        overall_thickness)
+        import pprint
+        pprint.pprint(results, indent=2, sort_dicts=False)
+        if any([bool(result[2])==False for result in results.values()]):
+            print("HOUSTON WE GOT A PROBLEM WITH THIS ONE")
+        else:
+            print("HOUSTON THIS ONE IS ALL GOOD")
 
-    # Dark palette
-    from PyQt6.QtGui import QPalette
-    palette = QPalette()
-    palette.setColor(QPalette.ColorRole.Window,          QColor('#280137'))
-    palette.setColor(QPalette.ColorRole.WindowText,      QColor('#dddddd'))
-    palette.setColor(QPalette.ColorRole.Base,            QColor("#320046"))
-    palette.setColor(QPalette.ColorRole.AlternateBase,   QColor("#460E5C"))
-    palette.setColor(QPalette.ColorRole.Text,            QColor('#dddddd'))
-    palette.setColor(QPalette.ColorRole.Button,          QColor('#3c3c3c'))
-    palette.setColor(QPalette.ColorRole.ButtonText,      QColor('#dddddd'))
-    palette.setColor(QPalette.ColorRole.Highlight,       QColor('#2d7fc1'))
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor('#ffffff'))
-    app.setPalette(palette)
+    else:
+        # Use a PURPLE :) theme throughout
+        pg.setConfigOption('background', '#280137')
+        pg.setConfigOption('foreground', '#dddddd')
 
-    window = FingerDesigner(default_params=default_parameters)
-    window.show()
-    sys.exit(app.exec())
+        app = QApplication(sys.argv)
+        app.setStyle('Fusion')
+
+        # Dark palette
+        from PyQt6.QtGui import QPalette
+        palette = QPalette()
+        palette.setColor(QPalette.ColorRole.Window,          QColor('#280137'))
+        palette.setColor(QPalette.ColorRole.WindowText,      QColor('#dddddd'))
+        palette.setColor(QPalette.ColorRole.Base,            QColor("#320046"))
+        palette.setColor(QPalette.ColorRole.AlternateBase,   QColor("#460E5C"))
+        palette.setColor(QPalette.ColorRole.Text,            QColor('#dddddd'))
+        palette.setColor(QPalette.ColorRole.Button,          QColor('#3c3c3c'))
+        palette.setColor(QPalette.ColorRole.ButtonText,      QColor('#dddddd'))
+        palette.setColor(QPalette.ColorRole.Highlight,       QColor('#2d7fc1'))
+        palette.setColor(QPalette.ColorRole.HighlightedText, QColor('#ffffff'))
+        app.setPalette(palette)
+
+        window = FingerDesigner(default_params=default_parameters)
+        window.show()
+        sys.exit(app.exec())
 
 
 if __name__ == "__main__":

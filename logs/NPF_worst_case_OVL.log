@@ -1,0 +1,125 @@
+
+═══════════════════════════════════════════════════════
+  Batch Optimizer
+  Seeds:      ['finger_designs/NPFWORKS_design_3dof_npf_20261119-1350.json', 'finger_designs/NPFWORKS_THIN_design_3dof_npf_20261119-1641.json', 'finger_designs/PFWORKS_BRO_design_3dof_pf_20261119-1704.json']
+  Objective:  worst_case_OVL
+  Method:     trust-constr
+  Workers:    12
+  Lengths:    designed
+  Human env:  True, with Enforce pf: False
+  Tension:    50.0
+═══════════════════════════════════════════════════════
+
+  3 seeds × 4 inner workers = 12/12 cores
+  [NPFWORKS_design_3dof_npf_20261119-1350] inner pool started (4 workers), loading seed...
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] inner pool started (4 workers), loading seed...
+  [PFWORKS_BRO_design_3dof_pf_20261119-1704] inner pool started (4 workers), loading seed...
+  [NPFWORKS_design_3dof_npf_20261119-1350] Loaded joint params
+  [NPFWORKS_design_3dof_npf_20261119-1350] Initial vector loaded
+  [NPFWORKS_design_3dof_npf_20261119-1350] starting trust-constr optimization, n=17 vars, 9 constraints
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] Loaded joint params
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] Initial vector loaded
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] starting trust-constr optimization, n=17 vars, 9 constraints
+  [PFWORKS_BRO_design_3dof_pf_20261119-1704] Loaded joint params
+  [PFWORKS_BRO_design_3dof_pf_20261119-1704] Initial vector loaded
+  [PFWORKS_BRO_design_3dof_pf_20261119-1704] starting trust-constr optimization, n=17 vars, 9 constraints
+    [PFWORKS_BRO_design_3dof_pf_20261119-1704] OPTIMIZATION FAILED because: Unknown objective: worst_case_OVL
+Traceback (most recent call last):
+    [NPFWORKS_design_3dof_npf_20261119-1350] OPTIMIZATION FAILED because: Unknown objective: worst_case_OVL
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 579, in _run_seed_process
+    result = minimize(lambda v: vec_obj(v.reshape(-1,1))[0], v0,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_minimize.py", line 799, in minimize
+    res = _minimize_trustregion_constr(fun, x0, args, jac, hess, hessp,
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_trustregion_constr/minimize_trustregion_constr.py", line 354, in _minimize_trustregion_constr
+    objective = ScalarFunction(fun, x0, args, grad, hess,
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_differentiable_functions.py", line 283, in __init__
+    self._update_fun()
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_differentiable_functions.py", line 362, in _update_fun
+    fx = self._wrapped_fun(self.x)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/_lib/_util.py", line 545, in __call__
+    fx = self.f(np.copy(x), *self.args)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 579, in <lambda>
+    result = minimize(lambda v: vec_obj(v.reshape(-1,1))[0], v0,
+                                ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 478, in vec_obj
+    raise ValueError(f"Unknown objective: {objective_mode}")
+ValueError: Unknown objective: worst_case_OVL
+Traceback (most recent call last):
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 579, in _run_seed_process
+    result = minimize(lambda v: vec_obj(v.reshape(-1,1))[0], v0,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_minimize.py", line 799, in minimize
+    res = _minimize_trustregion_constr(fun, x0, args, jac, hess, hessp,
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_trustregion_constr/minimize_trustregion_constr.py", line 354, in _minimize_trustregion_constr
+    objective = ScalarFunction(fun, x0, args, grad, hess,
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_differentiable_functions.py", line 283, in __init__
+    self._update_fun()
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_differentiable_functions.py", line 362, in _update_fun
+    fx = self._wrapped_fun(self.x)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/_lib/_util.py", line 545, in __call__
+    fx = self.f(np.copy(x), *self.args)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 579, in <lambda>
+    result = minimize(lambda v: vec_obj(v.reshape(-1,1))[0], v0,
+                                ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 478, in vec_obj
+    raise ValueError(f"Unknown objective: {objective_mode}")
+ValueError: Unknown objective: worst_case_OVL
+  [PFWORKS_BRO_design_3dof_pf_20261119-1704] inner pool shut down.
+  [NPFWORKS_design_3dof_npf_20261119-1350] inner pool shut down.
+
+  [NPFWORKS_design_3dof_npf_20261119-1350] done — fun=inf success=False
+
+  [PFWORKS_BRO_design_3dof_pf_20261119-1704] done — fun=inf success=False
+    [NPFWORKS_THIN_design_3dof_npf_20261119-1641] OPTIMIZATION FAILED because: Unknown objective: worst_case_OVL
+Traceback (most recent call last):
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 579, in _run_seed_process
+    result = minimize(lambda v: vec_obj(v.reshape(-1,1))[0], v0,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_minimize.py", line 799, in minimize
+    res = _minimize_trustregion_constr(fun, x0, args, jac, hess, hessp,
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_trustregion_constr/minimize_trustregion_constr.py", line 354, in _minimize_trustregion_constr
+    objective = ScalarFunction(fun, x0, args, grad, hess,
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_differentiable_functions.py", line 283, in __init__
+    self._update_fun()
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/optimize/_differentiable_functions.py", line 362, in _update_fun
+    fx = self._wrapped_fun(self.x)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/.venv/lib/python3.12/site-packages/scipy/_lib/_util.py", line 545, in __call__
+    fx = self.f(np.copy(x), *self.args)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 579, in <lambda>
+    result = minimize(lambda v: vec_obj(v.reshape(-1,1))[0], v0,
+                                ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/abarcio/Documents/finger_optimizer/batchOptimizer.py", line 478, in vec_obj
+    raise ValueError(f"Unknown objective: {objective_mode}")
+ValueError: Unknown objective: worst_case_OVL
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] inner pool shut down.
+
+  [NPFWORKS_THIN_design_3dof_npf_20261119-1641] done — fun=inf success=False
+
+═══════════════════════════════════════════════════════
+  BATCH COMPLETE — 3 runs
+═══════════════════════════════════════════════════════
+  label                                 obj  success
+  ------------------------------------------------
+  NPFWORKS_design_3dof_npf_20261119-1350        inf    False
+  PFWORKS_BRO_design_3dof_pf_20261119-1704        inf    False
+  NPFWORKS_THIN_design_3dof_npf_20261119-1641        inf    False
+═══════════════════════════════════════════════════════
+
+  Best: NPFWORKS_design_3dof_npf_20261119-1350  obj=inf
+    joint 0: f=(0.1200, 0.2000, 0.4000)  e=(0.1650, 0.3000)  l=1.4000
+    joint 1: f=(0.1000, 0.2000, 0.3800)  e=(0.1300, 0.3000)  l=1.4000
+    joint 2: f=(0.1000, 0.2000, 0.3400)  e=(0.1300, 0.3000)  l=1.2000
+  Done.
